@@ -192,6 +192,8 @@ model OtpCode {
   code    String
   purpose OtpPurpose
 
+  ipAddress String?
+
   expiresAt DateTime
   isUsed    Boolean   @default(false)
   usedAt    DateTime?
@@ -204,6 +206,7 @@ model OtpCode {
   @@index([phone])
   @@index([purpose])
   @@index([expiresAt])
+  @@index([ipAddress])
 }
 
 // ===================== DEPARTMENT / DOCTOR =====================

@@ -1,15 +1,20 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import helmet from "helmet";
 
 import routes from "./routes/index.js";
 import { notFound } from "./middlewares/notFound.middleware.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
-import { time } from "node:console";
 
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+  origin: "*", // Allow all origins (you can specify specific origins if needed)
+}
+
+app.use(helmet());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan("dev"));
 
