@@ -7,7 +7,7 @@ async function main() {
       fullName: "Nguyen Van A",
       email: "vana@gmail.com",
       password: "123456",
-      role: "USER",
+      role: "PATIENT",
     },
   });
 
