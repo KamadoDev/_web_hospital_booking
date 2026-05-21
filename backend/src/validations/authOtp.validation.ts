@@ -7,9 +7,6 @@ const otpPurposeEnum = [
   "PATIENT_PORTAL_LOGIN",
   "LOOKUP_RESULT",
   "CANCEL_APPOINTMENT",
-  "ADMIN_LOGIN",
-  "DOCTOR_LOGIN",
-  "STAFF_LOGIN",
 ] as const;
 
 export const sendOtpSchema = z.object({

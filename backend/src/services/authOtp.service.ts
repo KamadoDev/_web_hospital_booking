@@ -1,14 +1,42 @@
+import { createHmac, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "../config/prisma.js";
+import { AppError } from "../utils/appError.js";
 import type { OtpPurpose } from "../../generated/prisma/enums.js";
 
+type SendOtpOptions = {
+  challengeId?: string;
+  userId?: string;
+};
+
+const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || "dev_otp_secret";
+const RESEND_COOLDOWN_SECONDS = 60;
+const OTP_WINDOW_MINUTES = 15;
+const MAX_OTP_SENDS_PER_WINDOW = 5;
+const OTP_EXPIRES_SECONDS = 5 * 60;
+
+const hashOtp = (otp: string) =>
+  createHmac("sha256", OTP_SECRET).update(otp).digest("hex");
+
+const isSameOtp = (otp: string, otpHash: string) => {
+  const expected = Buffer.from(hashOtp(otp), "hex");
+  const actual = Buffer.from(otpHash, "hex");
+
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+};
+
 class AuthOtpService {
-  async sendOtp(phone: string, purpose: OtpPurpose, ipAddress: string) {
+  async sendOtp(
+    phone: string,
+    purpose: OtpPurpose,
+    ipAddress: string,
+    options: SendOtpOptions = {},
+  ) {
     if (!phone) {
-      throw new Error("Thiếu số điện thoại");
+      throw new AppError("Thieu so dien thoai", 400);
     }
 
     if (!purpose) {
-      throw new Error("Thiếu purpose khi gửi OTP");
+      throw new AppError("Thieu purpose khi gui OTP", 400);
     }
 
     const lastOtp = await prisma.otpCode.findFirst({
@@ -27,14 +55,15 @@ class AuthOtpService {
         (Date.now() - lastOtp.createdAt.getTime()) / 1000,
       );
 
-      if (seconds < 60) {
-        throw new Error(
-          `Vui lòng đợi ${60 - seconds} giây để gửi lại OTP`,
+      if (seconds < RESEND_COOLDOWN_SECONDS) {
+        throw new AppError(
+          `Vui long doi ${RESEND_COOLDOWN_SECONDS - seconds} giay de gui lai OTP`,
+          429,
         );
       }
     }
 
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const windowStart = new Date(Date.now() - OTP_WINDOW_MINUTES * 60 * 1000);
 
     const otpCount = await prisma.otpCode.count({
       where: {
@@ -42,64 +71,73 @@ class AuthOtpService {
         purpose,
         ipAddress,
         createdAt: {
-          gte: fifteenMinutesAgo,
+          gte: windowStart,
         },
       },
     });
 
-    if (otpCount >= 5) {
-      throw new Error("Bạn đã gửi OTP quá nhiều lần. Vui lòng thử lại sau.");
+    if (otpCount >= MAX_OTP_SENDS_PER_WINDOW) {
+      throw new AppError("Ban da gui OTP qua nhieu lan. Vui long thu lai sau.", 429);
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const otp = randomInt(100000, 1000000).toString();
+    const expiresAt = new Date(Date.now() + OTP_EXPIRES_SECONDS * 1000);
 
     const otpRecord = await prisma.otpCode.create({
       data: {
         phone,
-        code: otp,
+        code: hashOtp(otp),
         purpose,
         ipAddress,
+        challengeId: options.challengeId,
+        userId: options.userId,
         expiresAt,
       },
     });
 
-    console.log("=================================");
-    console.log(`OTP DEMO: ${otp}`);
-    console.log(`Phone: ${phone}`);
-    console.log(`Purpose: ${purpose}`);
-    console.log(`IP: ${ipAddress}`);
-    console.log(`Expires At: ${otpRecord.expiresAt.toISOString()}`);
-    console.log("=================================");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("=================================");
+      console.log(`OTP DEV: ${otp}`);
+      console.log(`Phone: ${phone}`);
+      console.log(`Purpose: ${purpose}`);
+      console.log(`IP: ${ipAddress}`);
+      console.log(`Challenge: ${options.challengeId || "none"}`);
+      console.log(`Expires At: ${otpRecord.expiresAt.toISOString()}`);
+      console.log("=================================");
+    }
 
     return {
       id: otpRecord.id,
       phone: otpRecord.phone,
       purpose: otpRecord.purpose,
       expiresAt: otpRecord.expiresAt,
-      expiresIn: 300,
-      otpDemo: otpRecord.code,
+      expiresIn: OTP_EXPIRES_SECONDS,
     };
   }
 
-  async verifyOtp(phone: string, otp: string, purpose: OtpPurpose) {
+  async verifyOtp(
+    phone: string,
+    otp: string,
+    purpose: OtpPurpose,
+    challengeId?: string,
+  ) {
     if (!phone) {
-      throw new Error("Thiếu số điện thoại");
+      throw new AppError("Thieu so dien thoai", 400);
     }
 
     if (!otp) {
-      throw new Error("Thiếu mã OTP");
+      throw new AppError("Thieu ma OTP", 400);
     }
 
     if (!purpose) {
-      throw new Error("Thiếu purpose khi xác thực OTP");
+      throw new AppError("Thieu purpose khi xac thuc OTP", 400);
     }
 
-    const otpRecord = await prisma.otpCode.findFirst({
+    const candidates = await prisma.otpCode.findMany({
       where: {
         phone,
         purpose,
-        code: otp,
+        challengeId,
         isUsed: false,
         expiresAt: {
           gt: new Date(),
@@ -108,10 +146,15 @@ class AuthOtpService {
       orderBy: {
         createdAt: "desc",
       },
+      take: 5,
     });
 
+    const otpRecord = candidates.find((candidate) =>
+      isSameOtp(otp, candidate.code),
+    );
+
     if (!otpRecord) {
-      throw new Error("OTP không chính xác, đã hết hạn hoặc đã được sử dụng");
+      throw new AppError("OTP khong chinh xac, da het han hoac da duoc su dung", 401);
     }
 
     await prisma.otpCode.update({

@@ -7,9 +7,12 @@ export interface TokenPayload extends JwtPayload {
   role: string;
 }
 
+const JWT_EXPIRES_IN: SignOptions["expiresIn"] = (process.env.JWT_EXPIRES_IN ||
+  "7d") as SignOptions["expiresIn"];
+
 export const generateToken = (
   payload: TokenPayload,
-  expiresIn: SignOptions["expiresIn"] = "7d",
+  expiresIn: SignOptions["expiresIn"] = JWT_EXPIRES_IN,
 ) => {
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn,

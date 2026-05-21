@@ -1,0 +1,149 @@
+import type { Request, Response, NextFunction } from "express";
+import type { Role } from "../../generated/prisma/enums.js";
+import DashboardUserService from "../services/dashboardUser.service.js";
+import { AppError } from "../utils/appError.js";
+
+const parseBooleanQuery = (value: unknown) => {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+};
+
+const parseNumberQuery = (value: unknown) => {
+  if (typeof value !== "string") return undefined;
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+};
+
+const getParam = (value: string | string[] | undefined) => {
+  const param = Array.isArray(value) ? value[0] : value;
+
+  if (!param) {
+    throw new AppError("Thieu id", 400);
+  }
+
+  return param;
+};
+
+export const listDashboardUsersHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await DashboardUserService.list({
+      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      role: typeof req.query.role === "string" ? (req.query.role as Role) : undefined,
+      isActive: parseBooleanQuery(req.query.isActive),
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDashboardUserHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = getParam(req.params.id);
+    const user = await DashboardUserService.getById(id);
+
+    return res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createDashboardUserHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const user = await DashboardUserService.create(req.body);
+
+    return res.status(201).json({
+      success: true,
+      message: "Tao tai khoan dashboard thanh cong",
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDashboardUserHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = getParam(req.params.id);
+    const user = await DashboardUserService.update(id, req.body);
+
+    return res.json({
+      success: true,
+      message: "Cap nhat tai khoan dashboard thanh cong",
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDashboardUserStatusHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = getParam(req.params.id);
+    const user = await DashboardUserService.updateStatus(
+      id,
+      req.body.isActive,
+    );
+
+    return res.json({
+      success: true,
+      message: "Cap nhat trang thai tai khoan thanh cong",
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDashboardUserPasswordHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const id = getParam(req.params.id);
+    const user = await DashboardUserService.updatePassword(
+      id,
+      req.body.password,
+    );
+
+    return res.json({
+      success: true,
+      message: "Cap nhat mat khau thanh cong",
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -8,14 +8,11 @@ export const sendOtpHandler = async (
   next: NextFunction,
 ) => {
   try {
-    console.log("REQUEST BODY:", req.body);
     const { phone, purpose } = req.body;
     const ipAddress =
-      req.headers["x-forwarded-for"]?.toString() ||
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
       req.socket.remoteAddress ||
       "unknown";
-
-    console.log("IP address:", ipAddress);
 
     const result = await AuthOtpService.sendOtp(
       phone,
@@ -25,7 +22,7 @@ export const sendOtpHandler = async (
 
     return res.status(200).json({
       success: true,
-      message: "Gửi OTP thành công",
+      message: "Gui OTP thanh cong",
       data: result,
     });
   } catch (error) {
@@ -49,7 +46,7 @@ export const verifyOtpHandler = async (
 
     return res.status(200).json({
       success: true,
-      message: "Xác thực OTP thành công",
+      message: "Xac thuc OTP thanh cong",
       data: result,
     });
   } catch (error) {

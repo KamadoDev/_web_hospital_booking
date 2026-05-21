@@ -116,6 +116,14 @@ enum TimeSlotStatus {
   CANCELLED
 }
 
+enum MediaOwnerType {
+  DEPARTMENT
+  USER_AVATAR
+  DOCTOR
+  PACKAGE
+  MEDICAL_RESULT
+}
+
 // ===================== USERS =====================
 
 model User {
@@ -143,6 +151,8 @@ model User {
   // Common relations
   chatbotLogs ChatbotLog[]
   otpCodes    OtpCode[]
+  dashboardLoginChallenges DashboardLoginChallenge[]
+  mediaAssets MediaAsset[]
 
   // Logs created by Admin/Staff/Doctor
   appointmentLogs AppointmentLog[]
@@ -193,6 +203,8 @@ model OtpCode {
   purpose OtpPurpose
 
   ipAddress String?
+  challengeId String?
+  challenge   DashboardLoginChallenge? @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
   expiresAt DateTime
   isUsed    Boolean   @default(false)
@@ -207,6 +219,59 @@ model OtpCode {
   @@index([purpose])
   @@index([expiresAt])
   @@index([ipAddress])
+  @@index([challengeId])
+}
+
+model DashboardLoginChallenge {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose   OtpPurpose
+  ipAddress String?
+
+  attempts Int @default(0)
+  isUsed   Boolean @default(false)
+  usedAt   DateTime?
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  otpCodes OtpCode[]
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isUsed])
+}
+
+model MediaAsset {
+  id String @id @default(uuid())
+
+  url      String
+  publicId String @unique
+
+  folder   String
+  mimeType String?
+  format   String?
+  bytes    Int?
+  width    Int?
+  height   Int?
+
+  ownerType MediaOwnerType?
+  ownerId   String?
+  isUsed    Boolean @default(false)
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerType, ownerId])
+  @@index([isUsed])
+  @@index([uploadedById])
+  @@index([createdAt])
 }
 
 // ===================== DEPARTMENT / DOCTOR =====================
