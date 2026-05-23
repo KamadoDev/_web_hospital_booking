@@ -1,6 +1,8 @@
 import { Router } from "express";
+import appointmentRouter from "./appointment.route.js";
 import authOtpRouter from "./authOtp.route.js";
 import departmentRouter from "./department.route.js";
+import dashboardAppointmentRouter from "./dashboardAppointment.route.js";
 import dashboardAuthRouter from "./dashboardAuth.route.js";
 import dashboardUserRouter from "./dashboardUser.route.js";
 import doctorRouter from "./doctor.route.js";
@@ -16,6 +18,8 @@ const router = Router();
 
 router.use("/otp", authOtpRouter);
 router.use("/auth/dashboard", dashboardAuthRouter);
+router.use("/appointments", appointmentRouter);
+router.use("/dashboard/appointments", dashboardAppointmentRouter);
 router.use("/dashboard/users", dashboardUserRouter);
 router.use("/dashboard/departments", departmentRouter);
 router.use("/dashboard/doctors", doctorRouter);
