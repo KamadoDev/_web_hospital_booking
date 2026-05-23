@@ -15,6 +15,7 @@ type CreatePackageInput = {
   name: string;
   slug?: string;
   description?: string | null;
+  departmentId?: string | null;
   basePrice: number;
   serviceFee?: number;
   summary?: string | null;
@@ -29,6 +30,7 @@ type UpdatePackageInput = {
   name?: string;
   slug?: string | null;
   description?: string | null;
+  departmentId?: string | null;
   basePrice?: number;
   serviceFee?: number;
   summary?: string | null;
@@ -43,6 +45,15 @@ const packageSelect = {
   name: true,
   slug: true,
   description: true,
+  departmentId: true,
+  department: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      isActive: true,
+    },
+  },
   basePrice: true,
   serviceFee: true,
   summary: true,
@@ -69,6 +80,13 @@ const publicPackageSelect = {
   name: true,
   slug: true,
   description: true,
+  department: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
   basePrice: true,
   serviceFee: true,
   summary: true,
@@ -164,12 +182,14 @@ class PackageService {
     const slug = input.slug ? createSlug(input.slug) : createSlug(input.name);
 
     await this.ensureUniquePackage({ name: input.name, slug });
+    await this.ensureDepartmentExists(input.departmentId);
 
     const packageItem = await prisma.package.create({
       data: {
         name: input.name,
         slug,
         description: normalizeOptionalString(input.description),
+        departmentId: normalizeOptionalString(input.departmentId),
         basePrice: input.basePrice,
         serviceFee: input.serviceFee ?? 0,
         summary: normalizeOptionalString(input.summary),
@@ -215,12 +235,15 @@ class PackageService {
       });
     }
 
+    await this.ensureDepartmentExists(input.departmentId);
+
     const packageItem = await prisma.package.update({
       where: { id },
       data: {
         name: input.name,
         slug: nextSlug,
         description: normalizeOptionalString(input.description),
+        departmentId: normalizeOptionalString(input.departmentId),
         basePrice: input.basePrice,
         serviceFee: input.serviceFee,
         summary: normalizeOptionalString(input.summary),
@@ -363,6 +386,19 @@ class PackageService {
 
     if (existingPackage) {
       throw new AppError("Ten hoac slug goi kham da ton tai", 409);
+    }
+  }
+
+  private async ensureDepartmentExists(departmentId?: string | null) {
+    if (!departmentId) return;
+
+    const department = await prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { id: true },
+    });
+
+    if (!department) {
+      throw new AppError("Khong tim thay chuyen khoa", 404);
     }
   }
 }
