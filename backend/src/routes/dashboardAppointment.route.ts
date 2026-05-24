@@ -1,9 +1,14 @@
 import { Router } from "express";
 import {
   cancelDashboardAppointmentHandler,
+  checkInDashboardAppointmentHandler,
+  cleanupExpiredPendingOtpAppointmentsHandler,
+  completeDashboardAppointmentHandler,
   confirmDashboardAppointmentHandler,
   getDashboardAppointmentHandler,
   listDashboardAppointmentsHandler,
+  noShowDashboardAppointmentHandler,
+  startDashboardAppointmentHandler,
   updateDashboardAppointmentStatusHandler,
 } from "../controllers/appointment.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
@@ -18,8 +23,17 @@ const router = Router();
 router.use(authDashboard);
 
 router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listDashboardAppointmentsHandler);
+router.post(
+  "/cleanup-expired-otp",
+  requireRole("ADMIN", "STAFF"),
+  cleanupExpiredPendingOtpAppointmentsHandler,
+);
 router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getDashboardAppointmentHandler);
 router.patch("/:id/confirm", requireRole("ADMIN", "STAFF"), confirmDashboardAppointmentHandler);
+router.patch("/:id/check-in", requireRole("ADMIN", "STAFF"), checkInDashboardAppointmentHandler);
+router.patch("/:id/start", requireRole("ADMIN", "STAFF", "DOCTOR"), startDashboardAppointmentHandler);
+router.patch("/:id/complete", requireRole("ADMIN", "STAFF", "DOCTOR"), completeDashboardAppointmentHandler);
+router.patch("/:id/no-show", requireRole("ADMIN", "STAFF"), noShowDashboardAppointmentHandler);
 router.patch(
   "/:id/status",
   requireRole("ADMIN", "STAFF", "DOCTOR"),
