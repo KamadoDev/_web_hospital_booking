@@ -228,3 +228,109 @@ export const cancelDashboardAppointmentHandler = async (
     next(error);
   }
 };
+
+export const cleanupExpiredPendingOtpAppointmentsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const expireMinutes = parseNumberQuery(req.query.expireMinutes);
+    const result = await AppointmentService.cleanupExpiredPendingOtp(
+      getActor(req),
+      expireMinutes,
+    );
+
+    return res.json({
+      success: true,
+      message: "Cleanup lich hen qua han OTP thanh cong",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const checkInDashboardAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.checkIn(
+      getParam(req.params.id),
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Check-in lich hen thanh cong",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const startDashboardAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.start(
+      getParam(req.params.id),
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Bat dau kham thanh cong",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const completeDashboardAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.complete(
+      getParam(req.params.id),
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Hoan thanh lich hen thanh cong",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const noShowDashboardAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.markNoShow(
+      getParam(req.params.id),
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Danh dau no-show thanh cong",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

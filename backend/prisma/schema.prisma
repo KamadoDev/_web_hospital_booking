@@ -35,6 +35,7 @@ enum AppointmentStatus {
   PENDING_OTP // Đã tạo lịch nhưng chưa xác thực OTP
   PENDING_CONFIRM // Đã xác thực OTP, chờ nhân viên/bác sĩ xác nhận
   CONFIRMED // Đã xác nhận lịch khám
+  CHECKED_IN // Bệnh nhân đã đến/check-in
   IN_PROGRESS // Đang khám
   COMPLETED // Đã khám xong
   RESCHEDULED // Đã được dời lịch

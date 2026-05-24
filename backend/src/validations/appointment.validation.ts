@@ -36,5 +36,5 @@ export const cancelAppointmentSchema = z.object({
 });
 
 export const updateAppointmentStatusSchema = z.object({
-  status: z.enum(["CONFIRMED", "IN_PROGRESS", "COMPLETED", "NO_SHOW"]),
+  status: z.enum(["CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "NO_SHOW"]),
 });

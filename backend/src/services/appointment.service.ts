@@ -32,6 +32,8 @@ type CreateAppointmentInput = {
   familyHistory?: string | null;
 };
 
+const DEFAULT_PENDING_OTP_EXPIRE_MINUTES = 15;
+
 const appointmentSelect = {
   id: true,
   bookingCode: true,
@@ -583,32 +585,25 @@ class AppointmentService {
     });
   }
 
-  async updateStatus(id: string, status: Extract<AppointmentStatus, "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW">, actor: Actor) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
-    if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+  async updateStatus(
+    id: string,
+    status: Extract<AppointmentStatus, "CONFIRMED" | "CHECKED_IN" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW">,
+    actor: Actor,
+  ) {
+    switch (status) {
+      case "CONFIRMED":
+        return this.confirm(id, actor);
+      case "CHECKED_IN":
+        return this.checkIn(id, actor);
+      case "IN_PROGRESS":
+        return this.start(id, actor);
+      case "COMPLETED":
+        return this.complete(id, actor);
+      case "NO_SHOW":
+        return this.markNoShow(id, actor);
+      default:
+        throw new AppError("Trang thai lich hen khong hop le", 400);
     }
-
-    return prisma.appointment.update({
-      where: { id },
-      data: {
-        status,
-        confirmedAt: status === "CONFIRMED" ? new Date() : undefined,
-        completedAt: status === "COMPLETED" ? new Date() : undefined,
-        logs: {
-          create: {
-            action: status === "COMPLETED" ? "COMPLETED" : status,
-            createdById: actor.userId,
-            note: `Cap nhat trang thai lich hen thanh ${status}`,
-          },
-        },
-      },
-      select: appointmentSelect,
-    });
   }
 
   async cancel(id: string, reason: string, actor: Actor) {
@@ -667,6 +662,178 @@ class AppointmentService {
     });
   }
 
+  async checkIn(id: string, actor: Actor) {
+    const appointment = await this.getAppointmentStatus(id);
+
+    if (appointment.status !== "CONFIRMED") {
+      throw new AppError("Chi co the check-in lich da xac nhan", 400);
+    }
+
+    return prisma.appointment.update({
+      where: { id },
+      data: {
+        status: "CHECKED_IN",
+        logs: {
+          create: {
+            action: "CHECKED_IN",
+            createdById: actor.userId,
+            note: "Benh nhan da check-in",
+          },
+        },
+      },
+      select: appointmentSelect,
+    });
+  }
+
+  async start(id: string, actor: Actor) {
+    const appointment = await this.getAppointmentStatus(id);
+
+    if (appointment.status !== "CHECKED_IN") {
+      throw new AppError("Chi co the bat dau kham sau khi benh nhan check-in", 400);
+    }
+
+    return prisma.appointment.update({
+      where: { id },
+      data: {
+        status: "IN_PROGRESS",
+        logs: {
+          create: {
+            action: "IN_PROGRESS",
+            createdById: actor.userId,
+            note: "Bat dau kham",
+          },
+        },
+      },
+      select: appointmentSelect,
+    });
+  }
+
+  async complete(id: string, actor: Actor) {
+    const appointment = await this.getAppointmentStatus(id);
+
+    if (appointment.status !== "IN_PROGRESS") {
+      throw new AppError("Chi co the hoan thanh lich dang kham", 400);
+    }
+
+    return prisma.appointment.update({
+      where: { id },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        logs: {
+          create: {
+            action: "COMPLETED",
+            createdById: actor.userId,
+            note: "Hoan thanh kham",
+          },
+        },
+      },
+      select: appointmentSelect,
+    });
+  }
+
+  async markNoShow(id: string, actor: Actor) {
+    const appointment = await this.getAppointmentStatus(id);
+
+    if (!["CONFIRMED", "CHECKED_IN"].includes(appointment.status)) {
+      throw new AppError("Chi co the danh dau no-show cho lich da xac nhan hoac da check-in", 400);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      if (appointment.timeSlotId) {
+        await tx.doctorTimeSlot.update({
+          where: { id: appointment.timeSlotId },
+          data: {
+            status: "AVAILABLE",
+            isActive: true,
+            lockReason: null,
+          },
+        });
+      }
+
+      return tx.appointment.update({
+        where: { id },
+        data: {
+          status: "NO_SHOW",
+          logs: {
+            create: {
+              action: "NO_SHOW",
+              createdById: actor.userId,
+              note: "Benh nhan khong den",
+            },
+          },
+        },
+        select: appointmentSelect,
+      });
+    });
+  }
+
+  async cleanupExpiredPendingOtp(
+    actor: Actor,
+    expireMinutes = DEFAULT_PENDING_OTP_EXPIRE_MINUTES,
+  ) {
+    const safeExpireMinutes = Math.max(expireMinutes, 1);
+    const expiredBefore = new Date(Date.now() - safeExpireMinutes * 60 * 1000);
+
+    const expiredAppointments = await prisma.appointment.findMany({
+      where: {
+        status: "PENDING_OTP",
+        createdAt: {
+          lt: expiredBefore,
+        },
+      },
+      select: {
+        id: true,
+        timeSlotId: true,
+      },
+    });
+
+    if (!expiredAppointments.length) {
+      return {
+        expiredBefore,
+        count: 0,
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const appointment of expiredAppointments) {
+        if (appointment.timeSlotId) {
+          await tx.doctorTimeSlot.update({
+            where: { id: appointment.timeSlotId },
+            data: {
+              status: "AVAILABLE",
+              isActive: true,
+              lockReason: null,
+            },
+          });
+        }
+
+        await tx.appointment.update({
+          where: { id: appointment.id },
+          data: {
+            status: "CANCELLED_BY_ADMIN",
+            cancelledAt: new Date(),
+            cancelledByRole: actor.role,
+            cancelledById: actor.userId,
+            cancelledReason: "Qua han xac thuc OTP",
+            logs: {
+              create: {
+                action: "CANCELLED_BY_ADMIN",
+                createdById: actor.userId,
+                note: `Tu dong huy do qua ${safeExpireMinutes} phut chua xac thuc OTP`,
+              },
+            },
+          },
+        });
+      }
+    });
+
+    return {
+      expiredBefore,
+      count: expiredAppointments.length,
+    };
+  }
+
   private async releasePendingAppointment(appointmentId: string) {
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
@@ -683,6 +850,23 @@ class AppointmentService {
     await prisma.appointment.delete({
       where: { id: appointmentId },
     });
+  }
+
+  private async getAppointmentStatus(id: string) {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        timeSlotId: true,
+      },
+    });
+
+    if (!appointment) {
+      throw new AppError("Khong tim thay lich hen", 404);
+    }
+
+    return appointment;
   }
 
   private async generateUniqueBookingCode(tx: Prisma.TransactionClient) {
