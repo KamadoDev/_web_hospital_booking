@@ -5,6 +5,7 @@ import AuthOtpService from "./authOtp.service.js";
 import { AppError } from "../utils/appError.js";
 import { generateBookingCode } from "../utils/bookingCode.js";
 import { parseDateOnly } from "../utils/time.js";
+import MedicalRecordService from "./medicalRecord.service.js";
 
 type Actor = {
   userId: string;
@@ -692,19 +693,23 @@ class AppointmentService {
       throw new AppError("Chi co the bat dau kham sau khi benh nhan check-in", 400);
     }
 
-    return prisma.appointment.update({
-      where: { id },
-      data: {
-        status: "IN_PROGRESS",
-        logs: {
-          create: {
-            action: "IN_PROGRESS",
-            createdById: actor.userId,
-            note: "Bat dau kham",
+    return prisma.$transaction(async (tx) => {
+      await MedicalRecordService.ensureForAppointment(id, tx);
+
+      return tx.appointment.update({
+        where: { id },
+        data: {
+          status: "IN_PROGRESS",
+          logs: {
+            create: {
+              action: "IN_PROGRESS",
+              createdById: actor.userId,
+              note: "Bat dau kham va tao ho so kham",
+            },
           },
         },
-      },
-      select: appointmentSelect,
+        select: appointmentSelect,
+      });
     });
   }
 
