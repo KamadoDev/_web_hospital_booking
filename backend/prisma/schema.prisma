@@ -84,6 +84,12 @@ enum MedicalResultStatus {
   ARCHIVED
 }
 
+enum PrescriptionStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
 enum AppointmentLogAction {
   APPOINTMENT_CREATED
   OTP_SENT
@@ -145,6 +151,7 @@ model User {
   appointments   Appointment[]   @relation("PatientAppointments")
   medicalRecords MedicalRecord[] @relation("PatientRecords")
   invoices       Invoice[]       @relation("PatientInvoices")
+  prescriptions  Prescription[]  @relation("PatientPrescriptions")
 
   // Doctor relation
   doctorProfile DoctorProfile?
@@ -313,6 +320,7 @@ model DoctorProfile {
   schedules          DoctorSchedule[]
   timeSlots          DoctorTimeSlot[]
   medicalRecords     MedicalRecord[]     @relation("DoctorRecords")
+  prescriptions       Prescription[]      @relation("DoctorPrescriptions")
   reviews            Review[]
   scheduleChangeLogs ScheduleChangeLog[]
 
@@ -495,6 +503,7 @@ model Appointment {
   cancelledReason String?
 
   medicalRecord MedicalRecord?
+  prescription  Prescription?
   invoice       Invoice?
   review        Review?
   logs          AppointmentLog[]
@@ -597,6 +606,7 @@ model MedicalRecord {
   resultPdfUrl String?
 
   labResults LabResult[]
+  prescriptionRecord Prescription?
 
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -624,6 +634,62 @@ model LabResult {
   updatedAt DateTime @updatedAt
 
   @@index([medicalRecordId])
+}
+
+// Don thuoc tu do, khong quan ly kho va khong tinh gia thuoc
+model Prescription {
+  id String @id @default(uuid())
+
+  prescriptionCode String @unique
+
+  medicalRecordId String        @unique
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   User   @relation("PatientPrescriptions", fields: [patientId], references: [id])
+
+  doctorId String
+  doctor   DoctorProfile @relation("DoctorPrescriptions", fields: [doctorId], references: [id])
+
+  status PrescriptionStatus @default(DRAFT)
+  note   String?
+
+  items PrescriptionItem[]
+
+  issuedAt    DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([prescriptionCode])
+  @@index([status])
+}
+
+model PrescriptionItem {
+  id String @id @default(uuid())
+
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  medicineName String
+  dosage       String?
+  frequency    String?
+  duration     String?
+  quantity     Int?
+  unit         String?
+  instruction  String?
+  sortOrder    Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prescriptionId])
+  @@index([sortOrder])
 }
 
 // ===================== INVOICE / BARCODE LOGIN =====================

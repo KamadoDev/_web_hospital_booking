@@ -206,6 +206,7 @@ class AppointmentService {
     const bhytDiscount = 0;
     const finalAmount = estimatedPrice + serviceFee - bhytDiscount;
     const patientDateOfBirth = parseOptionalDate(input.dateOfBirth);
+    const normalizedPatientEmail = normalizeOptionalString(input.patientEmail);
     const existingUser = await prisma.user.findUnique({
       where: { phone: input.patientPhone },
       select: { role: true },
@@ -213,6 +214,17 @@ class AppointmentService {
 
     if (existingUser && existingUser.role !== "PATIENT") {
       throw new AppError("So dien thoai da thuoc tai khoan noi bo", 409);
+    }
+
+    const emailOwner = normalizedPatientEmail
+      ? await prisma.user.findUnique({
+          where: { email: normalizedPatientEmail },
+          select: { phone: true },
+        })
+      : null;
+
+    if (emailOwner && emailOwner.phone !== input.patientPhone) {
+      throw new AppError("Email da duoc su dung cho tai khoan khac", 409);
     }
 
     let appointmentId = "";
@@ -239,12 +251,12 @@ class AppointmentService {
           where: { phone: input.patientPhone },
           update: {
             fullName: input.patientName,
-            email: normalizeOptionalString(input.patientEmail),
+            email: normalizedPatientEmail,
           },
           create: {
             fullName: input.patientName,
             phone: input.patientPhone,
-            email: normalizeOptionalString(input.patientEmail),
+            email: normalizedPatientEmail,
             role: "PATIENT",
             isPhoneVerified: false,
           },
@@ -268,7 +280,7 @@ class AppointmentService {
             reason: normalizeOptionalString(input.reason),
             patientName: input.patientName,
             patientPhone: input.patientPhone,
-            patientEmail: normalizeOptionalString(input.patientEmail),
+            patientEmail: normalizedPatientEmail,
             patientGender: input.gender,
             patientDateOfBirth,
             patientAddress: normalizeOptionalString(input.address),
@@ -411,6 +423,28 @@ class AppointmentService {
     );
 
     const updatedAppointment = await prisma.$transaction(async (tx) => {
+      const emailOwner = appointment.patientEmail
+        ? await tx.user.findUnique({
+            where: { email: appointment.patientEmail },
+            select: { id: true },
+          })
+        : null;
+
+      if (emailOwner && emailOwner.id !== appointment.patientId) {
+        throw new AppError("Email da duoc su dung cho tai khoan khac", 409);
+      }
+
+      const cccdOwner = appointment.patientCccd
+        ? await tx.patientProfile.findUnique({
+            where: { cccd: appointment.patientCccd },
+            select: { userId: true },
+          })
+        : null;
+
+      if (cccdOwner && cccdOwner.userId !== appointment.patientId) {
+        throw new AppError("CCCD da duoc su dung cho ho so benh nhan khac", 409);
+      }
+
       await tx.user.update({
         where: { id: appointment.patientId },
         data: {

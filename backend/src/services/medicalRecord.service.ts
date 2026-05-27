@@ -88,6 +88,26 @@ export const medicalRecordSelect = {
       createdAt: "asc",
     },
   },
+  prescriptionRecord: {
+    select: {
+      id: true,
+      prescriptionCode: true,
+      status: true,
+      note: true,
+      issuedAt: true,
+      cancelledAt: true,
+      items: {
+        orderBy: [
+          {
+            sortOrder: "asc",
+          },
+          {
+            createdAt: "asc",
+          },
+        ],
+      },
+    },
+  },
 } satisfies Prisma.MedicalRecordSelect;
 
 const normalizeOptionalString = (value?: string | null) =>

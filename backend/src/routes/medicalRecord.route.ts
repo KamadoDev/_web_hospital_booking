@@ -9,6 +9,7 @@ import {
   updateLabResultHandler,
   updateMedicalRecordHandler,
 } from "../controllers/medicalRecord.controller.js";
+import { createPrescriptionHandler as createPrescriptionFromRecordHandler } from "../controllers/prescription.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
@@ -16,6 +17,7 @@ import {
   updateLabResultSchema,
   updateMedicalRecordSchema,
 } from "../validations/medicalRecord.validation.js";
+import { createPrescriptionSchema as createPrescriptionValidationSchema } from "../validations/prescription.validation.js";
 
 const router = Router();
 
@@ -31,6 +33,12 @@ router.patch(
 );
 router.patch("/:id/publish", requireRole("ADMIN", "STAFF", "DOCTOR"), publishMedicalRecordHandler);
 router.patch("/:id/archive", requireRole("ADMIN", "STAFF"), archiveMedicalRecordHandler);
+router.post(
+  "/:id/prescription",
+  requireRole("ADMIN", "DOCTOR"),
+  validate(createPrescriptionValidationSchema),
+  createPrescriptionFromRecordHandler,
+);
 router.post(
   "/:id/lab-results",
   requireRole("ADMIN", "STAFF", "DOCTOR"),
