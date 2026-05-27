@@ -8,6 +8,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc",
     "test-db": "tsx src/test.ts",
+    "seed:demo": "tsx src/scripts/seedDemoFlow.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init"
   },

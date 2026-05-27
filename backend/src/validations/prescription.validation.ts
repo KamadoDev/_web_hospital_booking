@@ -1,0 +1,25 @@
+import { z } from "zod";
+
+const prescriptionItemSchema = z.object({
+  medicineName: z.string().trim().min(2, "Ten thuoc toi thieu 2 ky tu"),
+  dosage: z.string().trim().nullable().optional(),
+  frequency: z.string().trim().nullable().optional(),
+  duration: z.string().trim().nullable().optional(),
+  quantity: z.number().int().positive("So luong phai lon hon 0").nullable().optional(),
+  unit: z.string().trim().nullable().optional(),
+  instruction: z.string().trim().nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const createPrescriptionSchema = z.object({
+  note: z.string().trim().nullable().optional(),
+  items: z.array(prescriptionItemSchema).optional().default([]),
+});
+
+export const updatePrescriptionSchema = z.object({
+  note: z.string().trim().nullable().optional(),
+});
+
+export const createPrescriptionItemSchema = prescriptionItemSchema;
+
+export const updatePrescriptionItemSchema = prescriptionItemSchema.partial();
