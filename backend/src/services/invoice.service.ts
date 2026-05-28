@@ -233,6 +233,10 @@ class InvoiceService {
       throw new AppError("Chi co the thanh toan hoa don chua thanh toan", 400);
     }
 
+    if (["MOMO", "VNPAY"].includes(input.paymentMethod)) {
+      throw new AppError("MOMO/VNPAY phai thanh toan qua API online payment", 400);
+    }
+
     return prisma.invoice.update({
       where: { id },
       data: {
