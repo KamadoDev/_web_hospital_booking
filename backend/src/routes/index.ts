@@ -11,6 +11,7 @@ import doctorTimeSlotRouter from "./doctorTimeSlot.route.js";
 import invoiceRouter from "./invoice.route.js";
 import medicalRecordRouter from "./medicalRecord.route.js";
 import packageRouter from "./package.route.js";
+import paymentRouter from "./payment.route.js";
 import prescriptionRouter from "./prescription.route.js";
 import publicDepartmentRouter from "./publicDepartment.route.js";
 import publicDoctorRouter from "./publicDoctor.route.js";
@@ -35,6 +36,7 @@ router.use("/dashboard/prescriptions", prescriptionRouter);
 router.use("/departments", publicDepartmentRouter);
 router.use("/doctors", publicDoctorRouter);
 router.use("/packages", publicPackageRouter);
+router.use("/payments", paymentRouter);
 router.use("/uploads", uploadRouter);
 
 export default router;

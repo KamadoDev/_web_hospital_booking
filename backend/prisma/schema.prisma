@@ -71,6 +71,21 @@ enum PaymentMethod {
   OTHER
 }
 
+enum PaymentProvider {
+  MOCK
+  VNPAY
+  MOMO
+  ZALOPAY
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
 enum ConsultationStatus {
   NEW
   CONTACTED
@@ -714,12 +729,46 @@ model Invoice {
   paymentMethod PaymentMethod?
   paidAt        DateTime?
 
+  paymentTransactions PaymentTransaction[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([barcode])
   @@index([invoiceCode])
   @@index([patientId])
+}
+
+model PaymentTransaction {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  provider PaymentProvider
+  status   PaymentTransactionStatus @default(PENDING)
+
+  amount Int
+
+  transactionCode String  @unique
+  providerOrderId String?
+  paymentUrl      String?
+
+  rawRequest  Json?
+  rawResponse Json?
+
+  paidAt    DateTime?
+  expiredAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([provider])
+  @@index([status])
+  @@index([transactionCode])
+  @@index([providerOrderId])
+  @@index([expiredAt])
 }
 
 // ===================== CHATBOT =====================
