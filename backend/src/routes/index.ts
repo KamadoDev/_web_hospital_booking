@@ -1,9 +1,12 @@
 import { Router } from "express";
 import appointmentRouter from "./appointment.route.js";
 import authOtpRouter from "./authOtp.route.js";
+import chatbotRouter from "./chatbot.route.js";
 import departmentRouter from "./department.route.js";
 import dashboardAppointmentRouter from "./dashboardAppointment.route.js";
 import dashboardAuthRouter from "./dashboardAuth.route.js";
+import dashboardChatbotRouter from "./dashboardChatbot.route.js";
+import dashboardChatbotFaqRouter from "./dashboardChatbotFaq.route.js";
 import dashboardUserRouter from "./dashboardUser.route.js";
 import doctorRouter from "./doctor.route.js";
 import doctorScheduleRouter from "./doctorSchedule.route.js";
@@ -21,9 +24,12 @@ import uploadRouter from "./upload.route.js";
 const router = Router();
 
 router.use("/otp", authOtpRouter);
+router.use("/chatbot", chatbotRouter);
 router.use("/auth/dashboard", dashboardAuthRouter);
 router.use("/appointments", appointmentRouter);
 router.use("/dashboard/appointments", dashboardAppointmentRouter);
+router.use("/dashboard/chatbot", dashboardChatbotRouter);
+router.use("/dashboard/chatbot/faqs", dashboardChatbotFaqRouter);
 router.use("/dashboard/users", dashboardUserRouter);
 router.use("/dashboard/departments", departmentRouter);
 router.use("/dashboard/doctors", doctorRouter);
