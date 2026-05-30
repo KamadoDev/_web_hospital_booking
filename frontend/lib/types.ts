@@ -1,0 +1,506 @@
+export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR";
+
+export type DashboardUser = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  role: DashboardRole;
+  avatar: string | null;
+  isActive?: boolean;
+  isPhoneVerified?: boolean;
+  isEmailVerified?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type Department = {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  image: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    doctors: number;
+    appointments: number;
+  };
+};
+
+export type DoctorProfile = {
+  id: string;
+  title: string | null;
+  bio: string | null;
+  specialization: string | null;
+  experience: number | null;
+  consultationFee: number;
+  isAvailable: boolean;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    avatar: string | null;
+    isActive: boolean;
+  };
+  department: {
+    id: string;
+    name: string;
+    slug: string | null;
+    isActive: boolean;
+  };
+  _count: {
+    appointments: number;
+    schedules: number;
+    timeSlots: number;
+  };
+};
+
+export type PackageItem = {
+  id: string;
+  packageId: string;
+  name: string;
+  description: string | null;
+  price: number;
+  included: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MedicalPackage = {
+  id: string;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  departmentId: string | null;
+  department: {
+    id: string;
+    name: string;
+    slug: string | null;
+    isActive: boolean;
+  } | null;
+  basePrice: number;
+  serviceFee: number;
+  finalPrice: number;
+  summary: string | null;
+  note: string | null;
+  isPopular: boolean;
+  isBHYTSupport: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  items: PackageItem[];
+  _count: {
+    appointments: number;
+  };
+};
+
+export type DoctorSchedule = {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+  maxPatients: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  doctor: {
+    id: string;
+    userId: string;
+    title: string | null;
+    specialization: string | null;
+    user: {
+      fullName: string;
+      avatar: string | null;
+    };
+    department: {
+      id: string;
+      name: string;
+      slug: string | null;
+    };
+  };
+};
+
+export type TimeSlotStatus = "AVAILABLE" | "BOOKED" | "LOCKED" | "CANCELLED";
+
+export type DoctorTimeSlot = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: TimeSlotStatus;
+  isActive: boolean;
+  lockReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  appointment: {
+    id: string;
+    bookingCode: string;
+    status: string;
+  } | null;
+  doctor: DoctorSchedule["doctor"];
+};
+
+export type AppointmentStatus =
+  | "PENDING_OTP"
+  | "PENDING_CONFIRM"
+  | "CONFIRMED"
+  | "CHECKED_IN"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "RESCHEDULED"
+  | "CANCELLED_BY_PATIENT"
+  | "CANCELLED_BY_DOCTOR"
+  | "CANCELLED_BY_ADMIN"
+  | "NO_SHOW";
+
+export type Appointment = {
+  id: string;
+  bookingCode: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+  reason: string | null;
+  patientName: string;
+  patientPhone: string;
+  patientEmail: string | null;
+  patientGender: "MALE" | "FEMALE" | "OTHER" | null;
+  patientDateOfBirth: string | null;
+  patientAddress: string | null;
+  patientCccd: string | null;
+  hasBHYT: boolean;
+  healthInsuranceCode: string | null;
+  registeredHospital: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  familyHistory: string | null;
+  estimatedPrice: number;
+  serviceFee: number;
+  bhytDiscount: number;
+  finalAmount: number;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+    isPhoneVerified: boolean;
+  };
+  doctor: {
+    id: string;
+    title: string | null;
+    specialization: string | null;
+    consultationFee: number;
+    user: {
+      fullName: string;
+      avatar: string | null;
+    };
+  };
+  department: {
+    id: string;
+    name: string;
+    slug: string | null;
+  };
+  package: {
+    id: string;
+    name: string;
+    slug: string | null;
+    basePrice: number;
+    serviceFee: number;
+  } | null;
+  timeSlot: {
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+  } | null;
+};
+
+export type InvoiceStatus = "UNPAID" | "PAID" | "CANCELLED" | "REFUNDED";
+export type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "MOMO" | "VNPAY" | "OTHER";
+
+export type Invoice = {
+  id: string;
+  invoiceCode: string;
+  barcode: string;
+  totalAmount: number;
+  bhytDiscount: number;
+  finalAmount: number;
+  status: InvoiceStatus;
+  paymentMethod: PaymentMethod | null;
+  paidAt: string | null;
+  refundReason: string | null;
+  refundedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+  };
+  appointment: {
+    id: string;
+    bookingCode: string;
+    appointmentDate: string;
+    startTime: string;
+    endTime: string;
+    status: AppointmentStatus;
+    patientName: string;
+    patientPhone: string;
+    patientEmail: string | null;
+    estimatedPrice: number;
+    serviceFee: number;
+    bhytDiscount: number;
+    finalAmount: number;
+    package: {
+      id: string;
+      name: string;
+      slug: string | null;
+    } | null;
+    doctor: Appointment["doctor"];
+    department: Appointment["department"];
+  };
+};
+
+export type MedicalResultStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export type LabResult = {
+  id: string;
+  medicalRecordId: string;
+  testName: string;
+  resultValue: string | null;
+  unit: string | null;
+  referenceRange: string | null;
+  conclusion: string | null;
+  fileUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PrescriptionSummary = {
+  id: string;
+  prescriptionCode: string;
+  status: "DRAFT" | "ISSUED" | "CANCELLED";
+  note: string | null;
+  issuedAt: string | null;
+  cancelledAt: string | null;
+  items: unknown[];
+};
+
+export type PrescriptionStatus = "DRAFT" | "ISSUED" | "CANCELLED";
+
+export type PrescriptionItem = {
+  id: string;
+  prescriptionId: string;
+  medicineName: string;
+  dosage: string | null;
+  frequency: string | null;
+  duration: string | null;
+  quantity: number | null;
+  unit: string | null;
+  instruction: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Prescription = {
+  id: string;
+  prescriptionCode: string;
+  status: PrescriptionStatus;
+  note: string | null;
+  issuedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+  };
+  doctor: MedicalRecord["doctor"];
+  appointment: MedicalRecord["appointment"];
+  medicalRecord: {
+    id: string;
+    recordCode: string;
+    status: MedicalResultStatus;
+    diagnosis: string | null;
+    treatment: string | null;
+  };
+  items: PrescriptionItem[];
+};
+
+export type MedicalRecord = {
+  id: string;
+  recordCode: string;
+  symptoms: string | null;
+  diagnosis: string | null;
+  treatment: string | null;
+  prescription: string | null;
+  doctorNotes: string | null;
+  status: MedicalResultStatus;
+  resultPdfUrl: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    id: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+  };
+  doctor: {
+    id: string;
+    userId: string;
+    title: string | null;
+    specialization: string | null;
+    user: {
+      fullName: string;
+      avatar: string | null;
+    };
+    department: {
+      id: string;
+      name: string;
+      slug: string | null;
+    };
+  };
+  appointment: {
+    id: string;
+    bookingCode: string;
+    appointmentDate: string;
+    startTime: string;
+    endTime: string;
+    status: AppointmentStatus;
+    patientName: string;
+    patientPhone: string;
+    reason: string | null;
+  };
+  labResults: LabResult[];
+  prescriptionRecord: PrescriptionSummary | null;
+};
+
+export type ChatbotRuntimeValue = {
+  aiEnabled: boolean;
+  fallbackEnabled: boolean;
+  faqEnabled: boolean;
+  model: string;
+  maxSuggestedActions: number;
+  sessionExpiresDays: number;
+};
+
+export type ChatbotSettings = {
+  id: string;
+  key: string;
+  value: ChatbotRuntimeValue;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChatbotFAQ = {
+  id: string;
+  question: string;
+  answer: string;
+  keywords: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChatbotParticipant = {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  role: DashboardRole;
+} | null;
+
+export type ChatbotLog = {
+  id: string;
+  sessionId: string | null;
+  guestPhone: string | null;
+  message: string;
+  response: string;
+  intent: string | null;
+  createdAt: string;
+  user: ChatbotParticipant;
+};
+
+export type ChatbotSession = {
+  id: string;
+  userId: string | null;
+  guestPhone: string | null;
+  draft: unknown;
+  currentIntent: string | null;
+  currentState: string | null;
+  lastActions: unknown;
+  lastMessage: string | null;
+  lastResponse: string | null;
+  isActive: boolean;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+  user: ChatbotParticipant;
+  _count: {
+    logs: number;
+  };
+};
+
+export type ChatbotSessionDetail = ChatbotSession & {
+  logs: ChatbotLog[];
+};
+
+export type ChatbotOverview = {
+  metrics: {
+    totalSessions: number;
+    activeSessions: number;
+    totalLogs: number;
+  };
+  intents: { intent: string | null; count: number }[];
+  states: { state: string | null; count: number }[];
+  latestSessions: ChatbotSession[];
+};
+
+export type ListResult<T> = {
+  items: T[];
+  pagination: Pagination;
+};
+
+export type MediaAsset = {
+  id: string;
+  url: string;
+  publicId: string;
+  folder: string;
+  mimeType: string | null;
+  format: string | null;
+  bytes: number | null;
+  width: number | null;
+  height: number | null;
+  ownerType: string | null;
+  ownerId: string | null;
+  isUsed: boolean;
+  uploadedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

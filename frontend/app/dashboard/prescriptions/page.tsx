@@ -1,0 +1,463 @@
+"use client";
+
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiRequest } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import type {
+  DoctorProfile,
+  ListResult,
+  Prescription,
+  PrescriptionItem,
+  PrescriptionStatus,
+} from "@/lib/types";
+
+type ItemForm = {
+  medicineName: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  quantity: string;
+  unit: string;
+  instruction: string;
+  sortOrder: string;
+};
+
+const emptyItemForm: ItemForm = {
+  medicineName: "",
+  dosage: "",
+  frequency: "",
+  duration: "",
+  quantity: "",
+  unit: "",
+  instruction: "",
+  sortOrder: "0",
+};
+
+const statusOptions: { value: "" | PrescriptionStatus; label: string }[] = [
+  { value: "", label: "Tat ca trang thai" },
+  { value: "DRAFT", label: "Ban nhap" },
+  { value: "ISSUED", label: "Da phat hanh" },
+  { value: "CANCELLED", label: "Da huy" },
+];
+
+const statusLabel: Record<PrescriptionStatus, string> = {
+  DRAFT: "Ban nhap",
+  ISSUED: "Da phat hanh",
+  CANCELLED: "Da huy",
+};
+
+const statusClass: Record<PrescriptionStatus, string> = {
+  DRAFT: "bg-[#fff4d6] text-[#8a5a00]",
+  ISSUED: "bg-[#e7f6ed] text-[#1f7a3a]",
+  CANCELLED: "bg-[#fff3f2] text-[#b3261e]",
+};
+
+const doctorName = (doctor: DoctorProfile | Prescription["doctor"]) =>
+  [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
+
+const toItemForm = (item: PrescriptionItem): ItemForm => ({
+  medicineName: item.medicineName,
+  dosage: item.dosage || "",
+  frequency: item.frequency || "",
+  duration: item.duration || "",
+  quantity: item.quantity === null ? "" : String(item.quantity),
+  unit: item.unit || "",
+  instruction: item.instruction || "",
+  sortOrder: String(item.sortOrder || 0),
+});
+
+const buildItemPayload = (form: ItemForm) => ({
+  medicineName: form.medicineName.trim(),
+  dosage: form.dosage.trim() || null,
+  frequency: form.frequency.trim() || null,
+  duration: form.duration.trim() || null,
+  quantity: form.quantity ? Number(form.quantity) : null,
+  unit: form.unit.trim() || null,
+  instruction: form.instruction.trim() || null,
+  sortOrder: Number(form.sortOrder || 0),
+});
+
+export default function PrescriptionsPage() {
+  const { user } = useAuth();
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [status, setStatus] = useState("");
+  const [doctorId, setDoctorId] = useState("");
+  const [prescriptionCode, setPrescriptionCode] = useState("");
+  const [medicalRecordId, setMedicalRecordId] = useState("");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [selected, setSelected] = useState<Prescription | null>(null);
+  const [createRecordId, setCreateRecordId] = useState("");
+  const [createNote, setCreateNote] = useState("");
+  const [note, setNote] = useState("");
+  const [editingItem, setEditingItem] = useState<PrescriptionItem | null>(null);
+  const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
+  const detailRef = useRef<HTMLElement | null>(null);
+
+  const canEdit = user?.role === "ADMIN" || user?.role === "DOCTOR";
+
+  const query = useMemo(
+    () => ({
+      status: status || undefined,
+      doctorId: doctorId || undefined,
+      prescriptionCode: prescriptionCode.trim() || undefined,
+      medicalRecordId: medicalRecordId.trim() || undefined,
+      page,
+      limit: 20,
+    }),
+    [doctorId, medicalRecordId, page, prescriptionCode, status],
+  );
+
+  const loadPrescriptions = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", {
+        query,
+      });
+      setPrescriptions(result.items);
+      setPagination(result.pagination);
+      setSelected((current) =>
+        current ? result.items.find((item) => item.id === current.id) || current : current,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khong tai duoc don thuoc");
+    } finally {
+      setLoading(false);
+    }
+  }, [query]);
+
+  const loadDoctors = useCallback(async () => {
+    try {
+      const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
+        query: { limit: 100 },
+      });
+      setDoctors(result.items);
+    } catch {
+      setDoctors([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadPrescriptions(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadPrescriptions]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadDoctors(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadDoctors]);
+
+  useEffect(() => {
+    if (!notice && !error) return;
+    const timeoutId = window.setTimeout(() => {
+      setNotice("");
+      setError("");
+    }, 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [error, notice]);
+
+  const scrollDetail = () => {
+    window.setTimeout(() => {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
+  const openDetail = (prescription: Prescription) => {
+    setSelected(prescription);
+    setNote(prescription.note || "");
+    setEditingItem(null);
+    setItemForm({ ...emptyItemForm, sortOrder: String(prescription.items.length) });
+    scrollDetail();
+  };
+
+  const createPrescription = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canEdit) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await apiRequest<Prescription>(
+        `/dashboard/medical-records/${createRecordId}/prescription`,
+        {
+          method: "POST",
+          body: { note: createNote.trim() || null, items: [] },
+        },
+      );
+      setSelected(created);
+      setNote(created.note || "");
+      setCreateRecordId("");
+      setCreateNote("");
+      setNotice("Da tao don thuoc");
+      await loadPrescriptions();
+      scrollDetail();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khong tao duoc don thuoc");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canEdit || !selected) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${selected.id}`, {
+        method: "PATCH",
+        body: { note: note.trim() || null },
+      });
+      setSelected(updated);
+      setNote(updated.note || "");
+      setNotice("Da cap nhat ghi chu don");
+      await loadPrescriptions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khong cap nhat duoc don thuoc");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const simpleAction = async (prescription: Prescription, path: string, message: string) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Prescription>(`/dashboard/prescriptions/${prescription.id}${path}`, {
+        method: "PATCH",
+      });
+      setSelected(updated);
+      setNote(updated.note || "");
+      setNotice(message);
+      await loadPrescriptions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khong thuc hien duoc thao tac");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveItem = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canEdit || !selected) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Prescription>(
+        editingItem
+          ? `/dashboard/prescriptions/${selected.id}/items/${editingItem.id}`
+          : `/dashboard/prescriptions/${selected.id}/items`,
+        {
+          method: editingItem ? "PATCH" : "POST",
+          body: buildItemPayload(itemForm),
+        },
+      );
+      setSelected(updated);
+      setEditingItem(null);
+      setItemForm({ ...emptyItemForm, sortOrder: String(updated.items.length) });
+      setNotice(editingItem ? "Da cap nhat thuoc" : "Da them thuoc");
+      await loadPrescriptions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khong luu duoc thuoc");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteItem = async (item: PrescriptionItem) => {
+    if (!selected || !canEdit || !window.confirm(`Xoa thuoc "${item.medicineName}"?`)) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await apiRequest<PrescriptionItem>(`/dashboard/prescriptions/${selected.id}/items/${item.id}`, {
+        method: "DELETE",
+      });
+      const refreshed = await apiRequest<Prescription>(`/dashboard/prescriptions/${selected.id}`);
+      setSelected(refreshed);
+      setNotice("Da xoa thuoc");
+      await loadPrescriptions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khong xoa duoc thuoc");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      {notice || error ? (
+        <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
+          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="text-sm font-semibold">{error ? "Co loi xay ra" : "Thanh cong"}</p><p className="mt-1 text-sm">{error || notice}</p></div>
+              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Dong thong bao">x</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="min-w-0 space-y-4">
+        <div className="rounded-md border border-[#dce3ee] bg-white p-5">
+          <p className="text-sm font-medium text-[#55708f]">Chuyen mon</p>
+          <h2 className="mt-1 text-2xl font-semibold">Don thuoc</h2>
+          <p className="mt-2 text-sm text-[#667892]">Tao don tu ho so kham, them thuoc va phat hanh don.</p>
+        </div>
+
+        <div className="rounded-md border border-[#dce3ee] bg-white">
+          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[170px_1fr_170px_170px]">
+            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+              {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+            <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+              <option value="">Tat ca bac si</option>
+              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
+            </select>
+            <input value={prescriptionCode} onChange={(e) => { setPrescriptionCode(e.target.value); setPage(1); }} placeholder="Ma don" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <input value={medicalRecordId} onChange={(e) => { setMedicalRecordId(e.target.value); setPage(1); }} placeholder="Medical record ID" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
+              <thead>
+                <tr className="text-[#667892]">
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Don thuoc</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Benh nhan</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Ho so</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bac si</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trang thai</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tac</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Dang tai don thuoc...</td></tr>
+                ) : prescriptions.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chua co don thuoc phu hop</td></tr>
+                ) : prescriptions.map((prescription) => (
+                  <tr key={prescription.id} className="align-top">
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><button onClick={() => openDetail(prescription)} className="font-semibold text-[#0d4f8b] hover:underline">{prescription.prescriptionCode}</button><p className="mt-1 text-xs text-[#667892]">{prescription.items.length} thuoc</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{prescription.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{prescription.patient.phone}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{prescription.medicalRecord.recordCode}</p><p className="mt-1 text-xs text-[#667892]">{prescription.medicalRecord.diagnosis || "Chua co chan doan"}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(prescription.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{prescription.doctor.department.name}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[prescription.status]}`}>{statusLabel[prescription.status]}</span></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiet</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
+            <span>{pagination.total} ket qua, trang {pagination.page}/{pagination.totalPages || 1}</span>
+            <div className="flex gap-2">
+              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Truoc</button>
+              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside ref={detailRef} className="scroll-mt-24 space-y-4">
+        {canEdit ? (
+          <section className="rounded-md border border-[#dce3ee] bg-white p-5">
+            <h3 className="text-lg font-semibold">Tao don thuoc</h3>
+            <p className="mt-2 text-sm text-[#667892]">Nhap ID ho so kham dang IN_PROGRESS/COMPLETED va chua co don.</p>
+            <form className="mt-4 space-y-3" onSubmit={createPrescription}>
+              <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Medical record ID" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+              <textarea value={createNote} onChange={(e) => setCreateNote(e.target.value)} placeholder="Ghi chu don" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Dang tao..." : "Tao don"}</button>
+            </form>
+          </section>
+        ) : null}
+
+        <section className="rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24">
+          {selected ? (
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-medium text-[#55708f]">Chi tiet don thuoc</p>
+                <h3 className="mt-1 text-xl font-semibold">{selected.prescriptionCode}</h3>
+                <span className={`mt-3 inline-flex rounded-md px-2 py-1 text-xs font-semibold ${statusClass[selected.status]}`}>{statusLabel[selected.status]}</span>
+              </div>
+              <div className="rounded-md border border-[#e5ebf3] p-3 text-sm">
+                <p className="font-semibold">{selected.patient.fullName}</p>
+                <p className="text-[#667892]">{selected.patient.phone || "-"} · {selected.medicalRecord.recordCode}</p>
+                <p className="mt-1 text-[#667892]">{doctorName(selected.doctor)}</p>
+              </div>
+
+              <form className="space-y-3" onSubmit={updateNote}>
+                <label className="block">
+                  <span className="text-sm font-medium text-[#334155]">Ghi chu don</span>
+                  <textarea value={note} onChange={(e) => setNote(e.target.value)} disabled={!canEdit || selected.status !== "DRAFT"} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {canEdit && selected.status === "DRAFT" ? <button disabled={busy} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Luu ghi chu</button> : null}
+                  {canEdit && selected.status === "DRAFT" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/issue", "Da phat hanh don")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Phat hanh</button> : null}
+                  {selected.status !== "CANCELLED" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Da huy don thuoc")} className="rounded-md border border-[#f2b8b5] px-4 py-2 text-sm font-medium text-[#b3261e]">Huy don</button> : null}
+                </div>
+              </form>
+
+              <section className="border-t border-[#e5ebf3] pt-5">
+                <h4 className="font-semibold">Thuoc trong don</h4>
+                <div className="mt-3 space-y-2">
+                  {selected.items.length === 0 ? <p className="text-sm text-[#667892]">Chua co thuoc</p> : selected.items.map((item) => (
+                    <div key={item.id} className="rounded-md border border-[#e5ebf3] p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{item.medicineName}</p>
+                          <p className="text-[#667892]">{item.dosage || "-"} · {item.frequency || "-"} · {item.duration || "-"}</p>
+                          <p className="text-xs text-[#667892]">SL: {item.quantity ?? "-"} {item.unit || ""}</p>
+                          <p className="mt-1">{item.instruction || ""}</p>
+                        </div>
+                        {canEdit && selected.status === "DRAFT" ? (
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => { setEditingItem(item); setItemForm(toItemForm(item)); }} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sua</button>
+                            <button type="button" onClick={() => void deleteItem(item)} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xoa</button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {canEdit && selected.status === "DRAFT" ? (
+                  <form className="mt-4 space-y-3 rounded-md border border-[#e5ebf3] p-3" onSubmit={saveItem}>
+                    <h5 className="font-semibold">{editingItem ? "Sua thuoc" : "Them thuoc"}</h5>
+                    <input value={itemForm.medicineName} onChange={(e) => setItemForm((current) => ({ ...current, medicineName: e.target.value }))} placeholder="Ten thuoc" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input value={itemForm.dosage} onChange={(e) => setItemForm((current) => ({ ...current, dosage: e.target.value }))} placeholder="Lieu dung" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.frequency} onChange={(e) => setItemForm((current) => ({ ...current, frequency: e.target.value }))} placeholder="Tan suat" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.duration} onChange={(e) => setItemForm((current) => ({ ...current, duration: e.target.value }))} placeholder="Thoi gian" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.quantity} onChange={(e) => setItemForm((current) => ({ ...current, quantity: e.target.value.replace(/\D/g, "") }))} placeholder="So luong" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.unit} onChange={(e) => setItemForm((current) => ({ ...current, unit: e.target.value }))} placeholder="Don vi" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.sortOrder} onChange={(e) => setItemForm((current) => ({ ...current, sortOrder: e.target.value.replace(/\D/g, "") }))} placeholder="Thu tu" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                    </div>
+                    <textarea value={itemForm.instruction} onChange={(e) => setItemForm((current) => ({ ...current, instruction: e.target.value }))} placeholder="Huong dan dung thuoc" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                    <div className="flex gap-2">
+                      <button disabled={busy} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Dang luu..." : editingItem ? "Luu thuoc" : "Them thuoc"}</button>
+                      {editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, sortOrder: String(selected.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huy</button> : null}
+                    </div>
+                  </form>
+                ) : null}
+              </section>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-medium text-[#55708f]">Chi tiet don thuoc</p>
+              <h3 className="mt-1 text-xl font-semibold">Chon mot don thuoc</h3>
+              <p className="mt-2 text-sm leading-6 text-[#667892]">Bam vao ma don de xem va chinh sua thuoc trong don.</p>
+            </div>
+          )}
+        </section>
+      </aside>
+    </div>
+  );
+}
