@@ -9,7 +9,11 @@ import {
 } from "../controllers/invoice.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
-import { createInvoiceSchema, payInvoiceSchema } from "../validations/invoice.validation.js";
+import {
+  createInvoiceSchema,
+  payInvoiceSchema,
+  refundInvoiceSchema,
+} from "../validations/invoice.validation.js";
 
 const router = Router();
 
@@ -30,6 +34,11 @@ router.patch(
   payInvoiceHandler,
 );
 router.patch("/:id/cancel", requireRole("ADMIN", "STAFF"), cancelInvoiceHandler);
-router.patch("/:id/refund", requireRole("ADMIN"), refundInvoiceHandler);
+router.patch(
+  "/:id/refund",
+  requireRole("ADMIN"),
+  validate(refundInvoiceSchema),
+  refundInvoiceHandler,
+);
 
 export default router;

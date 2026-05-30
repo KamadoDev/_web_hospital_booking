@@ -12,6 +12,10 @@ type PayInvoiceInput = {
   paymentMethod: PaymentMethod;
 };
 
+type RefundInvoiceInput = {
+  refundReason: string;
+};
+
 export const invoiceSelect = {
   id: true,
   invoiceCode: true,
@@ -22,6 +26,8 @@ export const invoiceSelect = {
   status: true,
   paymentMethod: true,
   paidAt: true,
+  refundReason: true,
+  refundedAt: true,
   createdAt: true,
   updatedAt: true,
   patient: {
@@ -264,17 +270,23 @@ class InvoiceService {
     });
   }
 
-  async refund(id: string) {
+  async refund(id: string, input: RefundInvoiceInput) {
     const invoice = await this.getById(id);
 
     if (invoice.status !== "PAID") {
       throw new AppError("Chi co the hoan tien hoa don da thanh toan", 400);
     }
 
+    if (invoice.finalAmount <= 0) {
+      throw new AppError("Hoa don khong co so tien de hoan", 400);
+    }
+
     return prisma.invoice.update({
       where: { id },
       data: {
         status: "REFUNDED",
+        refundReason: input.refundReason.trim(),
+        refundedAt: new Date(),
       },
       select: invoiceSelect,
     });

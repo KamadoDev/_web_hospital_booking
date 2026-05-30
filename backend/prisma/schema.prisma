@@ -729,6 +729,8 @@ model Invoice {
   status        InvoiceStatus  @default(UNPAID)
   paymentMethod PaymentMethod?
   paidAt        DateTime?
+  refundReason  String?
+  refundedAt    DateTime?
 
   paymentTransactions PaymentTransaction[]
 

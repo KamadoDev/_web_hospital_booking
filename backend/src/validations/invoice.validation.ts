@@ -15,3 +15,11 @@ export const payInvoiceSchema = z.object({
       message: "Phuong thuc thanh toan thu cong khong hop le. Gia tri hop le: CASH, CARD, BANK_TRANSFER, OTHER. MOMO/VNPAY phai di qua API /api/payments.",
     }),
 });
+
+export const refundInvoiceSchema = z.object({
+  refundReason: z
+    .string("Ly do hoan tien la bat buoc")
+    .trim()
+    .min(5, "Ly do hoan tien phai co it nhat 5 ky tu")
+    .max(500, "Ly do hoan tien khong duoc vuot qua 500 ky tu"),
+});

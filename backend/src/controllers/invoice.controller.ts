@@ -133,7 +133,7 @@ export const refundInvoiceHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.refund(getParam(req.params.id));
+    const invoice = await InvoiceService.refund(getParam(req.params.id), req.body);
 
     return res.json({
       success: true,
