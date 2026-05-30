@@ -5,34 +5,45 @@ import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Invoice, InvoiceStatus, ListResult, PaymentMethod } from "@/lib/types";
 
+type InvoiceAction = "pay" | "cancel" | "refund";
+
 const statusOptions: { value: "" | InvoiceStatus; label: string }[] = [
-  { value: "", label: "Tat ca trang thai" },
-  { value: "UNPAID", label: "Chua thanh toan" },
-  { value: "PAID", label: "Da thanh toan" },
-  { value: "CANCELLED", label: "Da huy" },
-  { value: "REFUNDED", label: "Da hoan tien" },
+  { value: "", label: "Tất cả trạng thái" },
+  { value: "UNPAID", label: "Chưa thanh toán" },
+  { value: "PAID", label: "Đã thanh toán" },
+  { value: "CANCELLED", label: "Đã hủy" },
+  { value: "REFUNDED", label: "Đã hoàn tiền" },
 ];
 
 const paymentOptions: { value: "" | PaymentMethod; label: string }[] = [
-  { value: "", label: "Tat ca phuong thuc" },
-  { value: "CASH", label: "Tien mat" },
-  { value: "CARD", label: "The" },
-  { value: "BANK_TRANSFER", label: "Chuyen khoan" },
-  { value: "OTHER", label: "Khac" },
+  { value: "", label: "Tất cả phương thức" },
+  { value: "CASH", label: "Tiền mặt" },
+  { value: "CARD", label: "Thẻ" },
+  { value: "BANK_TRANSFER", label: "Chuyển khoản" },
+  { value: "OTHER", label: "Khác" },
 ];
 
 const manualPayments: { value: Exclude<PaymentMethod, "MOMO" | "VNPAY">; label: string }[] = [
-  { value: "CASH", label: "Tien mat" },
-  { value: "CARD", label: "The" },
-  { value: "BANK_TRANSFER", label: "Chuyen khoan" },
-  { value: "OTHER", label: "Khac" },
+  { value: "CASH", label: "Tiền mặt" },
+  { value: "CARD", label: "Thẻ" },
+  { value: "BANK_TRANSFER", label: "Chuyển khoản" },
+  { value: "OTHER", label: "Khác" },
 ];
 
 const statusLabel: Record<InvoiceStatus, string> = {
-  UNPAID: "Chua thanh toan",
-  PAID: "Da thanh toan",
-  CANCELLED: "Da huy",
-  REFUNDED: "Da hoan tien",
+  UNPAID: "Chưa thanh toán",
+  PAID: "Đã thanh toán",
+  CANCELLED: "Đã hủy",
+  REFUNDED: "Đã hoàn tiền",
+};
+
+const paymentLabel: Partial<Record<PaymentMethod, string>> = {
+  CASH: "Tiền mặt",
+  CARD: "Thẻ",
+  BANK_TRANSFER: "Chuyển khoản",
+  MOMO: "MoMo",
+  VNPAY: "VNPay",
+  OTHER: "Khác",
 };
 
 const statusClass: Record<InvoiceStatus, string> = {
@@ -81,6 +92,9 @@ export default function InvoicesPage() {
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [appointmentId, setAppointmentId] = useState("");
   const [bhytDiscount, setBhytDiscount] = useState("");
+  const [actionTarget, setActionTarget] = useState<{ type: InvoiceAction; invoice: Invoice } | null>(null);
+  const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "MOMO" | "VNPAY">>("CASH");
+  const [refundReason, setRefundReason] = useState("");
   const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
@@ -104,25 +118,21 @@ export default function InvoicesPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await apiRequest<ListResult<Invoice>>("/dashboard/invoices", {
-        query,
-      });
+      const result = await apiRequest<ListResult<Invoice>>("/dashboard/invoices", { query });
       setInvoices(result.items);
       setPagination(result.pagination);
       setSelected((current) =>
         current ? result.items.find((item) => item.id === current.id) || current : current,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong tai duoc hoa don");
+      setError(err instanceof Error ? err.message : "Không tải được hóa đơn");
     } finally {
       setLoading(false);
     }
   }, [query]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadInvoices();
-    }, 0);
+    const timeoutId = window.setTimeout(() => void loadInvoices(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadInvoices]);
 
@@ -157,81 +167,11 @@ export default function InvoicesPage() {
       setSelected(invoice);
       setAppointmentId("");
       setBhytDiscount("");
-      setNotice("Da tao hoa don");
+      setNotice("Đã tạo hóa đơn");
       await loadInvoices();
       scrollTo(detailRef);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong tao duoc hoa don");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const payInvoice = async (invoice: Invoice) => {
-    const method = window.prompt(
-      "Nhap phuong thuc thanh toan: CASH, CARD, BANK_TRANSFER, OTHER",
-      "CASH",
-    ) as PaymentMethod | null;
-    if (!method || !manualPayments.some((item) => item.value === method)) return;
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${invoice.id}/pay`, {
-        method: "PATCH",
-        body: { paymentMethod: method },
-      });
-      setSelected(updated);
-      setNotice("Da thanh toan hoa don");
-      await loadInvoices();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong thanh toan duoc hoa don");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const simpleAction = async (invoice: Invoice, path: string, message: string) => {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${invoice.id}${path}`, {
-        method: "PATCH",
-      });
-      setSelected(updated);
-      setNotice(message);
-      await loadInvoices();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong thuc hien duoc thao tac");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const refundInvoice = async (invoice: Invoice) => {
-    const refundReason = window.prompt("Nhap ly do hoan tien", "");
-
-    if (!refundReason || refundReason.trim().length < 5) {
-      setError("Ly do hoan tien phai co it nhat 5 ky tu");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${invoice.id}/refund`, {
-        method: "PATCH",
-        body: { refundReason: refundReason.trim() },
-      });
-      setSelected(updated);
-      setNotice("Da hoan tien hoa don");
-      await loadInvoices();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong hoan tien duoc hoa don");
+      setError(err instanceof Error ? err.message : "Không tạo được hóa đơn");
     } finally {
       setBusy(false);
     }
@@ -239,19 +179,99 @@ export default function InvoicesPage() {
 
   const openDetail = (invoice: Invoice) => {
     setSelected(invoice);
+    setActionTarget(null);
+    setRefundReason("");
+    setPayMethod("CASH");
     scrollTo(detailRef);
+  };
+
+  const startAction = (type: InvoiceAction, invoice: Invoice) => {
+    setSelected(invoice);
+    setActionTarget({ type, invoice });
+    setRefundReason("");
+    setPayMethod("CASH");
+    setError("");
+    setNotice("");
+    scrollTo(detailRef);
+  };
+
+  const updateSelectedInvoice = async (invoice: Invoice, message: string) => {
+    setSelected(invoice);
+    setActionTarget(null);
+    setRefundReason("");
+    setNotice(message);
+    await loadInvoices();
+    scrollTo(detailRef);
+  };
+
+  const payInvoice = async () => {
+    if (!actionTarget || actionTarget.type !== "pay") return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/pay`, {
+        method: "PATCH",
+        body: { paymentMethod: payMethod },
+      });
+      await updateSelectedInvoice(updated, "Đã thanh toán hóa đơn");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thanh toán được hóa đơn");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelInvoice = async () => {
+    if (!actionTarget || actionTarget.type !== "cancel") return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/cancel`, {
+        method: "PATCH",
+      });
+      await updateSelectedInvoice(updated, "Đã hủy hóa đơn");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không hủy được hóa đơn");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const refundInvoice = async () => {
+    if (!actionTarget || actionTarget.type !== "refund") return;
+    if (refundReason.trim().length < 5) {
+      setError("Lý do hoàn tiền phải có ít nhất 5 ký tự");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}/refund`, {
+        method: "PATCH",
+        body: { refundReason: refundReason.trim() },
+      });
+      await updateSelectedInvoice(updated, "Đã hoàn tiền hóa đơn");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không hoàn tiền được hóa đơn");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const renderActions = (invoice: Invoice) => (
     <>
       {invoice.status === "UNPAID" ? (
         <>
-          <button disabled={busy} onClick={() => void payInvoice(invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Thanh toan</button>
-          <button disabled={busy} onClick={() => void simpleAction(invoice, "/cancel", "Da huy hoa don")} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Huy</button>
+          <button disabled={busy} onClick={() => startAction("pay", invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Thanh toán</button>
+          <button disabled={busy} onClick={() => startAction("cancel", invoice)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Hủy</button>
         </>
       ) : null}
       {canRefund && invoice.status === "PAID" ? (
-        <button disabled={busy} onClick={() => void refundInvoice(invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Hoan tien</button>
+        <button disabled={busy} onClick={() => startAction("refund", invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Hoàn tiền</button>
       ) : null}
     </>
   );
@@ -259,9 +279,9 @@ export default function InvoicesPage() {
   if (!canUse) {
     return (
       <section className="rounded-md border border-[#dce3ee] bg-white p-6">
-        <p className="text-sm font-medium text-[#55708f]">Tai chinh</p>
-        <h2 className="mt-1 text-2xl font-semibold">Hoa don</h2>
-        <p className="mt-2 text-sm text-[#667892]">Module hoa don chi danh cho ADMIN va STAFF.</p>
+        <p className="text-sm font-medium text-[#55708f]">Tài chính</p>
+        <h2 className="mt-1 text-2xl font-semibold">Hóa đơn</h2>
+        <p className="mt-2 text-sm text-[#667892]">Module hóa đơn chỉ dành cho ADMIN và STAFF.</p>
       </section>
     );
   }
@@ -273,10 +293,10 @@ export default function InvoicesPage() {
           <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">{error ? "Co loi xay ra" : "Thanh cong"}</p>
+                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
                 <p className="mt-1 text-sm">{error || notice}</p>
               </div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Dong thong bao">x</button>
+              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
             </div>
           </div>
         </div>
@@ -284,9 +304,9 @@ export default function InvoicesPage() {
 
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
         <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <p className="text-sm font-medium text-[#55708f]">Tai chinh</p>
-          <h2 className="mt-1 text-2xl font-semibold">Hoa don</h2>
-          <p className="mt-2 text-sm text-[#667892]">Tao hoa don tu lich hen da hoan thanh va ghi nhan thanh toan thu cong.</p>
+          <p className="text-sm font-medium text-[#55708f]">Tài chính</p>
+          <h2 className="mt-1 text-2xl font-semibold">Hóa đơn</h2>
+          <p className="mt-2 text-sm text-[#667892]">Tạo hóa đơn từ lịch hẹn đã hoàn thành và ghi nhận thanh toán thủ công.</p>
         </div>
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
@@ -297,8 +317,8 @@ export default function InvoicesPage() {
             <select value={paymentMethod} onChange={(e) => { setPaymentMethod(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {paymentOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <input value={phone} onChange={(e) => { setPhone(e.target.value); setPage(1); }} placeholder="So dien thoai" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <input value={invoiceCode} onChange={(e) => { setInvoiceCode(e.target.value); setPage(1); }} placeholder="Ma hoa don" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <input value={phone} onChange={(e) => { setPhone(e.target.value); setPage(1); }} placeholder="Số điện thoại" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <input value={invoiceCode} onChange={(e) => { setInvoiceCode(e.target.value); setPage(1); }} placeholder="Mã hóa đơn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <input value={barcode} onChange={(e) => { setBarcode(e.target.value); setPage(1); }} placeholder="Barcode" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
           </div>
 
@@ -306,19 +326,19 @@ export default function InvoicesPage() {
             <table className="w-full min-w-[1000px] border-separate border-spacing-0 text-left text-sm">
               <thead>
                 <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hoa don</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Benh nhan</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lich hen</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">So tien</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trang thai</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tac</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hóa đơn</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Số tiền</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Dang tai hoa don...</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải hóa đơn...</td></tr>
                 ) : invoices.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chua co hoa don phu hop</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có hóa đơn phù hợp</td></tr>
                 ) : invoices.map((invoice) => (
                   <tr key={invoice.id} className="align-top">
                     <td className="border-b border-[#eef2f7] px-4 py-3">
@@ -327,11 +347,11 @@ export default function InvoicesPage() {
                     </td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{invoice.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{invoice.patient.phone}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{invoice.appointment.bookingCode}</p><p className="mt-1 text-xs text-[#667892]">{formatDate(invoice.appointment.appointmentDate)} {invoice.appointment.startTime}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(invoice.finalAmount)}</p><p className="mt-1 text-xs text-[#667892]">Giam {formatCurrency(invoice.bhytDiscount)}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[invoice.status]}`}>{statusLabel[invoice.status]}</span><p className="mt-1 text-xs text-[#667892]">{invoice.paymentMethod || "-"}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(invoice.finalAmount)}</p><p className="mt-1 text-xs text-[#667892]">Giảm {formatCurrency(invoice.bhytDiscount)}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[invoice.status]}`}>{statusLabel[invoice.status]}</span><p className="mt-1 text-xs text-[#667892]">{invoice.paymentMethod ? paymentLabel[invoice.paymentMethod] || invoice.paymentMethod : "-"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex flex-wrap justify-end gap-2">
-                        <button onClick={() => openDetail(invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiet</button>
+                        <button onClick={() => openDetail(invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button>
                         {renderActions(invoice)}
                       </div>
                     </td>
@@ -342,9 +362,9 @@ export default function InvoicesPage() {
           </div>
 
           <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} ket qua, trang {pagination.page}/{pagination.totalPages || 1}</span>
+            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
             <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Truoc</button>
+              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
@@ -353,18 +373,18 @@ export default function InvoicesPage() {
 
       <aside className="space-y-4">
         <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <h3 className="text-lg font-semibold">Tao hoa don</h3>
-          <p className="mt-2 text-sm leading-6 text-[#667892]">Backend chi cho tao hoa don tu lich hen da hoan thanh kham.</p>
+          <h3 className="text-lg font-semibold">Tạo hóa đơn</h3>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">Backend chỉ cho tạo hóa đơn từ lịch hẹn đã hoàn thành khám.</p>
           <form className="mt-5 space-y-4" onSubmit={createInvoice}>
             <label className="block">
               <span className="text-sm font-medium text-[#334155]">Appointment ID</span>
-              <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="UUID lich hen da COMPLETED" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+              <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="UUID lịch hẹn đã COMPLETED" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Giam tru BHYT</span>
+              <span className="text-sm font-medium text-[#334155]">Giảm trừ BHYT</span>
               <input value={formatMoneyInput(bhytDiscount)} onChange={(e) => setBhytDiscount(parseMoneyInput(e.target.value))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             </label>
-            <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{busy ? "Dang tao..." : "Tao hoa don"}</button>
+            <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{busy ? "Đang tạo..." : "Tạo hóa đơn"}</button>
           </form>
         </section>
 
@@ -372,35 +392,62 @@ export default function InvoicesPage() {
           {selected ? (
             <div className="space-y-5">
               <div>
-                <p className="text-sm font-medium text-[#55708f]">Chi tiet hoa don</p>
+                <p className="text-sm font-medium text-[#55708f]">Chi tiết hóa đơn</p>
                 <h3 className="mt-1 text-xl font-semibold">{selected.invoiceCode}</h3>
                 <span className={`mt-3 inline-flex rounded-md px-2 py-1 text-xs font-semibold ${statusClass[selected.status]}`}>{statusLabel[selected.status]}</span>
               </div>
               <div className="space-y-3 text-sm">
                 <div><p className="text-[#667892]">Barcode</p><p className="font-semibold">{selected.barcode}</p></div>
-                <div><p className="text-[#667892]">Benh nhan</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
-                <div><p className="text-[#667892]">Lich hen</p><p className="font-semibold">{selected.appointment.bookingCode}</p><p>{formatDate(selected.appointment.appointmentDate)} {selected.appointment.startTime} - {selected.appointment.endTime}</p></div>
-                <div><p className="text-[#667892]">Bac si</p><p className="font-semibold">{doctorName(selected)}</p><p>{selected.appointment.department.name}</p></div>
-                <div><p className="text-[#667892]">Dich vu</p><p>{selected.appointment.package?.name || "Kham bac si"}</p></div>
-                <div><p className="text-[#667892]">Tien</p><p>Tong: {formatCurrency(selected.totalAmount)}</p><p>Giam BHYT: {formatCurrency(selected.bhytDiscount)}</p><p className="font-semibold">Can thu: {formatCurrency(selected.finalAmount)}</p></div>
-                <div><p className="text-[#667892]">Thanh toan</p><p>{selected.paymentMethod || "Chua thanh toan"}</p><p>{selected.paidAt ? formatDate(selected.paidAt) : "-"}</p></div>
+                <div><p className="text-[#667892]">Bệnh nhân</p><p className="font-semibold">{selected.patient.fullName}</p><p>{selected.patient.phone || "-"}</p></div>
+                <div><p className="text-[#667892]">Lịch hẹn</p><p className="font-semibold">{selected.appointment.bookingCode}</p><p>{formatDate(selected.appointment.appointmentDate)} {selected.appointment.startTime} - {selected.appointment.endTime}</p></div>
+                <div><p className="text-[#667892]">Bác sĩ</p><p className="font-semibold">{doctorName(selected)}</p><p>{selected.appointment.department.name}</p></div>
+                <div><p className="text-[#667892]">Dịch vụ</p><p>{selected.appointment.package?.name || "Khám bác sĩ"}</p></div>
+                <div><p className="text-[#667892]">Tiền</p><p>Tổng: {formatCurrency(selected.totalAmount)}</p><p>Giảm BHYT: {formatCurrency(selected.bhytDiscount)}</p><p className="font-semibold">Cần thu: {formatCurrency(selected.finalAmount)}</p></div>
+                <div><p className="text-[#667892]">Thanh toán</p><p>{selected.paymentMethod ? paymentLabel[selected.paymentMethod] || selected.paymentMethod : "Chưa thanh toán"}</p><p>{selected.paidAt ? formatDate(selected.paidAt) : "-"}</p></div>
                 {selected.status === "REFUNDED" ? (
-                  <div>
-                    <p className="text-[#667892]">Hoan tien</p>
-                    <p>{selected.refundReason || "-"}</p>
-                    <p className="text-xs text-[#667892]">
-                      {selected.refundedAt ? formatDate(selected.refundedAt) : "-"}
-                    </p>
-                  </div>
+                  <div><p className="text-[#667892]">Hoàn tiền</p><p>{selected.refundReason || "-"}</p><p className="text-xs text-[#667892]">{selected.refundedAt ? formatDate(selected.refundedAt) : "-"}</p></div>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-2 border-t border-[#e5ebf3] pt-4">{renderActions(selected)}</div>
+              {actionTarget?.invoice.id === selected.id ? (
+                <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+                  {actionTarget.type === "pay" ? (
+                    <>
+                      <h4 className="font-semibold">Xác nhận thanh toán</h4>
+                      <label className="mt-3 block">
+                        <span className="text-sm font-medium text-[#334155]">Phương thức</span>
+                        <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as Exclude<PaymentMethod, "MOMO" | "VNPAY">)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                          {manualPayments.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                      </label>
+                      <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void payInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xác nhận</button><button type="button" onClick={() => setActionTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+                    </>
+                  ) : null}
+                  {actionTarget.type === "cancel" ? (
+                    <>
+                      <h4 className="font-semibold text-[#b3261e]">Xác nhận hủy hóa đơn</h4>
+                      <p className="mt-2 text-sm text-[#667892]">Hóa đơn chưa thanh toán sẽ chuyển sang trạng thái đã hủy.</p>
+                      <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void cancelInvoice()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xác nhận hủy</button><button type="button" onClick={() => setActionTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ hóa đơn</button></div>
+                    </>
+                  ) : null}
+                  {actionTarget.type === "refund" ? (
+                    <>
+                      <h4 className="font-semibold">Xác nhận hoàn tiền</h4>
+                      <label className="mt-3 block">
+                        <span className="text-sm font-medium text-[#334155]">Lý do hoàn tiền</span>
+                        <textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} rows={3} placeholder="Ví dụ: bệnh nhân yêu cầu hoàn tiền" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      </label>
+                      <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void refundInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Hoàn tiền</button><button type="button" onClick={() => { setActionTarget(null); setRefundReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div>
-              <p className="text-sm font-medium text-[#55708f]">Chi tiet hoa don</p>
-              <h3 className="mt-1 text-xl font-semibold">Chon mot hoa don</h3>
-              <p className="mt-2 text-sm leading-6 text-[#667892]">Bam vao ma hoa don de xem barcode, so tien va thao tac thanh toan.</p>
+              <p className="text-sm font-medium text-[#55708f]">Chi tiết hóa đơn</p>
+              <h3 className="mt-1 text-xl font-semibold">Chọn một hóa đơn</h3>
+              <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã hóa đơn để xem barcode, số tiền và thao tác thanh toán.</p>
             </div>
           )}
         </section>

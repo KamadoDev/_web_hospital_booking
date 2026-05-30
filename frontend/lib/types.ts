@@ -482,6 +482,104 @@ export type ChatbotOverview = {
   latestSessions: ChatbotSession[];
 };
 
+export type StatisticsRange = {
+  from: string;
+  to: string;
+};
+
+export type StatisticsAppointmentSummary = Pick<
+  Appointment,
+  "id" | "bookingCode" | "appointmentDate" | "startTime" | "endTime" | "status" | "patientName" | "patientPhone"
+> & {
+  doctor: {
+    title: string | null;
+    user: {
+      fullName: string;
+    };
+  };
+  department: {
+    name: string;
+  };
+};
+
+export type DashboardStatisticsOverview = {
+  range: StatisticsRange;
+  metrics: {
+    totalAppointments: number;
+    pendingConfirmAppointments: number;
+    todayAppointments: number;
+    completedAppointments: number;
+    cancelledAppointments: number;
+    newPatients: number;
+    unpaidInvoices: number;
+    collectedAmount: number;
+    refundedAmount: number;
+    netAmount: number;
+  };
+  latestAppointments: StatisticsAppointmentSummary[];
+};
+
+export type DashboardAppointmentStatistics = {
+  range: StatisticsRange;
+  metrics: {
+    total: number;
+  };
+  byStatus: { value: AppointmentStatus; count: number }[];
+  daily: { date: string; total: number; completed: number; cancelled: number }[];
+};
+
+export type DashboardRevenueStatistics = {
+  range: StatisticsRange;
+  metrics: {
+    collectedAmount: number;
+    refundedAmount: number;
+    netAmount: number;
+    invoiceCount: number;
+  };
+  byStatus: { status: InvoiceStatus; count: number; amount: number }[];
+  byPaymentMethod: { paymentMethod: PaymentMethod; count: number; amount: number }[];
+  daily: { date: string; collectedAmount: number; refundedAmount: number; netAmount: number }[];
+};
+
+export type DashboardDoctorStatistics = {
+  range: StatisticsRange;
+  items: {
+    doctor: Pick<DoctorProfile, "id" | "title" | "specialization"> & {
+      user: {
+        fullName: string;
+        avatar: string | null;
+      };
+      department: {
+        id: string;
+        name: string;
+        slug: string | null;
+      };
+    };
+    appointmentCount: number;
+    slots: { status: TimeSlotStatus; count: number }[];
+  }[];
+};
+
+export type DashboardDepartmentStatistics = {
+  range: StatisticsRange;
+  items: {
+    department: {
+      id: string;
+      name: string;
+      slug: string | null;
+      isActive: boolean;
+      _count: {
+        doctors: number;
+        packages: number;
+      };
+    } | null;
+    appointmentCount: number;
+    estimatedAmount: number;
+  }[];
+  activeDepartments: number;
+  totalDepartments: number;
+};
+
 export type ListResult<T> = {
   items: T[];
   pagination: Pagination;

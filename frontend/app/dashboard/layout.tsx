@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f6f8fb] text-sm text-[#667892]">
-        Dang tai dashboard...
+        Đang tải dashboard...
       </div>
     );
   }
