@@ -62,7 +62,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
       notifyAuthExpired();
     }
 
-    throw new ApiError(payload?.message || "Khong the ket noi toi may chu", response.status);
+    throw new ApiError(payload?.message || "Không thể kết nối tới máy chủ", response.status);
   }
 
   return payload?.data as T;
@@ -94,7 +94,7 @@ export async function uploadImages(files: File[], folder: string) {
       notifyAuthExpired();
     }
 
-    throw new ApiError(payload?.message || "Khong upload duoc anh", response.status);
+    throw new ApiError(payload?.message || "Không upload được ảnh", response.status);
   }
 
   return payload?.data?.items || [];

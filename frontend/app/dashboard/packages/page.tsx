@@ -50,15 +50,15 @@ const emptyItemForm: ItemForm = {
 };
 
 const statusOptions = [
-  { label: "Tat ca", value: "" },
-  { label: "Dang hien thi", value: "true" },
-  { label: "Tam an", value: "false" },
+  { label: "Tất cả", value: "" },
+  { label: "Đang hiển thị", value: "true" },
+  { label: "Tạm ẩn", value: "false" },
 ];
 
 const popularOptions = [
-  { label: "Tat ca", value: "" },
-  { label: "Noi bat", value: "true" },
-  { label: "Thuong", value: "false" },
+  { label: "Tất cả", value: "" },
+  { label: "Nổi bật", value: "true" },
+  { label: "Thường", value: "false" },
 ];
 
 const createSlug = (value: string) =>
@@ -144,10 +144,12 @@ export default function PackagesPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<MedicalPackage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MedicalPackage | null>(null);
   const [form, setForm] = useState<PackageForm>(emptyPackageForm);
   const [slugTouched, setSlugTouched] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<MedicalPackage | null>(null);
   const [editingItem, setEditingItem] = useState<PackageItem | null>(null);
+  const [deleteItemTarget, setDeleteItemTarget] = useState<PackageItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
   const listPanelRef = useRef<HTMLElement | null>(null);
   const formPanelRef = useRef<HTMLElement | null>(null);
@@ -167,21 +169,31 @@ export default function PackagesPage() {
     [page, popular, search, status],
   );
 
+  const scrollToList = () => {
+    window.setTimeout(() => listPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const scrollToForm = () => {
+    window.setTimeout(() => formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const scrollToItems = () => {
+    window.setTimeout(() => itemPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
   const loadPackages = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const result = await apiRequest<ListResult<MedicalPackage>>("/dashboard/packages", {
-        query,
-      });
+      const result = await apiRequest<ListResult<MedicalPackage>>("/dashboard/packages", { query });
       setPackages(result.items);
       setPagination(result.pagination);
       setSelectedPackage((current) =>
         current ? result.items.find((item) => item.id === current.id) || current : current,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong tai duoc danh sach goi kham");
+      setError(err instanceof Error ? err.message : "Không tải được danh sách gói khám");
     } finally {
       setLoading(false);
     }
@@ -194,57 +206,32 @@ export default function PackagesPage() {
       });
       setDepartments(result.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong tai duoc chuyen khoa");
+      setError(err instanceof Error ? err.message : "Không tải được chuyên khoa");
     }
   }, []);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadPackages();
-    }, 0);
-
+    const timeoutId = window.setTimeout(() => void loadPackages(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadPackages]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadDepartments();
-    }, 0);
-
+    const timeoutId = window.setTimeout(() => void loadDepartments(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadDepartments]);
 
   useEffect(() => {
     if (!notice && !error) return;
-
     const timeoutId = window.setTimeout(() => {
       setNotice("");
       setError("");
     }, 4500);
-
     return () => window.clearTimeout(timeoutId);
   }, [error, notice]);
 
-  const scrollToList = () => {
-    window.setTimeout(() => {
-      listPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
-  const scrollToForm = () => {
-    window.setTimeout(() => {
-      formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
-  const scrollToItems = () => {
-    window.setTimeout(() => {
-      itemPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  };
-
   const startCreate = () => {
     setEditing(null);
+    setDeleteTarget(null);
     setForm(emptyPackageForm);
     setSlugTouched(false);
     setError("");
@@ -254,8 +241,17 @@ export default function PackagesPage() {
 
   const startEdit = (item: MedicalPackage) => {
     setEditing(item);
+    setDeleteTarget(null);
     setForm(toPackageForm(item));
     setSlugTouched(false);
+    setError("");
+    setNotice("");
+    scrollToForm();
+  };
+
+  const startDelete = (item: MedicalPackage) => {
+    setDeleteTarget(item);
+    setEditing(null);
     setError("");
     setNotice("");
     scrollToForm();
@@ -264,7 +260,6 @@ export default function PackagesPage() {
   const handleNameChange = (name: string) => {
     setForm((current) => {
       const currentSlugWasAuto = !current.slug || current.slug === createSlug(current.name);
-
       return {
         ...current,
         name,
@@ -287,13 +282,13 @@ export default function PackagesPage() {
           method: "PATCH",
           body: buildPackagePayload(form),
         });
-        setNotice("Da cap nhat goi kham");
+        setNotice("Đã cập nhật gói khám");
       } else {
         await apiRequest<MedicalPackage>("/dashboard/packages", {
           method: "POST",
           body: buildPackagePayload(form),
         });
-        setNotice("Da tao goi kham");
+        setNotice("Đã tạo gói khám");
       }
 
       setEditing(null);
@@ -302,46 +297,44 @@ export default function PackagesPage() {
       await loadPackages();
       scrollToList();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong luu duoc goi kham");
+      setError(err instanceof Error ? err.message : "Không lưu được gói khám");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (item: MedicalPackage) => {
-    if (!canDelete) return;
+  const handleDelete = async () => {
+    if (!deleteTarget || !canDelete) return;
 
-    const confirmed = window.confirm(`Xoa goi kham "${item.name}"?`);
-    if (!confirmed) return;
-
+    setSaving(true);
     setError("");
     setNotice("");
 
     try {
-      await apiRequest<MedicalPackage>(`/dashboard/packages/${item.id}`, { method: "DELETE" });
-      setNotice("Da xoa goi kham");
-      if (selectedPackage?.id === item.id) {
-        setSelectedPackage(null);
-      }
+      await apiRequest<MedicalPackage>(`/dashboard/packages/${deleteTarget.id}`, { method: "DELETE" });
+      setNotice("Đã xóa gói khám");
+      if (selectedPackage?.id === deleteTarget.id) setSelectedPackage(null);
+      setDeleteTarget(null);
       await loadPackages();
       scrollToList();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong xoa duoc goi kham");
+      setError(err instanceof Error ? err.message : "Không xóa được gói khám");
+    } finally {
+      setSaving(false);
     }
   };
 
   const openItems = (item: MedicalPackage) => {
     setSelectedPackage(item);
     setEditingItem(null);
-    setItemForm({
-      ...emptyItemForm,
-      order: String(item.items.length),
-    });
+    setDeleteItemTarget(null);
+    setItemForm({ ...emptyItemForm, order: String(item.items.length) });
     scrollToItems();
   };
 
   const startEditItem = (item: PackageItem) => {
     setEditingItem(item);
+    setDeleteItemTarget(null);
     setItemForm(toItemForm(item));
     scrollToItems();
   };
@@ -356,49 +349,47 @@ export default function PackagesPage() {
 
     try {
       if (editingItem) {
-        await apiRequest<PackageItem>(
-          `/dashboard/packages/${selectedPackage.id}/items/${editingItem.id}`,
-          {
-            method: "PATCH",
-            body: buildItemPayload(itemForm),
-          },
-        );
-        setNotice("Da cap nhat hang muc");
+        await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items/${editingItem.id}`, {
+          method: "PATCH",
+          body: buildItemPayload(itemForm),
+        });
+        setNotice("Đã cập nhật hạng mục");
       } else {
         await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items`, {
           method: "POST",
           body: buildItemPayload(itemForm),
         });
-        setNotice("Da tao hang muc");
+        setNotice("Đã tạo hạng mục");
       }
 
       setEditingItem(null);
       setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length + 1) });
       await loadPackages();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong luu duoc hang muc");
+      setError(err instanceof Error ? err.message : "Không lưu được hạng mục");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteItem = async (item: PackageItem) => {
-    if (!canWrite || !selectedPackage) return;
+  const handleDeleteItem = async () => {
+    if (!canWrite || !selectedPackage || !deleteItemTarget) return;
 
-    const confirmed = window.confirm(`Xoa hang muc "${item.name}"?`);
-    if (!confirmed) return;
-
+    setSaving(true);
     setError("");
     setNotice("");
 
     try {
-      await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items/${item.id}`, {
+      await apiRequest<PackageItem>(`/dashboard/packages/${selectedPackage.id}/items/${deleteItemTarget.id}`, {
         method: "DELETE",
       });
-      setNotice("Da xoa hang muc");
+      setNotice("Đã xóa hạng mục");
+      setDeleteItemTarget(null);
       await loadPackages();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong xoa duoc hang muc");
+      setError(err instanceof Error ? err.message : "Không xóa được hạng mục");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -406,29 +397,13 @@ export default function PackagesPage() {
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
       {notice || error ? (
         <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
-          <div
-            className={`rounded-md border px-4 py-3 shadow-lg ${
-              error
-                ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]"
-                : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"
-            }`}
-          >
+          <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">{error ? "Co loi xay ra" : "Thanh cong"}</p>
+                <p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p>
                 <p className="mt-1 text-sm">{error || notice}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setError("");
-                  setNotice("");
-                }}
-                className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100"
-                aria-label="Dong thong bao"
-              >
-                x
-              </button>
+              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
             </div>
           </div>
         </div>
@@ -437,60 +412,21 @@ export default function PackagesPage() {
       <section ref={listPanelRef} className="min-w-0 scroll-mt-24 space-y-4">
         <div className="flex flex-col gap-3 rounded-md border border-[#dce3ee] bg-white p-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-medium text-[#55708f]">Du lieu nen</p>
-            <h2 className="mt-1 text-2xl font-semibold">Goi kham</h2>
-            <p className="mt-2 text-sm text-[#667892]">
-              Quan ly gia goi, phi dich vu, ho tro BHYT va cac hang muc nam trong goi.
-            </p>
+            <p className="text-sm font-medium text-[#55708f]">Dữ liệu nền</p>
+            <h2 className="mt-1 text-2xl font-semibold">Gói khám</h2>
+            <p className="mt-2 text-sm text-[#667892]">Quản lý giá gói, phí dịch vụ, hỗ trợ BHYT và các hạng mục nằm trong gói.</p>
           </div>
-          {canWrite ? (
-            <button
-              onClick={startCreate}
-              className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]"
-            >
-              Tao goi kham
-            </button>
-          ) : null}
+          {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo gói khám</button> : null}
         </div>
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
           <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[1fr_170px_150px]">
-            <input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Tim theo ten, slug hoac tom tat"
-              className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-            />
-            <select
-              value={status}
-              onChange={(event) => {
-                setStatus(event.target.value);
-                setPage(1);
-              }}
-              className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+            <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm theo tên, slug hoặc tóm tắt" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+              {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-            <select
-              value={popular}
-              onChange={(event) => {
-                setPopular(event.target.value);
-                setPage(1);
-              }}
-              className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-            >
-              {popularOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+            <select value={popular} onChange={(event) => { setPopular(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+              {popularOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
 
@@ -498,123 +434,52 @@ export default function PackagesPage() {
             <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
               <thead>
                 <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Goi kham</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Chuyen khoa</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Gia</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Nhan</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hang muc</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lich hen</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tac</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Gói khám</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Chuyên khoa</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Giá</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Nhãn</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hạng mục</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Lịch hẹn</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-[#667892]">
-                      Dang tai danh sach...
-                    </td>
-                  </tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Đang tải danh sách...</td></tr>
                 ) : packages.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-[#667892]">
-                      Chua co goi kham phu hop
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Chưa có gói khám phù hợp</td></tr>
+                ) : packages.map((item) => (
+                  <tr key={item.id} className="align-top">
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold text-[#172033]">{item.name}</p><p className="mt-1 max-w-sm truncate text-xs text-[#667892]">{item.summary || item.slug || "Chưa có tóm tắt"}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3">{item.department?.name || "Tất cả khoa"}</td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(item.finalPrice)}</p><p className="mt-1 text-xs text-[#667892]">Gói {formatCurrency(item.basePrice)} + phí {formatCurrency(item.serviceFee)}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {item.isPopular ? <span className="rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]">Nổi bật</span> : null}
+                        {item.isBHYTSupport ? <span className="rounded-md bg-[#e7f6ed] px-2 py-1 text-xs font-semibold text-[#1f7a3a]">BHYT</span> : null}
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${item.isActive ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#eef2f7] text-[#667892]"}`}>{item.isActive ? "Hiển thị" : "Tạm ẩn"}</span>
+                      </div>
+                    </td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3">{item.items.length}</td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3">{item._count.appointments}</td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => openItems(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hạng mục</button>
+                        {canWrite ? <button onClick={() => startEdit(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]">Sửa</button> : null}
+                        {canDelete ? <button onClick={() => startDelete(item)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e] hover:bg-[#fff3f2]">Xóa</button> : null}
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  packages.map((item) => (
-                    <tr key={item.id} className="align-top">
-                      <td className="border-b border-[#eef2f7] px-4 py-3">
-                        <p className="font-semibold text-[#172033]">{item.name}</p>
-                        <p className="mt-1 max-w-sm truncate text-xs text-[#667892]">
-                          {item.summary || item.slug || "Chua co tom tat"}
-                        </p>
-                      </td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">
-                        {item.department?.name || "Tat ca khoa"}
-                      </td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">
-                        <p className="font-semibold">{formatCurrency(item.finalPrice)}</p>
-                        <p className="mt-1 text-xs text-[#667892]">
-                          Goi {formatCurrency(item.basePrice)} + phi {formatCurrency(item.serviceFee)}
-                        </p>
-                      </td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {item.isPopular ? (
-                            <span className="rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]">
-                              Noi bat
-                            </span>
-                          ) : null}
-                          {item.isBHYTSupport ? (
-                            <span className="rounded-md bg-[#e7f6ed] px-2 py-1 text-xs font-semibold text-[#1f7a3a]">
-                              BHYT
-                            </span>
-                          ) : null}
-                          <span
-                            className={`rounded-md px-2 py-1 text-xs font-semibold ${
-                              item.isActive
-                                ? "bg-[#e7f6ed] text-[#1f7a3a]"
-                                : "bg-[#eef2f7] text-[#667892]"
-                            }`}
-                          >
-                            {item.isActive ? "Hien thi" : "Tam an"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">{item.items.length}</td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">{item._count.appointments}</td>
-                      <td className="border-b border-[#eef2f7] px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => openItems(item)}
-                            className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]"
-                          >
-                            Hang muc
-                          </button>
-                          {canWrite ? (
-                            <button
-                              onClick={() => startEdit(item)}
-                              className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f6f8fb]"
-                            >
-                              Sua
-                            </button>
-                          ) : null}
-                          {canDelete ? (
-                            <button
-                              onClick={() => void handleDelete(item)}
-                              className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e] hover:bg-[#fff3f2]"
-                            >
-                              Xoa
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
 
           <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>
-              {pagination.total} ket qua, trang {pagination.page}/{pagination.totalPages || 1}
-            </span>
+            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
             <div className="flex gap-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((current) => Math.max(current - 1, 1))}
-                className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50"
-              >
-                Truoc
-              </button>
-              <button
-                disabled={page >= pagination.totalPages}
-                onClick={() => setPage((current) => current + 1)}
-                className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50"
-              >
-                Sau
-              </button>
+              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
+              <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
         </div>
@@ -622,165 +487,49 @@ export default function PackagesPage() {
         {selectedPackage ? (
           <section ref={itemPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#55708f]">Hang muc goi kham</p>
-                <h3 className="mt-1 text-xl font-semibold">{selectedPackage.name}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPackage(null);
-                  setEditingItem(null);
-                }}
-                className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]"
-              >
-                Dong
-              </button>
+              <div><p className="text-sm font-medium text-[#55708f]">Hạng mục gói khám</p><h3 className="mt-1 text-xl font-semibold">{selectedPackage.name}</h3></div>
+              <button type="button" onClick={() => { setSelectedPackage(null); setEditingItem(null); setDeleteItemTarget(null); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Đóng</button>
             </div>
+
+            {deleteItemTarget ? (
+              <div className="mt-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
+                <h4 className="font-semibold text-[#b3261e]">Xác nhận xóa hạng mục</h4>
+                <p className="mt-2 text-sm text-[#5f2630]">{deleteItemTarget.name}</p>
+                <div className="mt-3 flex gap-2"><button disabled={saving} onClick={() => void handleDeleteItem()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xóa</button><button type="button" onClick={() => setDeleteItemTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
               <div className="overflow-x-auto rounded-md border border-[#e5ebf3]">
                 <table className="w-full min-w-[680px] border-separate border-spacing-0 text-left text-sm">
-                  <thead>
-                    <tr className="text-[#667892]">
-                      <th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Thu tu</th>
-                      <th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Hang muc</th>
-                      <th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Gia</th>
-                      <th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Tinh trong goi</th>
-                      <th className="border-b border-[#e5ebf3] px-3 py-2 text-right font-semibold">Thao tac</th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="text-[#667892]"><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Thứ tự</th><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Hạng mục</th><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Giá</th><th className="border-b border-[#e5ebf3] px-3 py-2 font-semibold">Tính trong gói</th><th className="border-b border-[#e5ebf3] px-3 py-2 text-right font-semibold">Thao tác</th></tr></thead>
                   <tbody>
                     {selectedPackage.items.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-3 py-8 text-center text-[#667892]">
-                          Chua co hang muc
-                        </td>
+                      <tr><td colSpan={5} className="px-3 py-8 text-center text-[#667892]">Chưa có hạng mục</td></tr>
+                    ) : selectedPackage.items.map((item) => (
+                      <tr key={item.id}>
+                        <td className="border-b border-[#eef2f7] px-3 py-2">{item.order}</td>
+                        <td className="border-b border-[#eef2f7] px-3 py-2"><p className="font-semibold">{item.name}</p><p className="mt-1 text-xs text-[#667892]">{item.description || "Chưa có mô tả"}</p></td>
+                        <td className="border-b border-[#eef2f7] px-3 py-2">{formatCurrency(item.price)}</td>
+                        <td className="border-b border-[#eef2f7] px-3 py-2">{item.included ? "Có" : "Tính riêng"}</td>
+                        <td className="border-b border-[#eef2f7] px-3 py-2"><div className="flex justify-end gap-2">{canWrite ? <><button onClick={() => startEditItem(item)} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button><button onClick={() => setDeleteItemTarget(item)} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xóa</button></> : null}</div></td>
                       </tr>
-                    ) : (
-                      selectedPackage.items.map((item) => (
-                        <tr key={item.id}>
-                          <td className="border-b border-[#eef2f7] px-3 py-2">{item.order}</td>
-                          <td className="border-b border-[#eef2f7] px-3 py-2">
-                            <p className="font-semibold">{item.name}</p>
-                            <p className="mt-1 text-xs text-[#667892]">
-                              {item.description || "Chua co mo ta"}
-                            </p>
-                          </td>
-                          <td className="border-b border-[#eef2f7] px-3 py-2">{formatCurrency(item.price)}</td>
-                          <td className="border-b border-[#eef2f7] px-3 py-2">
-                            {item.included ? "Co" : "Tinh rieng"}
-                          </td>
-                          <td className="border-b border-[#eef2f7] px-3 py-2">
-                            <div className="flex justify-end gap-2">
-                              {canWrite ? (
-                                <>
-                                  <button
-                                    onClick={() => startEditItem(item)}
-                                    className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]"
-                                  >
-                                    Sua
-                                  </button>
-                                  <button
-                                    onClick={() => void handleDeleteItem(item)}
-                                    className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]"
-                                  >
-                                    Xoa
-                                  </button>
-                                </>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
 
               {canWrite ? (
                 <form className="space-y-3 rounded-md border border-[#e5ebf3] p-4" onSubmit={handleItemSubmit}>
-                  <h4 className="font-semibold">{editingItem ? "Sua hang muc" : "Them hang muc"}</h4>
-                  <input
-                    value={itemForm.name}
-                    onChange={(event) =>
-                      setItemForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                    placeholder="Ten hang muc"
-                    className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-                    required
-                  />
-                  <textarea
-                    value={itemForm.description}
-                    onChange={(event) =>
-                      setItemForm((current) => ({ ...current, description: event.target.value }))
-                    }
-                    placeholder="Mo ta"
-                    rows={3}
-                    className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-                  />
+                  <h4 className="font-semibold">{editingItem ? "Sửa hạng mục" : "Thêm hạng mục"}</h4>
+                  <input value={itemForm.name} onChange={(event) => setItemForm((current) => ({ ...current, name: event.target.value }))} placeholder="Tên hạng mục" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+                  <textarea value={itemForm.description} onChange={(event) => setItemForm((current) => ({ ...current, description: event.target.value }))} placeholder="Mô tả" rows={3} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="text-xs font-medium text-[#667892]">Gia</span>
-                      <input
-                        value={formatMoneyInput(itemForm.price)}
-                        onChange={(event) =>
-                          setItemForm((current) => ({
-                            ...current,
-                            price: parseMoneyInput(event.target.value),
-                          }))
-                        }
-                        placeholder="0"
-                        inputMode="numeric"
-                        className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs font-medium text-[#667892]">Thu tu</span>
-                      <input
-                        value={itemForm.order}
-                        onChange={(event) =>
-                          setItemForm((current) => ({
-                            ...current,
-                            order: event.target.value.replace(/\D/g, ""),
-                          }))
-                        }
-                        inputMode="numeric"
-                        className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-                      />
-                    </label>
+                    <label className="block"><span className="text-xs font-medium text-[#667892]">Giá</span><input value={formatMoneyInput(itemForm.price)} onChange={(event) => setItemForm((current) => ({ ...current, price: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
+                    <label className="block"><span className="text-xs font-medium text-[#667892]">Thứ tự</span><input value={itemForm.order} onChange={(event) => setItemForm((current) => ({ ...current, order: event.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
                   </div>
-                  <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2">
-                    <span className="text-sm font-medium text-[#334155]">Nam trong goi</span>
-                    <input
-                      type="checkbox"
-                      checked={itemForm.included}
-                      onChange={(event) =>
-                        setItemForm((current) => ({ ...current, included: event.target.checked }))
-                      }
-                      className="h-4 w-4 accent-[#0d4f8b]"
-                    />
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      disabled={saving}
-                      className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    >
-                      {saving ? "Dang luu..." : editingItem ? "Luu hang muc" : "Them hang muc"}
-                    </button>
-                    {editingItem ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingItem(null);
-                          setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length) });
-                        }}
-                        className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]"
-                      >
-                        Huy
-                      </button>
-                    ) : null}
-                  </div>
+                  <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Nằm trong gói</span><input type="checkbox" checked={itemForm.included} onChange={(event) => setItemForm((current) => ({ ...current, included: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
+                  <div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{saving ? "Đang lưu..." : editingItem ? "Lưu hạng mục" : "Thêm hạng mục"}</button>{editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button> : null}</div>
                 </form>
               ) : null}
             </div>
@@ -788,165 +537,33 @@ export default function PackagesPage() {
         ) : null}
       </section>
 
-      <aside
-        ref={formPanelRef}
-        className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start"
-      >
-        <h3 className="text-lg font-semibold">{editing ? "Cap nhat goi kham" : "Tao goi kham"}</h3>
-        <p className="mt-2 text-sm leading-6 text-[#667892]">
-          Slug tu sinh theo ten goi. Backend hien chua co field anh cho goi kham, nen UI chua upload anh o man nay.
-        </p>
+      <aside ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24 xl:self-start">
+        {deleteTarget ? (
+          <div className="mb-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
+            <h3 className="font-semibold text-[#b3261e]">Xác nhận xóa gói khám</h3>
+            <p className="mt-2 text-sm text-[#5f2630]">{deleteTarget.name}</p>
+            <div className="mt-3 flex gap-2"><button disabled={saving} onClick={() => void handleDelete()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xóa</button><button type="button" onClick={() => setDeleteTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button></div>
+          </div>
+        ) : null}
+
+        <h3 className="text-lg font-semibold">{editing ? "Cập nhật gói khám" : "Tạo gói khám"}</h3>
+        <p className="mt-2 text-sm leading-6 text-[#667892]">Slug tự sinh theo tên gói. Backend hiện chưa có field ảnh cho gói khám, nên UI chưa upload ảnh ở màn này.</p>
 
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Ten goi kham</span>
-            <input
-              value={form.name}
-              onChange={(event) => handleNameChange(event.target.value)}
-              disabled={!canWrite}
-              className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Slug</span>
-            <input
-              value={form.slug}
-              onChange={(event) => {
-                setSlugTouched(true);
-                setForm((current) => ({ ...current, slug: createSlug(event.target.value) }));
-              }}
-              disabled={!canWrite}
-              className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Chuyen khoa</span>
-            <select
-              value={form.departmentId}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, departmentId: event.target.value }))
-              }
-              disabled={!canWrite}
-              className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-            >
-              <option value="">Tat ca khoa</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Tên gói khám</span><input value={form.name} onChange={(event) => handleNameChange(event.target.value)} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Slug</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Chuyên khoa</span><select value={form.departmentId} onChange={(event) => setForm((current) => ({ ...current, departmentId: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"><option value="">Tất cả khoa</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Gia goi</span>
-              <input
-                value={formatMoneyInput(form.basePrice)}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    basePrice: parseMoneyInput(event.target.value),
-                  }))
-                }
-                disabled={!canWrite}
-                placeholder="500.000"
-                inputMode="numeric"
-                className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Phi dich vu</span>
-              <input
-                value={formatMoneyInput(form.serviceFee)}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceFee: parseMoneyInput(event.target.value),
-                  }))
-                }
-                disabled={!canWrite}
-                placeholder="0"
-                inputMode="numeric"
-                className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-              />
-            </label>
+            <label className="block"><span className="text-sm font-medium text-[#334155]">Giá gói</span><input value={formatMoneyInput(form.basePrice)} onChange={(event) => setForm((current) => ({ ...current, basePrice: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="500.000" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
+            <label className="block"><span className="text-sm font-medium text-[#334155]">Phí dịch vụ</span><input value={formatMoneyInput(form.serviceFee)} onChange={(event) => setForm((current) => ({ ...current, serviceFee: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           </div>
-          <p className="text-xs text-[#667892]">
-            Tong hien thi: {formatCurrency(Number(form.basePrice || 0) + Number(form.serviceFee || 0))}
-          </p>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Tom tat</span>
-            <input
-              value={form.summary}
-              onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))}
-              disabled={!canWrite}
-              className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Mo ta</span>
-            <textarea
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-              disabled={!canWrite}
-              rows={3}
-              className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-[#334155]">Ghi chu</span>
-            <textarea
-              value={form.note}
-              onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
-              disabled={!canWrite}
-              rows={2}
-              className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
-            />
-          </label>
-          <div className="space-y-2">
-            {[
-              ["isPopular", "Goi noi bat"],
-              ["isBHYTSupport", "Ho tro BHYT"],
-              ["isActive", "Dang hien thi"],
-            ].map(([key, label]) => (
-              <label key={key} className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2">
-                <span className="text-sm font-medium text-[#334155]">{label}</span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(form[key as keyof PackageForm])}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, [key]: event.target.checked }))
-                  }
-                  disabled={!canWrite}
-                  className="h-4 w-4 accent-[#0d4f8b]"
-                />
-              </label>
-            ))}
-          </div>
+          <p className="text-xs text-[#667892]">Tổng hiển thị: {formatCurrency(Number(form.basePrice || 0) + Number(form.serviceFee || 0))}</p>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Tóm tắt</span><input value={form.summary} onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canWrite} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block"><span className="text-sm font-medium text-[#334155]">Ghi chú</span><textarea value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} disabled={!canWrite} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <div className="space-y-2">{[["isPopular", "Gói nổi bật"], ["isBHYTSupport", "Hỗ trợ BHYT"], ["isActive", "Đang hiển thị"]].map(([key, label]) => <label key={key} className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">{label}</span><input type="checkbox" checked={Boolean(form[key as keyof PackageForm])} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" /></label>)}</div>
 
-          {canWrite ? (
-            <div className="flex gap-2">
-              <button
-                disabled={saving}
-                className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
-              >
-                {saving ? "Dang luu..." : editing ? "Luu thay doi" : "Tao goi kham"}
-              </button>
-              {editing ? (
-                <button
-                  type="button"
-                  onClick={startCreate}
-                  className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]"
-                >
-                  Huy
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          {canWrite ? <div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo gói khám"}</button>{editing ? <button type="button" onClick={startCreate} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb]">Hủy</button> : null}</div> : null}
         </form>
       </aside>
     </div>

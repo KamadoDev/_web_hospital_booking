@@ -34,16 +34,16 @@ const emptyItemForm: ItemForm = {
 };
 
 const statusOptions: { value: "" | PrescriptionStatus; label: string }[] = [
-  { value: "", label: "Tat ca trang thai" },
-  { value: "DRAFT", label: "Ban nhap" },
-  { value: "ISSUED", label: "Da phat hanh" },
-  { value: "CANCELLED", label: "Da huy" },
+  { value: "", label: "Tất cả trạng thái" },
+  { value: "DRAFT", label: "Bản nháp" },
+  { value: "ISSUED", label: "Đã phát hành" },
+  { value: "CANCELLED", label: "Đã huỷ" },
 ];
 
 const statusLabel: Record<PrescriptionStatus, string> = {
-  DRAFT: "Ban nhap",
-  ISSUED: "Da phat hanh",
-  CANCELLED: "Da huy",
+  DRAFT: "Bản nháp",
+  ISSUED: "Đã phát hành",
+  CANCELLED: "Đã huỷ",
 };
 
 const statusClass: Record<PrescriptionStatus, string> = {
@@ -96,6 +96,7 @@ export default function PrescriptionsPage() {
   const [createNote, setCreateNote] = useState("");
   const [note, setNote] = useState("");
   const [editingItem, setEditingItem] = useState<PrescriptionItem | null>(null);
+  const [deleteItemTarget, setDeleteItemTarget] = useState<PrescriptionItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
   const detailRef = useRef<HTMLElement | null>(null);
 
@@ -126,7 +127,7 @@ export default function PrescriptionsPage() {
         current ? result.items.find((item) => item.id === current.id) || current : current,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong tai duoc don thuoc");
+      setError(err instanceof Error ? err.message : "Không tải được đơn thuốc");
     } finally {
       setLoading(false);
     }
@@ -172,6 +173,7 @@ export default function PrescriptionsPage() {
     setSelected(prescription);
     setNote(prescription.note || "");
     setEditingItem(null);
+    setDeleteItemTarget(null);
     setItemForm({ ...emptyItemForm, sortOrder: String(prescription.items.length) });
     scrollDetail();
   };
@@ -194,11 +196,11 @@ export default function PrescriptionsPage() {
       setNote(created.note || "");
       setCreateRecordId("");
       setCreateNote("");
-      setNotice("Da tao don thuoc");
+      setNotice("Đã tạo đơn thuốc");
       await loadPrescriptions();
       scrollDetail();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong tao duoc don thuoc");
+      setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc");
     } finally {
       setBusy(false);
     }
@@ -217,10 +219,10 @@ export default function PrescriptionsPage() {
       });
       setSelected(updated);
       setNote(updated.note || "");
-      setNotice("Da cap nhat ghi chu don");
+      setNotice("Đã cập nhật ghi chú đơn");
       await loadPrescriptions();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong cap nhat duoc don thuoc");
+      setError(err instanceof Error ? err.message : "Không cập nhật được đơn thuốc");
     } finally {
       setBusy(false);
     }
@@ -239,7 +241,7 @@ export default function PrescriptionsPage() {
       setNotice(message);
       await loadPrescriptions();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong thuc hien duoc thao tac");
+      setError(err instanceof Error ? err.message : "Không thực hiện được thao tác");
     } finally {
       setBusy(false);
     }
@@ -263,31 +265,33 @@ export default function PrescriptionsPage() {
       );
       setSelected(updated);
       setEditingItem(null);
+      setDeleteItemTarget(null);
       setItemForm({ ...emptyItemForm, sortOrder: String(updated.items.length) });
-      setNotice(editingItem ? "Da cap nhat thuoc" : "Da them thuoc");
+      setNotice(editingItem ? "Đã cập nhật thuốc" : "Đã thêm thuốc");
       await loadPrescriptions();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong luu duoc thuoc");
+      setError(err instanceof Error ? err.message : "Không lưu được thuốc");
     } finally {
       setBusy(false);
     }
   };
 
-  const deleteItem = async (item: PrescriptionItem) => {
-    if (!selected || !canEdit || !window.confirm(`Xoa thuoc "${item.medicineName}"?`)) return;
+  const deleteItem = async () => {
+    if (!selected || !canEdit || !deleteItemTarget) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await apiRequest<PrescriptionItem>(`/dashboard/prescriptions/${selected.id}/items/${item.id}`, {
+      await apiRequest<PrescriptionItem>(`/dashboard/prescriptions/${selected.id}/items/${deleteItemTarget.id}`, {
         method: "DELETE",
       });
       const refreshed = await apiRequest<Prescription>(`/dashboard/prescriptions/${selected.id}`);
       setSelected(refreshed);
-      setNotice("Da xoa thuoc");
+      setDeleteItemTarget(null);
+      setNotice("Đã xoá thuốc");
       await loadPrescriptions();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Khong xoa duoc thuoc");
+      setError(err instanceof Error ? err.message : "Không xoá được thuốc");
     } finally {
       setBusy(false);
     }
@@ -299,8 +303,8 @@ export default function PrescriptionsPage() {
         <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
           <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
             <div className="flex items-start justify-between gap-3">
-              <div><p className="text-sm font-semibold">{error ? "Co loi xay ra" : "Thanh cong"}</p><p className="mt-1 text-sm">{error || notice}</p></div>
-              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Dong thong bao">x</button>
+              <div><p className="text-sm font-semibold">{error ? "Có lỗi xảy ra" : "Thành công"}</p><p className="mt-1 text-sm">{error || notice}</p></div>
+              <button type="button" onClick={() => { setError(""); setNotice(""); }} className="rounded-md px-2 text-lg leading-none opacity-70 hover:bg-black/5 hover:opacity-100" aria-label="Đóng thông báo">x</button>
             </div>
           </div>
         </div>
@@ -308,9 +312,9 @@ export default function PrescriptionsPage() {
 
       <section className="min-w-0 space-y-4">
         <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <p className="text-sm font-medium text-[#55708f]">Chuyen mon</p>
-          <h2 className="mt-1 text-2xl font-semibold">Don thuoc</h2>
-          <p className="mt-2 text-sm text-[#667892]">Tao don tu ho so kham, them thuoc va phat hanh don.</p>
+          <p className="text-sm font-medium text-[#55708f]">Chuyên môn</p>
+          <h2 className="mt-1 text-2xl font-semibold">Đơn thuốc</h2>
+          <p className="mt-2 text-sm text-[#667892]">Tạo đơn từ hồ sơ khám, thêm thuốc và phát hành đơn.</p>
         </div>
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
@@ -319,10 +323,10 @@ export default function PrescriptionsPage() {
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
             <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              <option value="">Tat ca bac si</option>
+              <option value="">Tất cả bác sĩ</option>
               {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
             </select>
-            <input value={prescriptionCode} onChange={(e) => { setPrescriptionCode(e.target.value); setPage(1); }} placeholder="Ma don" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <input value={prescriptionCode} onChange={(e) => { setPrescriptionCode(e.target.value); setPage(1); }} placeholder="Mã đơn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <input value={medicalRecordId} onChange={(e) => { setMedicalRecordId(e.target.value); setPage(1); }} placeholder="Medical record ID" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
           </div>
 
@@ -330,36 +334,36 @@ export default function PrescriptionsPage() {
             <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-sm">
               <thead>
                 <tr className="text-[#667892]">
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Don thuoc</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Benh nhan</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Ho so</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bac si</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trang thai</th>
-                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tac</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Đơn thuốc</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bệnh nhân</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Hồ sơ</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Bác sĩ</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 font-semibold">Trạng thái</th>
+                  <th className="border-b border-[#e5ebf3] px-4 py-3 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Dang tai don thuoc...</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải đơn thuốc...</td></tr>
                 ) : prescriptions.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chua co don thuoc phu hop</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có đơn thuốc phù hợp</td></tr>
                 ) : prescriptions.map((prescription) => (
                   <tr key={prescription.id} className="align-top">
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><button onClick={() => openDetail(prescription)} className="font-semibold text-[#0d4f8b] hover:underline">{prescription.prescriptionCode}</button><p className="mt-1 text-xs text-[#667892]">{prescription.items.length} thuoc</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><button onClick={() => openDetail(prescription)} className="font-semibold text-[#0d4f8b] hover:underline">{prescription.prescriptionCode}</button><p className="mt-1 text-xs text-[#667892]">{prescription.items.length} thuốc</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{prescription.patient.fullName}</p><p className="mt-1 text-xs text-[#667892]">{prescription.patient.phone}</p></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{prescription.medicalRecord.recordCode}</p><p className="mt-1 text-xs text-[#667892]">{prescription.medicalRecord.diagnosis || "Chua co chan doan"}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p>{prescription.medicalRecord.recordCode}</p><p className="mt-1 text-xs text-[#667892]">{prescription.medicalRecord.diagnosis || "Chưa có chẩn đoán"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(prescription.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{prescription.doctor.department.name}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[prescription.status]}`}>{statusLabel[prescription.status]}</span></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiet</button></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="flex items-center justify-between border-t border-[#e5ebf3] px-4 py-3 text-sm text-[#667892]">
-            <span>{pagination.total} ket qua, trang {pagination.page}/{pagination.totalPages || 1}</span>
+            <span>{pagination.total} kết quả, trang {pagination.page}/{pagination.totalPages || 1}</span>
             <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Truoc</button>
+              <button disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Trước</button>
               <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 font-medium disabled:opacity-50">Sau</button>
             </div>
           </div>
@@ -369,21 +373,21 @@ export default function PrescriptionsPage() {
       <aside ref={detailRef} className="scroll-mt-24 space-y-4">
         {canEdit ? (
           <section className="rounded-md border border-[#dce3ee] bg-white p-5">
-            <h3 className="text-lg font-semibold">Tao don thuoc</h3>
-            <p className="mt-2 text-sm text-[#667892]">Nhap ID ho so kham dang IN_PROGRESS/COMPLETED va chua co don.</p>
+            <h3 className="text-lg font-semibold">Tạo đơn thuốc</h3>
+            <p className="mt-2 text-sm text-[#667892]">Nhập ID hồ sơ khám đang IN_PROGRESS/COMPLETED và chưa có đơn.</p>
             <form className="mt-4 space-y-3" onSubmit={createPrescription}>
               <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Medical record ID" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
-              <textarea value={createNote} onChange={(e) => setCreateNote(e.target.value)} placeholder="Ghi chu don" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-              <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Dang tao..." : "Tao don"}</button>
+              <textarea value={createNote} onChange={(e) => setCreateNote(e.target.value)} placeholder="Ghi chú đơn" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang tạo..." : "Tạo đơn"}</button>
             </form>
           </section>
         ) : null}
 
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5 xl:sticky xl:top-24">
+        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
           {selected ? (
             <div className="space-y-5">
               <div>
-                <p className="text-sm font-medium text-[#55708f]">Chi tiet don thuoc</p>
+                <p className="text-sm font-medium text-[#55708f]">Chi tiết đơn thuốc</p>
                 <h3 className="mt-1 text-xl font-semibold">{selected.prescriptionCode}</h3>
                 <span className={`mt-3 inline-flex rounded-md px-2 py-1 text-xs font-semibold ${statusClass[selected.status]}`}>{statusLabel[selected.status]}</span>
               </div>
@@ -395,20 +399,20 @@ export default function PrescriptionsPage() {
 
               <form className="space-y-3" onSubmit={updateNote}>
                 <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Ghi chu don</span>
+                  <span className="text-sm font-medium text-[#334155]">Ghi chú đơn</span>
                   <textarea value={note} onChange={(e) => setNote(e.target.value)} disabled={!canEdit || selected.status !== "DRAFT"} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" />
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {canEdit && selected.status === "DRAFT" ? <button disabled={busy} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Luu ghi chu</button> : null}
-                  {canEdit && selected.status === "DRAFT" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/issue", "Da phat hanh don")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Phat hanh</button> : null}
-                  {selected.status !== "CANCELLED" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Da huy don thuoc")} className="rounded-md border border-[#f2b8b5] px-4 py-2 text-sm font-medium text-[#b3261e]">Huy don</button> : null}
+                  {canEdit && selected.status === "DRAFT" ? <button disabled={busy} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Lưu ghi chú</button> : null}
+                  {canEdit && selected.status === "DRAFT" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/issue", "Đã phát hành đơn")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Phát hành</button> : null}
+                  {selected.status !== "CANCELLED" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")} className="rounded-md border border-[#f2b8b5] px-4 py-2 text-sm font-medium text-[#b3261e]">Huỷ đơn</button> : null}
                 </div>
               </form>
 
               <section className="border-t border-[#e5ebf3] pt-5">
-                <h4 className="font-semibold">Thuoc trong don</h4>
+                <h4 className="font-semibold">Thuốc trong đơn</h4>
                 <div className="mt-3 space-y-2">
-                  {selected.items.length === 0 ? <p className="text-sm text-[#667892]">Chua co thuoc</p> : selected.items.map((item) => (
+                  {selected.items.length === 0 ? <p className="text-sm text-[#667892]">Chưa có thuốc</p> : selected.items.map((item) => (
                     <div key={item.id} className="rounded-md border border-[#e5ebf3] p-3 text-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -419,31 +423,41 @@ export default function PrescriptionsPage() {
                         </div>
                         {canEdit && selected.status === "DRAFT" ? (
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => { setEditingItem(item); setItemForm(toItemForm(item)); }} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sua</button>
-                            <button type="button" onClick={() => void deleteItem(item)} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xoa</button>
+                            <button type="button" onClick={() => { setEditingItem(item); setDeleteItemTarget(null); setItemForm(toItemForm(item)); }} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button>
+                            <button type="button" onClick={() => { setDeleteItemTarget(item); setEditingItem(null); }} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xoá</button>
                           </div>
                         ) : null}
                       </div>
                     </div>
                   ))}
                 </div>
+                {deleteItemTarget ? (
+                  <div className="mt-3 rounded-md border border-[#f2d4d2] bg-[#fff8f7] p-3 text-sm">
+                    <p className="font-semibold text-[#8f1d18]">Xoá thuốc khỏi đơn?</p>
+                    <p className="mt-1 text-[#667892]">{deleteItemTarget.medicineName}</p>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => setDeleteItemTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ lại</button>
+                      <button type="button" disabled={busy} onClick={() => void deleteItem()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xoá thuốc</button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {canEdit && selected.status === "DRAFT" ? (
                   <form className="mt-4 space-y-3 rounded-md border border-[#e5ebf3] p-3" onSubmit={saveItem}>
-                    <h5 className="font-semibold">{editingItem ? "Sua thuoc" : "Them thuoc"}</h5>
-                    <input value={itemForm.medicineName} onChange={(e) => setItemForm((current) => ({ ...current, medicineName: e.target.value }))} placeholder="Ten thuoc" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+                    <h5 className="font-semibold">{editingItem ? "Sửa thuốc" : "Thêm thuốc"}</h5>
+                    <input value={itemForm.medicineName} onChange={(e) => setItemForm((current) => ({ ...current, medicineName: e.target.value }))} placeholder="Tên thuốc" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <input value={itemForm.dosage} onChange={(e) => setItemForm((current) => ({ ...current, dosage: e.target.value }))} placeholder="Lieu dung" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.frequency} onChange={(e) => setItemForm((current) => ({ ...current, frequency: e.target.value }))} placeholder="Tan suat" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.duration} onChange={(e) => setItemForm((current) => ({ ...current, duration: e.target.value }))} placeholder="Thoi gian" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.quantity} onChange={(e) => setItemForm((current) => ({ ...current, quantity: e.target.value.replace(/\D/g, "") }))} placeholder="So luong" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.unit} onChange={(e) => setItemForm((current) => ({ ...current, unit: e.target.value }))} placeholder="Don vi" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-                      <input value={itemForm.sortOrder} onChange={(e) => setItemForm((current) => ({ ...current, sortOrder: e.target.value.replace(/\D/g, "") }))} placeholder="Thu tu" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.dosage} onChange={(e) => setItemForm((current) => ({ ...current, dosage: e.target.value }))} placeholder="Liều dùng" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.frequency} onChange={(e) => setItemForm((current) => ({ ...current, frequency: e.target.value }))} placeholder="Tần suất" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.duration} onChange={(e) => setItemForm((current) => ({ ...current, duration: e.target.value }))} placeholder="Thời gian" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.quantity} onChange={(e) => setItemForm((current) => ({ ...current, quantity: e.target.value.replace(/\D/g, "") }))} placeholder="Số lượng" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.unit} onChange={(e) => setItemForm((current) => ({ ...current, unit: e.target.value }))} placeholder="Đơn vị" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      <input value={itemForm.sortOrder} onChange={(e) => setItemForm((current) => ({ ...current, sortOrder: e.target.value.replace(/\D/g, "") }))} placeholder="Thứ tự" inputMode="numeric" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                     </div>
-                    <textarea value={itemForm.instruction} onChange={(e) => setItemForm((current) => ({ ...current, instruction: e.target.value }))} placeholder="Huong dan dung thuoc" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                    <textarea value={itemForm.instruction} onChange={(e) => setItemForm((current) => ({ ...current, instruction: e.target.value }))} placeholder="Hướng dẫn dùng thuốc" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                     <div className="flex gap-2">
-                      <button disabled={busy} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Dang luu..." : editingItem ? "Luu thuoc" : "Them thuoc"}</button>
-                      {editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, sortOrder: String(selected.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huy</button> : null}
+                      <button disabled={busy} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang lưu..." : editingItem ? "Lưu thuốc" : "Thêm thuốc"}</button>
+                      {editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, sortOrder: String(selected.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button> : null}
                     </div>
                   </form>
                 ) : null}
@@ -451,9 +465,9 @@ export default function PrescriptionsPage() {
             </div>
           ) : (
             <div>
-              <p className="text-sm font-medium text-[#55708f]">Chi tiet don thuoc</p>
-              <h3 className="mt-1 text-xl font-semibold">Chon mot don thuoc</h3>
-              <p className="mt-2 text-sm leading-6 text-[#667892]">Bam vao ma don de xem va chinh sua thuoc trong don.</p>
+              <p className="text-sm font-medium text-[#55708f]">Chi tiết đơn thuốc</p>
+              <h3 className="mt-1 text-xl font-semibold">Chọn một đơn thuốc</h3>
+              <p className="mt-2 text-sm leading-6 text-[#667892]">Bấm vào mã đơn để xem và chỉnh sửa thuốc trong đơn.</p>
             </div>
           )}
         </section>
