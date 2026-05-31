@@ -1,0 +1,54 @@
+import type { Request, Response, NextFunction } from "express";
+import SiteSettingsService from "../services/siteSettings.service.js";
+
+export const getPublicSiteSettingsHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const settings = await SiteSettingsService.get();
+
+    return res.json({
+      success: true,
+      data: settings.value,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDashboardSiteSettingsHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const settings = await SiteSettingsService.get();
+
+    return res.json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDashboardSiteSettingsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const settings = await SiteSettingsService.update(req.body);
+
+    return res.json({
+      success: true,
+      message: "Cap nhat cau hinh website thanh cong",
+      data: settings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

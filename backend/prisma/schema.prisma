@@ -857,6 +857,66 @@ model ChatbotSetting {
   @@index([isActive])
 }
 
+// ===================== PUBLIC WEB CONFIG =====================
+
+model SiteSetting {
+  id String @id @default(uuid())
+
+  key   String @unique
+  value Json
+
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model Banner {
+  id String @id @default(uuid())
+
+  title       String
+  subtitle    String?
+  image       String
+  mobileImage String?
+  linkUrl     String?
+  target      String?
+  position    String  @default("HOME_HERO")
+
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  startAt DateTime?
+  endAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([position])
+  @@index([isActive])
+  @@index([order])
+}
+
+model PublicFAQ {
+  id String @id @default(uuid())
+
+  question String
+  answer   String
+  category String?
+
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([order])
+}
+
 // ===================== CONSULTATION REQUEST =====================
 
 model ConsultationRequest {

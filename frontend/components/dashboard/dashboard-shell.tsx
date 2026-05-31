@@ -13,6 +13,7 @@ import {
   Package,
   Pill,
   Receipt,
+  Settings,
   Stethoscope,
   Sun,
   Users,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DashboardChatbotWidget } from "@/components/dashboard/dashboard-chatbot-widget";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import type { DashboardRole } from "@/lib/types";
@@ -43,6 +45,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/prescriptions", label: "Đơn thuốc", icon: Pill, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/chatbot", label: "Chatbot", icon: Bot, roles: ["ADMIN", "STAFF"] },
   { href: "/dashboard/users", label: "Nhân sự", icon: Users, roles: ["ADMIN"] },
+  { href: "/dashboard/site-settings", label: "Cấu hình website", icon: Settings, roles: ["ADMIN", "STAFF"] },
 ];
 
 const roleLabel: Record<DashboardRole, string> = {
@@ -155,6 +158,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
         </header>
         <main className="px-4 py-6 sm:px-6">{children}</main>
+        <DashboardChatbotWidget />
       </div>
     </div>
   );

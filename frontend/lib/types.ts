@@ -482,6 +482,35 @@ export type ChatbotOverview = {
   latestSessions: ChatbotSession[];
 };
 
+export type ChatBookingDraft = {
+  departmentId?: string;
+  departmentSlug?: string;
+  packageId?: string;
+  packageSlug?: string;
+  doctorId?: string;
+  date?: string;
+  timeSlotId?: string;
+  symptoms?: string[];
+  reason?: string;
+};
+
+export type ChatbotSuggestedAction = {
+  type: string;
+  label: string;
+  payload: Record<string, unknown>;
+};
+
+export type ChatbotMessageResponse = {
+  sessionId: string;
+  reply: string;
+  intent: string;
+  state: string;
+  nextStep: string;
+  confidence: number;
+  draft: ChatBookingDraft;
+  suggestedActions: ChatbotSuggestedAction[];
+};
+
 export type StatisticsRange = {
   from: string;
   to: string;
@@ -599,6 +628,57 @@ export type MediaAsset = {
   ownerId: string | null;
   isUsed: boolean;
   uploadedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SiteSettingsValue = {
+  hospitalName: string | null;
+  logo: string | null;
+  favicon: string | null;
+  hotline: string | null;
+  emergencyHotline: string | null;
+  email: string | null;
+  address: string | null;
+  workingHours: string | null;
+  mapUrl: string | null;
+  socialLinks: Record<string, string>;
+};
+
+export type SiteSettingsRecord = {
+  id: string;
+  key: string;
+  value: SiteSettingsValue;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Banner = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  image: string;
+  mobileImage: string | null;
+  linkUrl: string | null;
+  target: string | null;
+  position: string;
+  order: number;
+  isActive: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PublicFAQ = {
+  id: string;
+  question: string;
+  answer: string;
+  category: string | null;
+  order: number;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 };

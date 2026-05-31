@@ -1,6 +1,7 @@
 import { Router } from "express";
 import appointmentRouter from "./appointment.route.js";
 import authOtpRouter from "./authOtp.route.js";
+import { dashboardBannerRouter, publicBannerRouter } from "./banner.route.js";
 import chatbotRouter from "./chatbot.route.js";
 import departmentRouter from "./department.route.js";
 import dashboardAppointmentRouter from "./dashboardAppointment.route.js";
@@ -19,7 +20,12 @@ import paymentRouter from "./payment.route.js";
 import prescriptionRouter from "./prescription.route.js";
 import publicDepartmentRouter from "./publicDepartment.route.js";
 import publicDoctorRouter from "./publicDoctor.route.js";
+import { dashboardFAQRouter, publicFAQRouter } from "./publicFAQ.route.js";
 import publicPackageRouter from "./publicPackage.route.js";
+import {
+  dashboardSiteSettingsRouter,
+  publicSiteSettingsRouter,
+} from "./siteSettings.route.js";
 import uploadRouter from "./upload.route.js";
 
 const router = Router();
@@ -31,6 +37,9 @@ router.use("/appointments", appointmentRouter);
 router.use("/dashboard/appointments", dashboardAppointmentRouter);
 router.use("/dashboard/chatbot", dashboardChatbotRouter);
 router.use("/dashboard/chatbot/faqs", dashboardChatbotFaqRouter);
+router.use("/dashboard/banners", dashboardBannerRouter);
+router.use("/dashboard/faqs", dashboardFAQRouter);
+router.use("/dashboard/site-settings", dashboardSiteSettingsRouter);
 router.use("/dashboard/statistics", dashboardStatisticsRouter);
 router.use("/dashboard/users", dashboardUserRouter);
 router.use("/dashboard/departments", departmentRouter);
@@ -42,8 +51,11 @@ router.use("/dashboard/medical-records", medicalRecordRouter);
 router.use("/dashboard/packages", packageRouter);
 router.use("/dashboard/prescriptions", prescriptionRouter);
 router.use("/departments", publicDepartmentRouter);
+router.use("/banners", publicBannerRouter);
 router.use("/doctors", publicDoctorRouter);
+router.use("/faqs", publicFAQRouter);
 router.use("/packages", publicPackageRouter);
+router.use("/site-settings", publicSiteSettingsRouter);
 router.use("/payments", paymentRouter);
 router.use("/uploads", uploadRouter);
 

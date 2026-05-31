@@ -79,7 +79,7 @@ class ChatbotContextService {
       this.getDepartments(),
       shouldLoadPackages ? this.getPackages(draft) : Promise.resolve([]),
       shouldLoadDoctors ? this.getDoctors(draft) : Promise.resolve([]),
-      intent === "AVAILABLE_SLOT_LOOKUP" || intent === "DOCTOR_LIST" || draft.doctorId
+      intent === "AVAILABLE_SLOT_LOOKUP" || intent === "DOCTOR_LIST" || draft.doctorId || draft.departmentId
         ? this.getAvailableSlots(draft)
         : Promise.resolve([]),
       shouldLoadFaqs ? this.getFaqs() : Promise.resolve([]),
@@ -245,8 +245,6 @@ class ChatbotContextService {
   }
 
   private async getAvailableSlots(draft: ChatBookingDraft) {
-    if (!draft.doctorId && !draft.departmentId) return [];
-
     const today = toDateOnly(new Date());
     const requestedDate = draft.date && draft.date >= today ? draft.date : undefined;
     const date = requestedDate
