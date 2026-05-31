@@ -5,7 +5,14 @@ import { cloudinary } from "../config/cloudinary.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 
-type UploadFolder = "departments" | "users" | "doctors" | "packages" | "medical-results";
+type UploadFolder =
+  | "departments"
+  | "users"
+  | "doctors"
+  | "packages"
+  | "medical-results"
+  | "site-settings"
+  | "banners";
 
 const folderMap: Record<UploadFolder, string> = {
   departments: "hospital/departments",
@@ -13,6 +20,8 @@ const folderMap: Record<UploadFolder, string> = {
   doctors: "hospital/doctors",
   packages: "hospital/packages",
   "medical-results": "hospital/medical-results",
+  "site-settings": "hospital/site-settings",
+  banners: "hospital/banners",
 };
 
 const mediaAssetSelect = {
@@ -147,12 +156,39 @@ class MediaAssetService {
     return asset;
   }
 
-  async detachOwnerAssets(ownerType: MediaOwnerType, ownerId: string, exceptAssetId?: string) {
+  async detachOwnerAssets(
+    ownerType: MediaOwnerType,
+    ownerId: string,
+    exceptAssetId?: string | string[],
+  ) {
+    const exceptAssetIds = Array.isArray(exceptAssetId)
+      ? exceptAssetId.filter(Boolean)
+      : exceptAssetId
+        ? [exceptAssetId]
+        : [];
+
     return prisma.mediaAsset.updateMany({
       where: {
         ownerType,
         ownerId,
-        ...(exceptAssetId ? { id: { not: exceptAssetId } } : {}),
+        ...(exceptAssetIds.length ? { id: { notIn: exceptAssetIds } } : {}),
+      },
+      data: {
+        isUsed: false,
+        ownerType: null,
+        ownerId: null,
+      },
+    });
+  }
+
+  async detachOwnerAssetByUrl(ownerType: MediaOwnerType, ownerId: string, url?: string | null) {
+    if (!url) return { count: 0 };
+
+    return prisma.mediaAsset.updateMany({
+      where: {
+        ownerType,
+        ownerId,
+        url,
       },
       data: {
         isUsed: false,

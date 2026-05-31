@@ -5,7 +5,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { Banner, PublicFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
+import type { Banner, MediaAsset, PublicFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
 
 type TabKey = "settings" | "banners" | "faqs";
 
@@ -14,6 +14,8 @@ type ListResponse<T> = {
 };
 
 type SiteForm = SiteSettingsValue & {
+  logoAssetId: string;
+  faviconAssetId: string;
   facebook: string;
   zalo: string;
   youtube: string;
@@ -24,7 +26,9 @@ type BannerForm = {
   title: string;
   subtitle: string;
   image: string;
+  imageAssetId: string;
   mobileImage: string;
+  mobileImageAssetId: string;
   linkUrl: string;
   target: string;
   position: string;
@@ -51,7 +55,9 @@ const tabs: { key: TabKey; label: string }[] = [
 const emptySiteForm: SiteForm = {
   hospitalName: "",
   logo: "",
+  logoAssetId: "",
   favicon: "",
+  faviconAssetId: "",
   hotline: "",
   emergencyHotline: "",
   email: "",
@@ -69,7 +75,9 @@ const emptyBannerForm: BannerForm = {
   title: "",
   subtitle: "",
   image: "",
+  imageAssetId: "",
   mobileImage: "",
+  mobileImageAssetId: "",
   linkUrl: "",
   target: "_self",
   position: "HOME_HERO",
@@ -109,7 +117,9 @@ const toSiteForm = (settings?: SiteSettingsValue): SiteForm => {
     ...settings,
     hospitalName: settings?.hospitalName || "",
     logo: settings?.logo || "",
+    logoAssetId: "",
     favicon: settings?.favicon || "",
+    faviconAssetId: "",
     hotline: settings?.hotline || "",
     emergencyHotline: settings?.emergencyHotline || "",
     email: settings?.email || "",
@@ -128,7 +138,9 @@ const toBannerForm = (banner: Banner): BannerForm => ({
   title: banner.title,
   subtitle: banner.subtitle || "",
   image: banner.image,
+  imageAssetId: "",
   mobileImage: banner.mobileImage || "",
+  mobileImageAssetId: "",
   linkUrl: banner.linkUrl || "",
   target: banner.target || "_self",
   position: banner.position,
@@ -248,7 +260,7 @@ export default function SiteSettingsPage() {
     file: File | undefined,
     folder: string,
     key: string,
-    setter: (url: string) => void,
+    setter: (asset: MediaAsset) => void,
   ) => {
     if (!file) return;
     setUploading(key);
@@ -257,7 +269,7 @@ export default function SiteSettingsPage() {
     try {
       const [asset] = await uploadImages([file], folder);
       if (!asset) throw new Error("Upload thành công nhưng không nhận được URL ảnh");
-      setter(asset.url);
+      setter(asset);
       setNotice("Đã upload ảnh");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không upload được ảnh");
@@ -279,10 +291,15 @@ export default function SiteSettingsPage() {
         ...(siteForm.youtube.trim() ? { youtube: siteForm.youtube.trim() } : {}),
         ...(siteForm.tiktok.trim() ? { tiktok: siteForm.tiktok.trim() } : {}),
       };
-      const payload: Partial<SiteSettingsValue> = {
+      const payload: Partial<SiteSettingsValue> & {
+        logoAssetId?: string;
+        faviconAssetId?: string;
+      } = {
         hospitalName: toNullable(siteForm.hospitalName || ""),
         logo: toNullable(siteForm.logo || ""),
+        logoAssetId: siteForm.logoAssetId || undefined,
         favicon: toNullable(siteForm.favicon || ""),
+        faviconAssetId: siteForm.faviconAssetId || undefined,
         hotline: toNullable(siteForm.hotline || ""),
         emergencyHotline: toNullable(siteForm.emergencyHotline || ""),
         email: toNullable(siteForm.email || ""),
@@ -332,7 +349,9 @@ export default function SiteSettingsPage() {
         title: bannerForm.title.trim(),
         subtitle: toNullable(bannerForm.subtitle),
         image: bannerForm.image.trim(),
+        imageAssetId: bannerForm.imageAssetId || undefined,
         mobileImage: toNullable(bannerForm.mobileImage),
+        mobileImageAssetId: bannerForm.mobileImageAssetId || undefined,
         linkUrl: toNullable(bannerForm.linkUrl),
         target: toNullable(bannerForm.target),
         position: bannerForm.position.trim() || "HOME_HERO",
@@ -570,8 +589,9 @@ export default function SiteSettingsPage() {
             <aside className="space-y-4">
               {(["logo", "favicon"] as const).map((key) => (
                 <div key={key} className="rounded-md border border-[#e5ebf3] p-3">
-                  <label className="block"><span className="text-sm font-medium text-[#334155]">{key === "logo" ? "Logo" : "Favicon"}</span><input disabled={!canWrite} value={siteForm[key] || ""} onChange={(e) => setSiteForm((current) => ({ ...current, [key]: e.target.value }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                  <input disabled={!canWrite || uploading === key} type="file" accept="image/jpeg,image/png,image/webp,image/x-icon" onChange={(e) => void uploadToForm(e.target.files?.[0], "site-settings", key, (url) => setSiteForm((current) => ({ ...current, [key]: url })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
+                  <label className="block"><span className="text-sm font-medium text-[#334155]">{key === "logo" ? "Logo" : "Favicon"}</span><input disabled={!canWrite} value={siteForm[key] || ""} onChange={(e) => setSiteForm((current) => ({ ...current, [key]: e.target.value, [`${key}AssetId`]: "" }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
+                  <input disabled={!canWrite || uploading === key} type="file" accept="image/jpeg,image/png,image/webp,image/x-icon" onChange={(e) => void uploadToForm(e.target.files?.[0], "site-settings", key, (asset) => setSiteForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
+                  {uploading === key ? <p role="status" className="mt-2 text-xs font-medium text-[#0d4f8b]">Đang upload ảnh...</p> : null}
                   {siteForm[key] ? <div className="mt-3 rounded-md border border-[#e5ebf3] p-2"><img src={siteForm[key] || ""} alt={`Preview ${key}`} className="h-28 w-full rounded-md object-contain" /><p className="mt-2 truncate text-xs text-[#667892]">{siteForm[key]}</p></div> : null}
                 </div>
               ))}
@@ -616,7 +636,7 @@ export default function SiteSettingsPage() {
             <form className="mt-5 space-y-4" onSubmit={saveBanner}>
               <label className="block"><span className="text-sm font-medium text-[#334155]">Tiêu đề</span><input value={bannerForm.title} onChange={(e) => setBannerForm((current) => ({ ...current, title: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
               <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả phụ</span><textarea value={bannerForm.subtitle} onChange={(e) => setBannerForm((current) => ({ ...current, subtitle: e.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
-              {(["image", "mobileImage"] as const).map((key) => <div key={key}><label className="block"><span className="text-sm font-medium text-[#334155]">{key === "image" ? "Ảnh desktop" : "Ảnh mobile"}</span><input value={bannerForm[key]} onChange={(e) => setBannerForm((current) => ({ ...current, [key]: e.target.value }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required={key === "image"} /></label><input disabled={uploading === key} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => void uploadToForm(e.target.files?.[0], "banners", key, (url) => setBannerForm((current) => ({ ...current, [key]: url })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />{bannerForm[key] ? <div className="mt-2 rounded-md border border-[#e5ebf3] p-2"><img src={bannerForm[key]} alt={`Preview ${key}`} className="h-32 w-full rounded-md object-cover" /><p className="mt-2 truncate text-xs text-[#667892]">{bannerForm[key]}</p></div> : null}</div>)}
+              {(["image", "mobileImage"] as const).map((key) => <div key={key}><label className="block"><span className="text-sm font-medium text-[#334155]">{key === "image" ? "Ảnh desktop" : "Ảnh mobile"}</span><input value={bannerForm[key]} onChange={(e) => setBannerForm((current) => ({ ...current, [key]: e.target.value, [`${key}AssetId`]: "" }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required={key === "image"} /></label><input disabled={uploading === key} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => void uploadToForm(e.target.files?.[0], "banners", key, (asset) => setBannerForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />{uploading === key ? <p role="status" className="mt-2 text-xs font-medium text-[#0d4f8b]">Đang upload ảnh...</p> : null}{bannerForm[key] ? <div className="mt-2 rounded-md border border-[#e5ebf3] p-2"><img src={bannerForm[key]} alt={`Preview ${key}`} className="h-32 w-full rounded-md object-cover" /><p className="mt-2 truncate text-xs text-[#667892]">{bannerForm[key]}</p></div> : null}</div>)}
               <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Vị trí</span><input value={bannerForm.position} onChange={(e) => setBannerForm((current) => ({ ...current, position: e.target.value }))} list="banner-positions" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Thứ tự</span><input value={bannerForm.order} onChange={(e) => setBannerForm((current) => ({ ...current, order: e.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div>
               <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Link</span><input value={bannerForm.linkUrl} onChange={(e) => setBannerForm((current) => ({ ...current, linkUrl: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Target</span><select value={bannerForm.target} onChange={(e) => setBannerForm((current) => ({ ...current, target: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"><option value="_self">Mở cùng tab</option><option value="_blank">Mở tab mới</option></select></label></div>
               <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="text-sm font-medium text-[#334155]">Bắt đầu</span><input type="datetime-local" value={bannerForm.startAt} onChange={(e) => setBannerForm((current) => ({ ...current, startAt: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label><label className="block"><span className="text-sm font-medium text-[#334155]">Kết thúc</span><input type="datetime-local" value={bannerForm.endAt} onChange={(e) => setBannerForm((current) => ({ ...current, endAt: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label></div>

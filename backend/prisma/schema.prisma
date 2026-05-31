@@ -144,6 +144,8 @@ enum MediaOwnerType {
   DOCTOR
   PACKAGE
   MEDICAL_RESULT
+  BANNER
+  SITE_SETTING
 }
 
 // ===================== USERS =====================

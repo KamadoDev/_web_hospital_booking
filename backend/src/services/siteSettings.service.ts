@@ -1,5 +1,6 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
+import MediaAssetService from "./mediaAsset.service.js";
 
 const SITE_SETTINGS_KEY = "public_site_settings";
 
@@ -16,7 +17,10 @@ const defaultSiteSettings = {
   socialLinks: {},
 };
 
-type SiteSettingsInput = Partial<typeof defaultSiteSettings>;
+type SiteSettingsInput = Partial<typeof defaultSiteSettings> & {
+  logoAssetId?: string | null;
+  faviconAssetId?: string | null;
+};
 
 const toPrismaJson = (value: unknown) =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -44,17 +48,57 @@ class SiteSettingsService {
 
   async update(input: SiteSettingsInput) {
     const current = await this.get();
+    const logoAsset =
+      input.logoAssetId === undefined
+        ? null
+        : input.logoAssetId
+          ? await MediaAssetService.attachAsset(input.logoAssetId, "SITE_SETTING", SITE_SETTINGS_KEY)
+          : null;
+    const faviconAsset =
+      input.faviconAssetId === undefined
+        ? null
+        : input.faviconAssetId
+          ? await MediaAssetService.attachAsset(input.faviconAssetId, "SITE_SETTING", SITE_SETTINGS_KEY)
+          : null;
+    const { logoAssetId, faviconAssetId, ...settingsInput } = input;
     const nextValue = {
       ...(current.value as Record<string, unknown>),
-      ...input,
+      ...settingsInput,
+      ...(logoAssetId === null ? { logo: null } : {}),
+      ...(faviconAssetId === null ? { favicon: null } : {}),
+      ...(logoAsset ? { logo: logoAsset.url } : {}),
+      ...(faviconAsset ? { favicon: faviconAsset.url } : {}),
     };
 
-    return prisma.siteSetting.update({
+    const setting = await prisma.siteSetting.update({
       where: { key: SITE_SETTINGS_KEY },
       data: {
         value: toPrismaJson(nextValue),
       },
     });
+
+    const currentValue = current.value as Record<string, unknown>;
+    const currentLogo = typeof currentValue.logo === "string" ? currentValue.logo : null;
+    const currentFavicon = typeof currentValue.favicon === "string" ? currentValue.favicon : null;
+    const nextLogo = typeof nextValue.logo === "string" ? nextValue.logo : null;
+    const nextFavicon = typeof nextValue.favicon === "string" ? nextValue.favicon : null;
+
+    if (nextLogo !== currentLogo) {
+      await MediaAssetService.detachOwnerAssetByUrl(
+        "SITE_SETTING",
+        SITE_SETTINGS_KEY,
+        currentLogo,
+      );
+    }
+    if (nextFavicon !== currentFavicon) {
+      await MediaAssetService.detachOwnerAssetByUrl(
+        "SITE_SETTING",
+        SITE_SETTINGS_KEY,
+        currentFavicon,
+      );
+    }
+
+    return setting;
   }
 }
 

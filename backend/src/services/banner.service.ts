@@ -1,12 +1,15 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import MediaAssetService from "./mediaAsset.service.js";
 
 type BannerInput = {
   title?: string;
   subtitle?: string | null;
   image?: string;
+  imageAssetId?: string;
   mobileImage?: string | null;
+  mobileImageAssetId?: string | null;
   linkUrl?: string | null;
   target?: string | null;
   position?: string;
@@ -75,13 +78,20 @@ class BannerService {
     return banner;
   }
 
-  async create(input: Required<Pick<BannerInput, "title" | "image">> & BannerInput) {
-    return prisma.banner.create({
+  async create(input: Required<Pick<BannerInput, "title">> & BannerInput) {
+    const imageAsset = input.imageAssetId
+      ? await MediaAssetService.getUsableAsset(input.imageAssetId)
+      : null;
+    const mobileImageAsset = input.mobileImageAssetId
+      ? await MediaAssetService.getUsableAsset(input.mobileImageAssetId)
+      : null;
+
+    const banner = await prisma.banner.create({
       data: {
         title: input.title,
         subtitle: input.subtitle,
-        image: input.image,
-        mobileImage: input.mobileImage,
+        image: imageAsset?.url || input.image || "",
+        mobileImage: mobileImageAsset?.url || input.mobileImage,
         linkUrl: input.linkUrl,
         target: input.target,
         position: input.position || "HOME_HERO",
@@ -92,18 +102,44 @@ class BannerService {
       },
       select: bannerSelect,
     });
+
+    if (imageAsset) {
+      await MediaAssetService.attachAsset(imageAsset.id, "BANNER", banner.id);
+    }
+    if (mobileImageAsset) {
+      await MediaAssetService.attachAsset(mobileImageAsset.id, "BANNER", banner.id);
+    }
+
+    return banner;
   }
 
   async update(id: string, input: BannerInput) {
-    await this.getById(id);
+    const currentBanner = await this.getById(id);
+    const imageAsset =
+      input.imageAssetId === undefined
+        ? null
+        : input.imageAssetId
+          ? await MediaAssetService.attachAsset(input.imageAssetId, "BANNER", id)
+          : null;
+    const mobileImageAsset =
+      input.mobileImageAssetId === undefined
+        ? null
+        : input.mobileImageAssetId
+          ? await MediaAssetService.attachAsset(input.mobileImageAssetId, "BANNER", id)
+          : null;
 
-    return prisma.banner.update({
+    const banner = await prisma.banner.update({
       where: { id },
       data: {
         title: input.title,
         subtitle: input.subtitle,
-        image: input.image,
-        mobileImage: input.mobileImage,
+        image: imageAsset ? imageAsset.url : input.image,
+        mobileImage:
+          input.mobileImageAssetId === null
+            ? null
+            : mobileImageAsset
+              ? mobileImageAsset.url
+              : input.mobileImage,
         linkUrl: input.linkUrl,
         target: input.target,
         position: input.position,
@@ -114,13 +150,44 @@ class BannerService {
       },
       select: bannerSelect,
     });
+
+    const nextImage = imageAsset ? imageAsset.url : input.image;
+    const nextMobileImage =
+      input.mobileImageAssetId === null
+        ? null
+        : mobileImageAsset
+          ? mobileImageAsset.url
+          : input.mobileImage;
+
+    if (nextImage !== undefined && nextImage !== currentBanner.image) {
+      await MediaAssetService.detachOwnerAssetByUrl("BANNER", id, currentBanner.image);
+    }
+    if (nextMobileImage !== undefined && nextMobileImage !== currentBanner.mobileImage) {
+      await MediaAssetService.detachOwnerAssetByUrl("BANNER", id, currentBanner.mobileImage);
+    }
+
+    return banner;
   }
 
   async delete(id: string) {
     const banner = await this.getById(id);
 
-    await prisma.banner.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      await tx.mediaAsset.updateMany({
+        where: {
+          ownerType: "BANNER",
+          ownerId: id,
+        },
+        data: {
+          isUsed: false,
+          ownerType: null,
+          ownerId: null,
+        },
+      });
+
+      await tx.banner.delete({
+        where: { id },
+      });
     });
 
     return banner;

@@ -5,7 +5,9 @@ const optionalText = (max = 500) => z.string().trim().max(max).nullable().option
 export const updateSiteSettingsSchema = z.object({
   hospitalName: optionalText(120),
   logo: optionalText(1000),
+  logoAssetId: z.string().uuid("Logo khong hop le").nullable().optional(),
   favicon: optionalText(1000),
+  faviconAssetId: z.string().uuid("Favicon khong hop le").nullable().optional(),
   hotline: optionalText(50),
   emergencyHotline: optionalText(50),
   email: optionalText(120),
@@ -15,11 +17,13 @@ export const updateSiteSettingsSchema = z.object({
   socialLinks: z.record(z.string(), z.string().trim().max(1000)).optional(),
 });
 
-export const createBannerSchema = z.object({
+const bannerBaseSchema = z.object({
   title: z.string("Tieu de banner la bat buoc").trim().min(1, "Tieu de banner la bat buoc").max(160),
   subtitle: optionalText(500),
-  image: z.string("Anh banner la bat buoc").trim().min(1, "Anh banner la bat buoc").max(1000),
+  image: optionalText(1000),
+  imageAssetId: z.string().uuid("Anh banner khong hop le").optional(),
   mobileImage: optionalText(1000),
+  mobileImageAssetId: z.string().uuid("Anh mobile banner khong hop le").nullable().optional(),
   linkUrl: optionalText(1000),
   target: optionalText(50),
   position: z.string().trim().min(1).max(80).default("HOME_HERO"),
@@ -29,7 +33,12 @@ export const createBannerSchema = z.object({
   endAt: z.string().datetime().nullable().optional(),
 });
 
-export const updateBannerSchema = createBannerSchema.partial();
+export const createBannerSchema = bannerBaseSchema.refine((value) => Boolean(value.image || value.imageAssetId), {
+  path: ["imageAssetId"],
+  message: "Can truyen image hoac imageAssetId",
+});
+
+export const updateBannerSchema = bannerBaseSchema.partial();
 
 export const createPublicFAQSchema = z.object({
   question: z.string("Cau hoi la bat buoc").trim().min(1, "Cau hoi la bat buoc").max(500),
