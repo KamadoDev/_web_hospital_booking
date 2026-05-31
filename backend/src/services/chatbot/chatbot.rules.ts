@@ -155,7 +155,15 @@ export const detectIntent = (normalizedMessage: string): ChatIntent => {
     return "BOOKING_START";
   }
 
-  if (foldedMessage.includes("lich trong") || foldedMessage.includes("slot")) {
+  if (
+    foldedMessage.includes("lich trong") ||
+    foldedMessage.includes("lich ranh") ||
+    foldedMessage.includes("ranh lich") ||
+    foldedMessage.includes("con lich") ||
+    foldedMessage.includes("co lich") ||
+    foldedMessage.includes("hom nay") ||
+    foldedMessage.includes("slot")
+  ) {
     return "AVAILABLE_SLOT_LOOKUP";
   }
 

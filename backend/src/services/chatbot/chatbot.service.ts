@@ -266,9 +266,15 @@ const buildDoctorSuggestion = (
   context: ChatbotContext,
   draft: ChatBookingDraft,
 ) => {
+  const doctorsFromSlots = context.availableSlots
+    .map((slot) => context.doctors.find((doctor) => doctor.id === slot.doctorId))
+    .filter((doctor): doctor is ChatbotContext["doctors"][number] => Boolean(doctor));
+  const uniqueDoctors = Array.from(
+    new Map([...context.doctors, ...doctorsFromSlots].map((doctor) => [doctor.id, doctor])).values(),
+  );
   const doctors = draft.doctorId
-    ? context.doctors.filter((doctor) => doctor.id === draft.doctorId)
-    : context.doctors;
+    ? uniqueDoctors.filter((doctor) => doctor.id === draft.doctorId)
+    : uniqueDoctors;
   const selectedDoctor = doctors[0];
   const slots = selectedDoctor
     ? context.availableSlots.filter((slot) => slot.doctorId === selectedDoctor.id)
@@ -610,7 +616,13 @@ class ChatbotService {
       return response;
     }
 
-    if (isGreetingMessage(normalizedMessage) && !baseDraft.symptoms?.length) {
+    const detectedIntent = detectIntent(normalizedMessage);
+
+    if (
+      detectedIntent === "UNKNOWN" &&
+      isGreetingMessage(normalizedMessage) &&
+      !baseDraft.symptoms?.length
+    ) {
       const greetingOutput = buildGreetingOutput(baseDraft);
       const suggestedActions = await ChatbotActionService.validateActions(
         greetingOutput.suggestedActions,
@@ -634,7 +646,6 @@ class ChatbotService {
       return response;
     }
 
-    const detectedIntent = detectIntent(normalizedMessage);
     const faqOutput = settings.faqEnabled
       ? await ChatbotFAQService.findDirectAnswer(
           input.message,
