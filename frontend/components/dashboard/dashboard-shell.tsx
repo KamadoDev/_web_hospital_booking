@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   Bot,
   Building2,
@@ -7,6 +9,7 @@ import {
   CalendarClock,
   FileText,
   Hospital,
+  Images,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -21,10 +24,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { DashboardChatbotWidget } from "@/components/dashboard/dashboard-chatbot-widget";
+import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
-import type { DashboardRole } from "@/lib/types";
+import type { DashboardRole, SiteSettingsValue } from "@/lib/types";
 
 type NavItem = {
   href: string;
@@ -44,6 +49,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/medical-records", label: "Hồ sơ khám", icon: FileText, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/prescriptions", label: "Đơn thuốc", icon: Pill, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/chatbot", label: "Chatbot", icon: Bot, roles: ["ADMIN", "STAFF"] },
+  { href: "/dashboard/uploads", label: "Thư viện ảnh", icon: Images, roles: ["ADMIN", "STAFF"] },
   { href: "/dashboard/users", label: "Nhân sự", icon: Users, roles: ["ADMIN"] },
   { href: "/dashboard/site-settings", label: "Cấu hình website", icon: Settings, roles: ["ADMIN", "STAFF"] },
 ];
@@ -58,21 +64,44 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [siteSettings, setSiteSettings] = useState<SiteSettingsValue | null>(null);
   const visibleItems = navItems.filter((item) => user && item.roles.includes(user.role));
   const ThemeIcon = theme === "dark" ? Sun : Moon;
+  const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
+  const logo = siteSettings?.logo?.trim();
+
+  useEffect(() => {
+    let active = true;
+
+    void apiRequest<SiteSettingsValue>("/site-settings")
+      .then((settings) => {
+        if (active) setSiteSettings(settings);
+      })
+      .catch(() => {
+        if (active) setSiteSettings(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
       <aside className="fixed inset-y-0 left-0 hidden w-68 border-r border-[var(--border)] bg-[var(--surface)] lg:block">
         <div className="flex h-18 items-center gap-3 border-b border-[var(--border-soft)] px-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
-            <Hospital className="h-5 w-5" aria-hidden="true" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
+            {logo ? (
+              <img src={logo} alt={hospitalName} className="h-full w-full object-contain p-1" />
+            ) : (
+              <Hospital className="h-5 w-5" aria-hidden="true" />
+            )}
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-              Hospital
+              Dashboard
             </p>
-            <h1 className="text-xl font-semibold">Bảng điều khiển</h1>
+            <h1 className="truncate text-lg font-semibold" title={hospitalName}>{hospitalName}</h1>
           </div>
         </div>
         <nav className="space-y-1 px-3 py-4" aria-label="Điều hướng dashboard">
@@ -103,9 +132,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="lg:pl-68">
         <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur transition-colors">
           <div className="flex min-h-18 items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div>
-              <p className="text-sm text-[var(--text-muted)]">Hệ thống quản trị đặt lịch khám</p>
-              <p className="text-lg font-semibold">Vận hành phòng khám</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm text-[var(--text-muted)]">Hệ thống quản trị đặt lịch khám</p>
+              <p className="truncate text-lg font-semibold" title={hospitalName}>{hospitalName}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden text-right sm:block">

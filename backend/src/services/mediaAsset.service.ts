@@ -73,6 +73,45 @@ const uploadBufferToCloudinary = (
   });
 
 class MediaAssetService {
+  async list(query: {
+    isUsed?: boolean;
+    folder?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(query.page || 1, 1);
+    const limit = Math.min(Math.max(query.limit || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.MediaAssetWhereInput = {
+      isUsed: query.isUsed,
+      folder: query.folder,
+    };
+
+    const [items, total] = await prisma.$transaction([
+      prisma.mediaAsset.findMany({
+        where,
+        select: mediaAssetSelect,
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.mediaAsset.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   async uploadImages(files: Express.Multer.File[], folder: string, uploadedById?: string) {
     if (!files.length) {
       throw new AppError("Chua chon file upload", 400);
@@ -196,6 +235,83 @@ class MediaAssetService {
         ownerId: null,
       },
     });
+  }
+
+  async deleteUnused(id: string) {
+    const asset = await prisma.mediaAsset.findUnique({
+      where: { id },
+      select: mediaAssetSelect,
+    });
+
+    if (!asset) {
+      throw new AppError("Khong tim thay anh", 404);
+    }
+
+    if (asset.isUsed) {
+      throw new AppError("Khong the xoa anh dang duoc su dung", 409);
+    }
+
+    await cloudinary.uploader.destroy(asset.publicId, {
+      resource_type: "image",
+    });
+
+    await prisma.mediaAsset.delete({
+      where: { id },
+    });
+
+    return asset;
+  }
+
+  async cleanupUnused(input: { olderThanHours?: number; limit?: number }) {
+    const olderThanHours = Math.max(input.olderThanHours || 24, 1);
+    const limit = Math.min(Math.max(input.limit || 50, 1), 100);
+    const olderThan = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+    const candidates = await prisma.mediaAsset.findMany({
+      where: {
+        isUsed: false,
+        createdAt: {
+          lt: olderThan,
+        },
+      },
+      select: mediaAssetSelect,
+      orderBy: {
+        createdAt: "asc",
+      },
+      take: limit,
+    });
+
+    const deleted: typeof candidates = [];
+    const failed: { id: string; publicId: string; message: string }[] = [];
+
+    for (const asset of candidates) {
+      try {
+        await cloudinary.uploader.destroy(asset.publicId, {
+          resource_type: "image",
+        });
+
+        await prisma.mediaAsset.delete({
+          where: { id: asset.id },
+        });
+
+        deleted.push(asset);
+      } catch (error) {
+        failed.push({
+          id: asset.id,
+          publicId: asset.publicId,
+          message: error instanceof Error ? error.message : "Xoa anh that bai",
+        });
+      }
+    }
+
+    return {
+      olderThan,
+      scanned: candidates.length,
+      deletedCount: deleted.length,
+      failedCount: failed.length,
+      deleted,
+      failed,
+    };
   }
 }
 

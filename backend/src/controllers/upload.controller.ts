@@ -55,3 +55,84 @@ export const uploadImagesHandler = async (
     next(error);
   }
 };
+
+const parseBooleanQuery = (value: unknown) => {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+};
+
+const parseNumberQuery = (value: unknown) => {
+  if (typeof value !== "string") return undefined;
+
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+};
+
+const getParam = (value: string | string[] | undefined) => {
+  const param = Array.isArray(value) ? value[0] : value;
+
+  if (!param) {
+    throw new AppError("Thieu id", 400);
+  }
+
+  return param;
+};
+
+export const listMediaAssetsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await MediaAssetService.list({
+      isUsed: parseBooleanQuery(req.query.isUsed),
+      folder: typeof req.query.folder === "string" ? req.query.folder : undefined,
+      page: parseNumberQuery(req.query.page),
+      limit: parseNumberQuery(req.query.limit),
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteUnusedMediaAssetHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const asset = await MediaAssetService.deleteUnused(getParam(req.params.id));
+
+    return res.json({
+      success: true,
+      message: "Xoa anh chua su dung thanh cong",
+      data: asset,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cleanupUnusedMediaAssetsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await MediaAssetService.cleanupUnused(req.body);
+
+    return res.json({
+      success: true,
+      message: "Don anh chua su dung thanh cong",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
