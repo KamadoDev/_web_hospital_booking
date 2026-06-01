@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, MessageCircle, RotateCcw, Send, X } from "lucide-react";
+import { Bot, MessageCircle, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -149,13 +149,14 @@ export function DashboardChatbotWidget() {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40">
+    <div className="fixed bottom-8 right-5 z-40 sm:right-6">
       {open ? (
-        <section className="flex h-[min(680px,calc(100vh-6rem))] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+        <section className="flex h-[min(680px,calc(100vh-7rem))] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)] shadow-2xl ring-1 ring-[var(--primary-soft)]">
           <header className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
+              <div className="relative flex h-9 w-9 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
                 <Bot className="h-5 w-5" aria-hidden="true" />
+                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-[var(--surface)]" aria-hidden="true" />
               </div>
               <div>
                 <h2 className="text-sm font-semibold">Trợ lý dashboard</h2>
@@ -242,10 +243,16 @@ export function DashboardChatbotWidget() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white shadow-lg hover:brightness-95"
+          className="group relative inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:brightness-95 focus:outline-none focus:ring-4 focus:ring-[var(--primary-soft)]"
+          aria-label="Mở chatbot"
+          title="Mở chatbot"
         >
-          <MessageCircle className="h-5 w-5" aria-hidden="true" />
-          Chatbot
+          <span className="absolute inset-0 rounded-full bg-[var(--primary)] opacity-25 motion-safe:animate-ping" aria-hidden="true" />
+          <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[var(--primary)] shadow-md">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+          <MessageCircle className="relative h-5 w-5 transition group-hover:scale-110" aria-hidden="true" />
+          <span className="relative">Chatbot</span>
         </button>
       )}
     </div>

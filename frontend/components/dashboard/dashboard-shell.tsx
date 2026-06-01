@@ -14,6 +14,8 @@ import {
   LogOut,
   Moon,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pill,
   Receipt,
   Settings,
@@ -65,8 +67,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [siteSettings, setSiteSettings] = useState<SiteSettingsValue | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const visibleItems = navItems.filter((item) => user && item.roles.includes(user.role));
   const ThemeIcon = theme === "dark" ? Sun : Moon;
+  const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
   const logo = siteSettings?.logo?.trim();
 
@@ -88,8 +92,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
-      <aside className="fixed inset-y-0 left-0 hidden w-68 border-r border-[var(--border)] bg-[var(--surface)] lg:block">
-        <div className="flex h-18 items-center gap-3 border-b border-[var(--border-soft)] px-6">
+      <aside className={`fixed inset-y-0 left-0 hidden border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 lg:block ${sidebarCollapsed ? "w-20" : "w-68"}`}>
+        <div className={`flex h-18 items-center border-b border-[var(--border-soft)] ${sidebarCollapsed ? "justify-center px-3" : "gap-3 px-6"}`}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
             {logo ? (
               <img src={logo} alt={hospitalName} className="h-full w-full object-contain p-1" />
@@ -97,14 +101,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Hospital className="h-5 w-5" aria-hidden="true" />
             )}
           </div>
-          <div className="min-w-0">
+          {!sidebarCollapsed ? <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
               Dashboard
             </p>
             <h1 className="truncate text-lg font-semibold" title={hospitalName}>{hospitalName}</h1>
-          </div>
+          </div> : null}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            className={`${sidebarCollapsed ? "absolute bottom-4 left-1/2 -translate-x-1/2" : ""} inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-soft)] hover:bg-[var(--surface-soft)]`}
+            aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            title={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          >
+            <SidebarToggleIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
-        <nav className="space-y-1 px-3 py-4" aria-label="Điều hướng dashboard">
+        <nav className={`space-y-1 py-4 ${sidebarCollapsed ? "px-2" : "px-3"}`} aria-label="Điều hướng dashboard">
           {visibleItems.map((item) => {
             const active =
               item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
@@ -115,23 +128,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition ${sidebarCollapsed ? "justify-center" : "gap-3"} ${
                   active
                     ? "bg-[var(--primary-soft)] text-[var(--primary)] shadow-[inset_3px_0_0_var(--primary)]"
                     : "text-[var(--text-soft)] hover:bg-[var(--surface-soft)] hover:text-[var(--foreground)]"
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{item.label}</span>
+                {!sidebarCollapsed ? <span>{item.label}</span> : null}
               </Link>
             );
           })}
         </nav>
       </aside>
 
-      <div className="lg:pl-68">
+      <div className={`transition-[padding] duration-200 ${sidebarCollapsed ? "lg:pl-20" : "lg:pl-68"}`}>
         <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur transition-colors">
           <div className="flex min-h-18 items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            {sidebarCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-soft)] hover:bg-[var(--surface-soft)] lg:inline-flex"
+                aria-label="Mở lại sidebar"
+                title="Mở lại sidebar"
+              >
+                <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : null}
             <div className="min-w-0">
               <p className="truncate text-sm text-[var(--text-muted)]">Hệ thống quản trị đặt lịch khám</p>
               <p className="truncate text-lg font-semibold" title={hospitalName}>{hospitalName}</p>
