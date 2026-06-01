@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Appointment, AppointmentStatus, DoctorProfile, ListResult } from "@/lib/types";
@@ -86,18 +87,19 @@ export default function AppointmentsPage() {
   const detailRef = useRef<HTMLElement | null>(null);
 
   const canStaffActions = user?.role === "ADMIN" || user?.role === "STAFF";
+  const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(
     () => ({
       status: status || undefined,
-      doctorId: doctorId || undefined,
+      doctorId: isDoctor ? undefined : doctorId || undefined,
       date: date || undefined,
       phone: phone.trim() || undefined,
       bookingCode: bookingCode.trim() || undefined,
       page,
       limit: 20,
     }),
-    [bookingCode, date, doctorId, page, phone, status],
+    [bookingCode, date, doctorId, isDoctor, page, phone, status],
   );
 
   const loadAppointments = useCallback(async () => {
@@ -120,6 +122,11 @@ export default function AppointmentsPage() {
   }, [query]);
 
   const loadDoctors = useCallback(async () => {
+    if (isDoctor) {
+      setDoctors([]);
+      return;
+    }
+
     try {
       const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
         query: { limit: 100 },
@@ -128,7 +135,7 @@ export default function AppointmentsPage() {
     } catch {
       setDoctors([]);
     }
-  }, []);
+  }, [isDoctor]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -158,6 +165,24 @@ export default function AppointmentsPage() {
       ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   };
+
+  const setQuickFilter = (nextStatus: "" | AppointmentStatus, nextDate = today()) => {
+    setStatus(nextStatus);
+    setDate(nextDate);
+    setPhone("");
+    setBookingCode("");
+    setPage(1);
+    scrollTo(listRef);
+  };
+
+  const doctorSummary = useMemo(() => {
+    return {
+      total: appointments.length,
+      waiting: appointments.filter((item) => item.status === "CHECKED_IN").length,
+      inProgress: appointments.filter((item) => item.status === "IN_PROGRESS").length,
+      completed: appointments.filter((item) => item.status === "COMPLETED").length,
+    };
+  }, [appointments]);
 
   const runAction = async (appointment: Appointment, path: string, message: string, body?: unknown) => {
     setBusy(true);
@@ -225,7 +250,7 @@ export default function AppointmentsPage() {
   };
 
   const renderActions = (appointment: Appointment) => {
-    if (busy || isCancelled(appointment.status) || appointment.status === "COMPLETED") return null;
+    if (busy || isCancelled(appointment.status)) return null;
 
     return (
       <>
@@ -241,10 +266,13 @@ export default function AppointmentsPage() {
         {appointment.status === "IN_PROGRESS" ? (
           <button onClick={() => void runAction(appointment, "/complete", "Đã hoàn thành")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Hoàn thành</button>
         ) : null}
+        {["IN_PROGRESS", "COMPLETED"].includes(appointment.status) ? (
+          <Link href="/dashboard/medical-records" className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Hồ sơ</Link>
+        ) : null}
         {canStaffActions && ["CONFIRMED", "CHECKED_IN"].includes(appointment.status) ? (
           <button onClick={() => void runAction(appointment, "/no-show", "Đã đánh dấu no-show")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">No-show</button>
         ) : null}
-        {appointment.status !== "PENDING_OTP" ? (
+        {appointment.status !== "PENDING_OTP" && appointment.status !== "COMPLETED" ? (
           <button onClick={() => startCancelAppointment(appointment)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Hủy</button>
         ) : null}
       </>
@@ -270,22 +298,51 @@ export default function AppointmentsPage() {
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
         <div className="flex flex-col gap-3 rounded-md border border-[#dce3ee] bg-white p-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-medium text-[#55708f]">Vận hành khám bệnh</p>
+            <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khu làm việc bác sĩ" : "Vận hành khám bệnh"}</p>
             <h2 className="mt-1 text-2xl font-semibold">Lịch hẹn</h2>
-            <p className="mt-2 text-sm text-[#667892]">Theo dõi và chuyển trạng thái lịch hẹn trong ngày.</p>
+            <p className="mt-2 text-sm text-[#667892]">
+              {isDoctor ? "Theo dõi lịch hôm nay, bắt đầu khám và mở hồ sơ sau khi tiếp nhận bệnh nhân." : "Theo dõi và chuyển trạng thái lịch hẹn trong ngày."}
+            </p>
           </div>
           {canStaffActions ? (
             <button disabled={busy} onClick={() => void cleanupExpiredOtp()} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f6f8fb] disabled:opacity-60">Dọn lịch quá hạn OTP</button>
           ) : null}
         </div>
 
+        {isDoctor ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button type="button" onClick={() => setQuickFilter("", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Lịch đang lọc</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.total}</p>
+              <p className="mt-1 text-xs opacity-75">Xem toàn bộ lịch trong ngày</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("CHECKED_IN", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Đã check-in</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.waiting}</p>
+              <p className="mt-1 text-xs opacity-75">Ưu tiên bắt đầu khám</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("IN_PROGRESS", today())} className="rounded-md border border-[#e2d6ff] bg-[#f7f2ff] p-4 text-left text-[#673ab7] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Đang khám</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.inProgress}</p>
+              <p className="mt-1 text-xs opacity-75">Mở hồ sơ hoặc hoàn tất</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("COMPLETED", today())} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Hoàn tất</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.completed}</p>
+              <p className="mt-1 text-xs opacity-75">Đối soát cuối ca</p>
+            </button>
+          </div>
+        ) : null}
+
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[170px_1fr_150px_150px_150px]">
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_170px_1fr_1fr]" : "lg:grid-cols-[170px_1fr_150px_150px_150px]"}`}>
             <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              <option value="">Tất cả bác sĩ</option>
-              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-            </select>
+            {!isDoctor ? (
+              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                <option value="">Tất cả bác sĩ</option>
+                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
+              </select>
+            ) : null}
             <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>

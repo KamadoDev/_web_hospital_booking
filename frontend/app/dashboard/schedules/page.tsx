@@ -133,30 +133,36 @@ export default function SchedulesPage() {
   const slotListRef = useRef<HTMLElement | null>(null);
 
   const canWrite = user?.role === "ADMIN" || user?.role === "STAFF";
+  const isDoctor = user?.role === "DOCTOR";
 
   const scheduleQuery = useMemo(
     () => ({
-      doctorId: doctorId || undefined,
+      doctorId: isDoctor ? undefined : doctorId || undefined,
       dayOfWeek: dayOfWeek || undefined,
       isActive: scheduleActive || undefined,
       page: schedulePage,
       limit: 20,
     }),
-    [dayOfWeek, doctorId, scheduleActive, schedulePage],
+    [dayOfWeek, doctorId, isDoctor, scheduleActive, schedulePage],
   );
 
   const slotQuery = useMemo(
     () => ({
-      doctorId: slotDoctorId || undefined,
+      doctorId: isDoctor ? undefined : slotDoctorId || undefined,
       date: slotDate || undefined,
       status: slotStatus || undefined,
       page: slotPage,
       limit: 30,
     }),
-    [slotDate, slotDoctorId, slotPage, slotStatus],
+    [isDoctor, slotDate, slotDoctorId, slotPage, slotStatus],
   );
 
   const loadDoctors = useCallback(async () => {
+    if (isDoctor) {
+      setDoctors([]);
+      return;
+    }
+
     try {
       const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
         query: { isAvailable: true, limit: 100 },
@@ -165,7 +171,7 @@ export default function SchedulesPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tải được danh sách bác sĩ");
     }
-  }, []);
+  }, [isDoctor]);
 
   const loadSchedules = useCallback(async () => {
     setLoadingSchedules(true);
@@ -232,6 +238,23 @@ export default function SchedulesPage() {
       ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   };
+
+  const setSlotQuickFilter = (status: "" | TimeSlotStatus, date = today()) => {
+    setSlotStatus(status);
+    setSlotDate(date);
+    setSlotPage(1);
+    scrollTo(slotListRef);
+  };
+
+  const slotSummary = useMemo(
+    () => ({
+      total: slots.length,
+      available: slots.filter((slot) => slot.status === "AVAILABLE").length,
+      booked: slots.filter((slot) => slot.status === "BOOKED").length,
+      locked: slots.filter((slot) => slot.status === "LOCKED").length,
+    }),
+    [slots],
+  );
 
   const startCreate = () => {
     setEditingSchedule(null);
@@ -388,7 +411,7 @@ export default function SchedulesPage() {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div className={`grid gap-6 ${canWrite ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
       {notice || error ? (
         <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
           <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
@@ -407,17 +430,21 @@ export default function SchedulesPage() {
         <section ref={scheduleListRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
           <div className="flex flex-col gap-3 border-b border-[#e5ebf3] p-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm font-medium text-[#55708f]">Lịch mẫu theo tuần</p>
+              <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Lịch làm việc của tôi" : "Lịch mẫu theo tuần"}</p>
               <h2 className="mt-1 text-2xl font-semibold">Lịch làm việc bác sĩ</h2>
-              <p className="mt-2 text-sm text-[#667892]">Tạo khung giờ lặp lại theo thứ để sinh slot khám theo ngày.</p>
+              <p className="mt-2 text-sm text-[#667892]">
+                {isDoctor ? "Xem khung giờ làm việc cố định theo tuần. Việc tạo hoặc chỉnh lịch do Admin/Staff thực hiện." : "Tạo khung giờ lặp lại theo thứ để sinh slot khám theo ngày."}
+              </p>
             </div>
             {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo lịch mẫu</button> : null}
           </div>
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[1fr_160px_160px]">
-            <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setSchedulePage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              <option value="">Tất cả bác sĩ</option>
-              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-            </select>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_160px]" : "lg:grid-cols-[1fr_160px_160px]"}`}>
+            {!isDoctor ? (
+              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setSchedulePage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                <option value="">Tất cả bác sĩ</option>
+                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
+              </select>
+            ) : null}
             <select value={dayOfWeek} onChange={(e) => { setDayOfWeek(e.target.value); setSchedulePage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               <option value="">Tất cả thứ</option>
               {dayOptions.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}
@@ -499,15 +526,27 @@ export default function SchedulesPage() {
 
         <section ref={slotListRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white">
           <div className="border-b border-[#e5ebf3] p-5">
-            <p className="text-sm font-medium text-[#55708f]">Slot khám theo ngày</p>
+            <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Slot khám của tôi" : "Slot khám theo ngày"}</p>
             <h2 className="mt-1 text-2xl font-semibold">Slot khám</h2>
-            <p className="mt-2 text-sm text-[#667892]">Sinh slot từ lịch mẫu, khoá/mở khoá, huỷ hoặc xoá slot chưa được đặt.</p>
+            <p className="mt-2 text-sm text-[#667892]">
+              {isDoctor ? "Theo dõi slot khám theo ngày, trạng thái đặt lịch và lý do khóa nếu có." : "Sinh slot từ lịch mẫu, khoá/mở khoá, huỷ hoặc xoá slot chưa được đặt."}
+            </p>
           </div>
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[1fr_160px_190px]">
+          {isDoctor ? (
+            <div className="grid gap-3 border-b border-[#e5ebf3] p-4 sm:grid-cols-2 xl:grid-cols-4">
+              <button type="button" onClick={() => setSlotQuickFilter("", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Slot đang lọc</p><p className="mt-2 text-2xl font-semibold">{slotSummary.total}</p><p className="mt-1 text-xs opacity-75">Toàn bộ slot trong ngày</p></button>
+              <button type="button" onClick={() => setSlotQuickFilter("AVAILABLE", today())} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Còn trống</p><p className="mt-2 text-2xl font-semibold">{slotSummary.available}</p><p className="mt-1 text-xs opacity-75">Có thể nhận đặt lịch</p></button>
+              <button type="button" onClick={() => setSlotQuickFilter("BOOKED", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Đã đặt</p><p className="mt-2 text-2xl font-semibold">{slotSummary.booked}</p><p className="mt-1 text-xs opacity-75">Có lịch hẹn liên quan</p></button>
+              <button type="button" onClick={() => setSlotQuickFilter("LOCKED", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Đã khóa</p><p className="mt-2 text-2xl font-semibold">{slotSummary.locked}</p><p className="mt-1 text-xs opacity-75">Không nhận đặt lịch</p></button>
+            </div>
+          ) : null}
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_190px]" : "lg:grid-cols-[1fr_160px_190px]"}`}>
+            {!isDoctor ? (
             <select value={slotDoctorId} onChange={(e) => { setSlotDoctorId(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               <option value="">Tất cả bác sĩ</option>
               {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
             </select>
+            ) : null}
             <input type="date" value={slotDate} onChange={(e) => { setSlotDate(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <select value={slotStatus} onChange={(e) => { setSlotStatus(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {slotStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
@@ -621,8 +660,8 @@ export default function SchedulesPage() {
         </section>
       </section>
 
-      <aside className="space-y-4">
-        {canWrite ? (
+      {canWrite ? (
+        <aside className="space-y-4">
           <section ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
             <h3 className="text-lg font-semibold">{editingSchedule ? "Cập nhật lịch mẫu" : "Tạo lịch mẫu"}</h3>
             <form className="mt-5 space-y-4" onSubmit={handleScheduleSubmit}>
@@ -673,9 +712,7 @@ export default function SchedulesPage() {
               </div>
             </form>
           </section>
-        ) : null}
 
-        {canWrite ? (
           <section className="rounded-md border border-[#dce3ee] bg-white p-5">
             <h3 className="text-lg font-semibold">Sinh slot theo ngày</h3>
             <p className="mt-2 text-sm leading-6 text-[#667892]">Chọn bác sĩ và ngày. Backend sẽ sinh slot từ lịch mẫu đúng với thứ của ngày đó.</p>
@@ -694,8 +731,8 @@ export default function SchedulesPage() {
               <button disabled={saving} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang sinh..." : "Sinh slot"}</button>
             </form>
           </section>
-        ) : null}
-      </aside>
+        </aside>
+      ) : null}
     </div>
   );
 }
