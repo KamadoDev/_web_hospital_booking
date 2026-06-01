@@ -42,9 +42,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard, roles: ["ADMIN", "STAFF", "DOCTOR"] },
-  { href: "/dashboard/departments", label: "Chuyên khoa", icon: Building2, roles: ["ADMIN", "STAFF", "DOCTOR"] },
-  { href: "/dashboard/doctors", label: "Bác sĩ", icon: Stethoscope, roles: ["ADMIN", "STAFF", "DOCTOR"] },
-  { href: "/dashboard/packages", label: "Gói khám", icon: Package, roles: ["ADMIN", "STAFF", "DOCTOR"] },
+  { href: "/dashboard/departments", label: "Chuyên khoa", icon: Building2, roles: ["ADMIN", "STAFF"] },
+  { href: "/dashboard/doctors", label: "Bác sĩ", icon: Stethoscope, roles: ["ADMIN", "STAFF"] },
+  { href: "/dashboard/packages", label: "Gói khám", icon: Package, roles: ["ADMIN", "STAFF"] },
   { href: "/dashboard/schedules", label: "Lịch bác sĩ", icon: CalendarClock, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/appointments", label: "Lịch hẹn", icon: CalendarCheck, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/invoices", label: "Hoá đơn", icon: Receipt, roles: ["ADMIN", "STAFF"] },

@@ -590,14 +590,7 @@ class AppointmentService {
   }
 
   async confirm(id: string, actor: Actor) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      select: { id: true, status: true },
-    });
-
-    if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
-    }
+    const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "PENDING_CONFIRM") {
       throw new AppError("Chi co the xac nhan lich dang cho xac nhan", 400);
@@ -642,18 +635,7 @@ class AppointmentService {
   }
 
   async cancel(id: string, reason: string, actor: Actor) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        status: true,
-        timeSlotId: true,
-      },
-    });
-
-    if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
-    }
+    const appointment = await this.getAppointmentStatus(id, actor);
 
     if (["COMPLETED", "CANCELLED_BY_ADMIN", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_PATIENT"].includes(appointment.status)) {
       throw new AppError("Khong the huy lich hen nay", 400);
@@ -698,7 +680,7 @@ class AppointmentService {
   }
 
   async checkIn(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id);
+    const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "CONFIRMED") {
       throw new AppError("Chi co the check-in lich da xac nhan", 400);
@@ -721,7 +703,7 @@ class AppointmentService {
   }
 
   async start(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id);
+    const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "CHECKED_IN") {
       throw new AppError("Chi co the bat dau kham sau khi benh nhan check-in", 400);
@@ -748,7 +730,7 @@ class AppointmentService {
   }
 
   async complete(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id);
+    const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "IN_PROGRESS") {
       throw new AppError("Chi co the hoan thanh lich dang kham", 400);
@@ -772,7 +754,7 @@ class AppointmentService {
   }
 
   async markNoShow(id: string, actor: Actor) {
-    const appointment = await this.getAppointmentStatus(id);
+    const appointment = await this.getAppointmentStatus(id, actor);
 
     if (!["CONFIRMED", "CHECKED_IN"].includes(appointment.status)) {
       throw new AppError("Chi co the danh dau no-show cho lich da xac nhan hoac da check-in", 400);
@@ -891,9 +873,17 @@ class AppointmentService {
     });
   }
 
-  private async getAppointmentStatus(id: string) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
+  private async getAppointmentStatus(id: string, actor: Actor) {
+    const where: Prisma.AppointmentWhereInput = { id };
+
+    if (actor.role === "DOCTOR") {
+      where.doctor = {
+        userId: actor.userId,
+      };
+    }
+
+    const appointment = await prisma.appointment.findFirst({
+      where,
       select: {
         id: true,
         status: true,

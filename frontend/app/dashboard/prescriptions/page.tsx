@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
@@ -98,20 +99,22 @@ export default function PrescriptionsPage() {
   const [editingItem, setEditingItem] = useState<PrescriptionItem | null>(null);
   const [deleteItemTarget, setDeleteItemTarget] = useState<PrescriptionItem | null>(null);
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm);
+  const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
   const canEdit = user?.role === "ADMIN" || user?.role === "DOCTOR";
+  const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(
     () => ({
       status: status || undefined,
-      doctorId: doctorId || undefined,
+      doctorId: isDoctor ? undefined : doctorId || undefined,
       prescriptionCode: prescriptionCode.trim() || undefined,
       medicalRecordId: medicalRecordId.trim() || undefined,
       page,
       limit: 20,
     }),
-    [doctorId, medicalRecordId, page, prescriptionCode, status],
+    [doctorId, isDoctor, medicalRecordId, page, prescriptionCode, status],
   );
 
   const loadPrescriptions = useCallback(async () => {
@@ -134,6 +137,11 @@ export default function PrescriptionsPage() {
   }, [query]);
 
   const loadDoctors = useCallback(async () => {
+    if (isDoctor) {
+      setDoctors([]);
+      return;
+    }
+
     try {
       const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
         query: { limit: 100 },
@@ -142,7 +150,7 @@ export default function PrescriptionsPage() {
     } catch {
       setDoctors([]);
     }
-  }, []);
+  }, [isDoctor]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadPrescriptions(), 0);
@@ -168,6 +176,30 @@ export default function PrescriptionsPage() {
       detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   };
+
+  const scrollList = () => {
+    window.setTimeout(() => {
+      listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
+
+  const setQuickFilter = (nextStatus: "" | PrescriptionStatus) => {
+    setStatus(nextStatus);
+    setPrescriptionCode("");
+    setMedicalRecordId("");
+    setPage(1);
+    scrollList();
+  };
+
+  const doctorSummary = useMemo(
+    () => ({
+      total: prescriptions.length,
+      draft: prescriptions.filter((item) => item.status === "DRAFT").length,
+      issued: prescriptions.filter((item) => item.status === "ISSUED").length,
+      emptyDraft: prescriptions.filter((item) => item.status === "DRAFT" && item.items.length === 0).length,
+    }),
+    [prescriptions],
+  );
 
   const openDetail = (prescription: Prescription) => {
     setSelected(prescription);
@@ -238,6 +270,8 @@ export default function PrescriptionsPage() {
       });
       setSelected(updated);
       setNote(updated.note || "");
+      setEditingItem(null);
+      setDeleteItemTarget(null);
       setNotice(message);
       await loadPrescriptions();
     } catch (err) {
@@ -310,22 +344,51 @@ export default function PrescriptionsPage() {
         </div>
       ) : null}
 
-      <section className="min-w-0 space-y-4">
+      <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
         <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <p className="text-sm font-medium text-[#55708f]">Chuyên môn</p>
+          <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"}</p>
           <h2 className="mt-1 text-2xl font-semibold">Đơn thuốc</h2>
-          <p className="mt-2 text-sm text-[#667892]">Tạo đơn từ hồ sơ khám, thêm thuốc và phát hành đơn.</p>
+          <p className="mt-2 text-sm text-[#667892]">
+            {isDoctor ? "Hoàn thiện đơn nháp, thêm thuốc và phát hành đơn thuốc cho bệnh nhân." : "Tạo đơn từ hồ sơ khám, thêm thuốc và phát hành đơn."}
+          </p>
         </div>
 
+        {isDoctor ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button type="button" onClick={() => setQuickFilter("")} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Đơn đang lọc</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.total}</p>
+              <p className="mt-1 text-xs opacity-75">Toàn bộ đơn thuốc</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("DRAFT")} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Đơn nháp</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.draft}</p>
+              <p className="mt-1 text-xs opacity-75">Cần kiểm tra trước khi phát hành</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("DRAFT")} className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4 text-left text-[#b3261e] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Chưa có thuốc</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.emptyDraft}</p>
+              <p className="mt-1 text-xs opacity-75">Cần thêm ít nhất 1 thuốc</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("ISSUED")} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Đã phát hành</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.issued}</p>
+              <p className="mt-1 text-xs opacity-75">Sẵn sàng gửi cho bệnh nhân</p>
+            </button>
+          </div>
+        ) : null}
+
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[170px_1fr_170px_170px]">
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_1fr_1fr]" : "lg:grid-cols-[170px_1fr_170px_170px]"}`}>
             <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
-            <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              <option value="">Tất cả bác sĩ</option>
-              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-            </select>
+            {!isDoctor ? (
+              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                <option value="">Tất cả bác sĩ</option>
+                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
+              </select>
+            ) : null}
             <input value={prescriptionCode} onChange={(e) => { setPrescriptionCode(e.target.value); setPage(1); }} placeholder="Mã đơn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <input value={medicalRecordId} onChange={(e) => { setMedicalRecordId(e.target.value); setPage(1); }} placeholder="Medical record ID" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
           </div>
@@ -354,7 +417,14 @@ export default function PrescriptionsPage() {
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{prescription.medicalRecord.recordCode}</p><p className="mt-1 text-xs text-[#667892]">{prescription.medicalRecord.diagnosis || "Chưa có chẩn đoán"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p>{doctorName(prescription.doctor)}</p><p className="mt-1 text-xs text-[#667892]">{prescription.doctor.department.name}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3"><span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[prescription.status]}`}>{statusLabel[prescription.status]}</span></td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3 text-right"><button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button onClick={() => openDetail(prescription)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Chi tiết</button>
+                        {canEdit && prescription.status === "DRAFT" ? (
+                          <button type="button" disabled={busy} onClick={() => void simpleAction(prescription, "/issue", "Đã phát hành đơn")} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b] disabled:opacity-60">Phát hành</button>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -395,6 +465,7 @@ export default function PrescriptionsPage() {
                 <p className="font-semibold">{selected.patient.fullName}</p>
                 <p className="text-[#667892]">{selected.patient.phone || "-"} · {selected.medicalRecord.recordCode}</p>
                 <p className="mt-1 text-[#667892]">{doctorName(selected.doctor)}</p>
+                <Link href="/dashboard/medical-records" className="mt-2 inline-flex rounded-md border border-[#cfe4fa] px-2 py-1 text-xs font-medium text-[#0d4f8b]">Mở hồ sơ khám</Link>
               </div>
 
               <form className="space-y-3" onSubmit={updateNote}>

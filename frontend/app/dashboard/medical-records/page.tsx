@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
@@ -135,17 +136,19 @@ export default function MedicalRecordsPage() {
   const detailRef = useRef<HTMLElement | null>(null);
 
   const canArchive = user?.role === "ADMIN" || user?.role === "STAFF";
+  const isDoctor = user?.role === "DOCTOR";
+  const canCreatePrescription = user?.role === "ADMIN" || user?.role === "DOCTOR";
 
   const query = useMemo(
     () => ({
       status: status || undefined,
-      doctorId: doctorId || undefined,
+      doctorId: isDoctor ? undefined : doctorId || undefined,
       date: date || undefined,
       recordCode: recordCode.trim() || undefined,
       page,
       limit: 20,
     }),
-    [date, doctorId, page, recordCode, status],
+    [date, doctorId, isDoctor, page, recordCode, status],
   );
 
   const loadRecords = useCallback(async () => {
@@ -168,6 +171,11 @@ export default function MedicalRecordsPage() {
   }, [query]);
 
   const loadDoctors = useCallback(async () => {
+    if (isDoctor) {
+      setDoctors([]);
+      return;
+    }
+
     try {
       const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
         query: { limit: 100 },
@@ -176,7 +184,7 @@ export default function MedicalRecordsPage() {
     } catch {
       setDoctors([]);
     }
-  }, []);
+  }, [isDoctor]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -206,6 +214,25 @@ export default function MedicalRecordsPage() {
       ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
   };
+
+  const setQuickFilter = (nextStatus: "" | MedicalResultStatus, nextDate = today()) => {
+    setStatus(nextStatus);
+    setDate(nextDate);
+    setRecordCode("");
+    setPage(1);
+    scrollTo(listRef);
+  };
+
+  const doctorSummary = useMemo(
+    () => ({
+      total: records.length,
+      draft: records.filter((record) => record.status === "DRAFT").length,
+      publishable: records.filter((record) => record.status === "DRAFT" && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
+      published: records.filter((record) => record.status === "PUBLISHED").length,
+      needPrescription: records.filter((record) => !record.prescriptionRecord && ["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)).length,
+    }),
+    [records],
+  );
 
   const openDetail = (record: MedicalRecord) => {
     setSelected(record);
@@ -295,6 +322,33 @@ export default function MedicalRecordsPage() {
     }
   };
 
+  const createPrescriptionFromRecord = async (record: MedicalRecord) => {
+    if (!canCreatePrescription) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      await apiRequest(`/dashboard/medical-records/${record.id}/prescription`, {
+        method: "POST",
+        body: {
+          note: recordForm.prescription.trim() || recordForm.doctorNotes.trim() || null,
+          items: [],
+        },
+      });
+      const refreshed = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${record.id}`);
+      setSelected(refreshed);
+      setRecordForm(toRecordForm(refreshed));
+      setNotice("Đã tạo đơn thuốc nháp từ hồ sơ");
+      await loadRecords();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc từ hồ sơ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveLabResult = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selected) return;
@@ -365,18 +419,47 @@ export default function MedicalRecordsPage() {
 
       <section ref={listRef} className="min-w-0 scroll-mt-24 space-y-4">
         <div className="rounded-md border border-[#dce3ee] bg-white p-5">
-          <p className="text-sm font-medium text-[#55708f]">Chuyên môn</p>
+          <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Khu làm việc bác sĩ" : "Chuyên môn"}</p>
           <h2 className="mt-1 text-2xl font-semibold">Hồ sơ khám</h2>
-          <p className="mt-2 text-sm text-[#667892]">Cập nhật chẩn đoán, điều trị, kết quả cận lâm sàng và công bố kết quả khám.</p>
+          <p className="mt-2 text-sm text-[#667892]">
+            {isDoctor ? "Ưu tiên hoàn thiện hồ sơ trong ca khám, thêm kết quả cận lâm sàng, kê đơn và công bố kết quả." : "Cập nhật chẩn đoán, điều trị, kết quả cận lâm sàng và công bố kết quả khám."}
+          </p>
         </div>
 
+        {isDoctor ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button type="button" onClick={() => setQuickFilter("", today())} className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4 text-left text-[#0d4f8b] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Hồ sơ đang lọc</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.total}</p>
+              <p className="mt-1 text-xs opacity-75">Toàn bộ hồ sơ trong ngày</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("DRAFT", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Hồ sơ nháp</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.draft}</p>
+              <p className="mt-1 text-xs opacity-75">Cần nhập hoặc kiểm tra</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("DRAFT", today())} className="rounded-md border border-[#e2d6ff] bg-[#f7f2ff] p-4 text-left text-[#673ab7] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Có thể công bố</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.publishable}</p>
+              <p className="mt-1 text-xs opacity-75">Ca đã bắt đầu hoặc hoàn tất</p>
+            </button>
+            <button type="button" onClick={() => setQuickFilter("PUBLISHED", today())} className="rounded-md border border-[#c7ead0] bg-[#f0fff4] p-4 text-left text-[#1f7a3a] transition hover:-translate-y-0.5 hover:shadow-sm">
+              <p className="text-sm font-medium opacity-80">Đã công bố</p>
+              <p className="mt-2 text-2xl font-semibold">{doctorSummary.published}</p>
+              <p className="mt-1 text-xs opacity-75">{doctorSummary.needPrescription} hồ sơ chưa có đơn</p>
+            </button>
+          </div>
+        ) : null}
+
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[170px_1fr_170px_170px]">
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_170px_1fr]" : "lg:grid-cols-[170px_1fr_170px_170px]"}`}>
             <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
-              <option value="">Tất cả bác sĩ</option>
-              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
-            </select>
+            {!isDoctor ? (
+              <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                <option value="">Tất cả bác sĩ</option>
+                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
+              </select>
+            ) : null}
             <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
@@ -483,6 +566,8 @@ export default function MedicalRecordsPage() {
               <div className="flex flex-wrap gap-2">
                 <button disabled={busy || uploadingRecordFile} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{uploadingRecordFile ? "Đang upload..." : "Lưu hồ sơ"}</button>
                 {selected.status !== "PUBLISHED" ? <button type="button" disabled={busy} onClick={() => void simpleRecordAction(selected, "/publish", "Đã công bố kết quả")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Công bố</button> : null}
+                {canCreatePrescription && !selected.prescriptionRecord ? <button type="button" disabled={busy} onClick={() => void createPrescriptionFromRecord(selected)} className="rounded-md border border-[#cfe4fa] px-4 py-2 text-sm font-medium text-[#0d4f8b]">Tạo đơn thuốc</button> : null}
+                {selected.prescriptionRecord ? <Link href="/dashboard/prescriptions" className="rounded-md border border-[#cfe4fa] px-4 py-2 text-sm font-medium text-[#0d4f8b]">Mở đơn thuốc</Link> : null}
                 {canArchive && selected.status !== "ARCHIVED" ? <button type="button" disabled={busy} onClick={() => void simpleRecordAction(selected, "/archive", "Đã lưu trữ hồ sơ")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Lưu trữ</button> : null}
               </div>
             </form>
