@@ -1,5 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { AppointmentStatus, Gender, Role } from "../../generated/prisma/enums.js";
+import type { AppointmentStatus, Gender, OtpChannel, Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
 import { AppError } from "../utils/appError.js";
@@ -20,6 +20,7 @@ type CreateAppointmentInput = {
   patientName: string;
   patientPhone: string;
   patientEmail?: string | null;
+  otpChannel?: OtpChannel;
   reason?: string | null;
   gender?: Gender | null;
   dateOfBirth?: string | null;
@@ -46,6 +47,7 @@ const appointmentSelect = {
   patientName: true,
   patientPhone: true,
   patientEmail: true,
+  otpChannel: true,
   patientGender: true,
   patientDateOfBirth: true,
   patientAddress: true,
@@ -207,6 +209,11 @@ class AppointmentService {
     const finalAmount = estimatedPrice + serviceFee - bhytDiscount;
     const patientDateOfBirth = parseOptionalDate(input.dateOfBirth);
     const normalizedPatientEmail = normalizeOptionalString(input.patientEmail);
+    const otpChannel = input.otpChannel || "SMS";
+
+    if (otpChannel === "EMAIL" && !normalizedPatientEmail) {
+      throw new AppError("Email la bat buoc khi chon xac thuc OTP qua email", 400);
+    }
     const existingUser = await prisma.user.findUnique({
       where: { phone: input.patientPhone },
       select: { role: true },
@@ -281,6 +288,7 @@ class AppointmentService {
             patientName: input.patientName,
             patientPhone: input.patientPhone,
             patientEmail: normalizedPatientEmail,
+            otpChannel,
             patientGender: input.gender,
             patientDateOfBirth,
             patientAddress: normalizeOptionalString(input.address),
@@ -320,9 +328,10 @@ class AppointmentService {
       bookingCode = appointment.bookingCode;
 
       const otp = await AuthOtpService.sendOtp(
-        input.patientPhone,
+        otpChannel === "EMAIL" ? normalizedPatientEmail || "" : input.patientPhone,
         "BOOK_APPOINTMENT",
         ipAddress,
+        { channel: otpChannel },
       );
 
       await prisma.appointmentLog.create({
@@ -354,6 +363,8 @@ class AppointmentService {
       select: {
         id: true,
         patientPhone: true,
+        patientEmail: true,
+        otpChannel: true,
         status: true,
       },
     });
@@ -367,9 +378,10 @@ class AppointmentService {
     }
 
     const otp = await AuthOtpService.sendOtp(
-      appointment.patientPhone,
+      appointment.otpChannel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
       "BOOK_APPOINTMENT",
       ipAddress,
+      { channel: appointment.otpChannel },
     );
 
     await prisma.appointmentLog.create({
@@ -385,7 +397,7 @@ class AppointmentService {
     };
   }
 
-  async verifyOtp(id: string, otp: string) {
+  async verifyOtp(id: string, otp: string, ipAddress?: string) {
     const appointment = await prisma.appointment.findUnique({
       where: { id },
       select: {
@@ -394,6 +406,7 @@ class AppointmentService {
         patientName: true,
         patientPhone: true,
         patientEmail: true,
+        otpChannel: true,
         patientGender: true,
         patientDateOfBirth: true,
         patientAddress: true,
@@ -417,9 +430,10 @@ class AppointmentService {
     }
 
     await AuthOtpService.verifyOtp(
-      appointment.patientPhone,
+      appointment.otpChannel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
       otp,
       "BOOK_APPOINTMENT",
+      { ipAddress, channel: appointment.otpChannel },
     );
 
     const updatedAppointment = await prisma.$transaction(async (tx) => {

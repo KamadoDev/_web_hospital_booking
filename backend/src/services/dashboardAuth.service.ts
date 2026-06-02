@@ -150,7 +150,10 @@ class DashboardAuthService {
         user.phone,
         otp,
         challenge.purpose,
-        challenge.id,
+        {
+          challengeId: challenge.id,
+          ipAddress: challenge.ipAddress || undefined,
+        },
       );
     } catch (error) {
       await prisma.dashboardLoginChallenge.update({
