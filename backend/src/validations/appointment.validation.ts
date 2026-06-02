@@ -12,6 +12,7 @@ export const createAppointmentSchema = z.object({
   patientName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu"),
   patientPhone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
   patientEmail: z.string().trim().email("Email khong hop le").nullable().optional(),
+  otpChannel: z.enum(["SMS", "EMAIL"]).default("SMS"),
   reason: z.string().trim().nullable().optional(),
 
   gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
@@ -25,6 +26,14 @@ export const createAppointmentSchema = z.object({
   allergies: z.string().trim().nullable().optional(),
   medicalHistory: z.string().trim().nullable().optional(),
   familyHistory: z.string().trim().nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.otpChannel === "EMAIL" && !value.patientEmail) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["patientEmail"],
+      message: "Email la bat buoc khi chon xac thuc OTP qua email",
+    });
+  }
 });
 
 export const verifyAppointmentOtpSchema = z.object({

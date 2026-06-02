@@ -1,6 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import AuthOtpService from "../services/authOtp.service.js";
-import type { OtpPurpose } from "../../generated/prisma/enums.js";
+import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
+
+const resolveOtpTarget = (body: {
+  phone?: string;
+  email?: string;
+  target?: string;
+  channel?: OtpChannel;
+}) => body.target || (body.channel === "EMAIL" ? body.email : body.phone) || "";
 
 export const sendOtpHandler = async (
   req: Request,
@@ -8,16 +15,18 @@ export const sendOtpHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const { phone, purpose } = req.body;
+    const { purpose, channel } = req.body;
+    const target = resolveOtpTarget(req.body);
     const ipAddress =
       req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
       req.socket.remoteAddress ||
       "unknown";
 
     const result = await AuthOtpService.sendOtp(
-      phone,
+      target,
       purpose as OtpPurpose,
       ipAddress,
+      { channel },
     );
 
     return res.status(200).json({
@@ -36,12 +45,18 @@ export const verifyOtpHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const { phone, otp, purpose } = req.body;
+    const { otp, purpose, channel } = req.body;
+    const target = resolveOtpTarget(req.body);
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
 
     const result = await AuthOtpService.verifyOtp(
-      phone,
+      target,
       otp,
       purpose as OtpPurpose,
+      { ipAddress, channel },
     );
 
     return res.status(200).json({

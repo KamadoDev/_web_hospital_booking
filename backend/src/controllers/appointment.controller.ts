@@ -84,6 +84,7 @@ export const verifyAppointmentOtpHandler = async (
     const appointment = await AppointmentService.verifyOtp(
       getParam(req.params.id),
       req.body.otp,
+      getIpAddress(req),
     );
 
     return res.json({

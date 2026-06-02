@@ -55,6 +55,11 @@ enum OtpPurpose {
   STAFF_LOGIN
 }
 
+enum OtpChannel {
+  SMS
+  EMAIL
+}
+
 enum InvoiceStatus {
   UNPAID
   PAID
@@ -225,6 +230,9 @@ model PatientProfile {
 model OtpCode {
   id      String     @id @default(uuid())
   phone   String
+  email   String?
+  target  String?
+  channel OtpChannel @default(SMS)
   code    String
   purpose OtpPurpose
 
@@ -242,10 +250,48 @@ model OtpCode {
   createdAt DateTime @default(now())
 
   @@index([phone])
+  @@index([email])
+  @@index([target])
+  @@index([channel])
   @@index([purpose])
   @@index([expiresAt])
   @@index([ipAddress])
   @@index([challengeId])
+}
+
+model OtpSecurityBlock {
+  id String @id @default(uuid())
+
+  targetType String
+  target     String
+  reason     String
+  purpose    OtpPurpose?
+
+  blockedUntil DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([targetType, target])
+  @@index([purpose])
+  @@index([blockedUntil])
+}
+
+model OtpVerifyAttempt {
+  id String @id @default(uuid())
+
+  phone     String
+  email     String?
+  target    String?
+  channel   OtpChannel @default(SMS)
+  purpose   OtpPurpose
+  ipAddress String?
+  success   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose, createdAt])
+  @@index([target, channel, purpose, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([success])
 }
 
 model DashboardLoginChallenge {
@@ -477,6 +523,7 @@ model Appointment {
   patientName  String
   patientPhone String
   patientEmail String?
+  otpChannel   OtpChannel @default(SMS)
   patientGender Gender?
   patientDateOfBirth DateTime?
   patientAddress String?
