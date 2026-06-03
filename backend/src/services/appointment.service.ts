@@ -4,7 +4,7 @@ import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
 import { AppError } from "../utils/appError.js";
 import { generateBookingCode } from "../utils/bookingCode.js";
-import { parseDateOnly } from "../utils/time.js";
+import { getVietnamNowParts, isSlotStartInPastVietnamTime, parseDateOnly } from "../utils/time.js";
 import MedicalRecordService from "./medicalRecord.service.js";
 
 type Actor = {
@@ -34,7 +34,16 @@ type CreateAppointmentInput = {
   familyHistory?: string | null;
 };
 
+type PublicCancelAppointmentInput = {
+  bookingCode?: string;
+  phone?: string;
+  reason?: string;
+  otp?: string;
+  ipAddress: string;
+};
+
 const DEFAULT_PENDING_OTP_EXPIRE_MINUTES = 15;
+const PUBLIC_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = ["PENDING_CONFIRM", "CONFIRMED"];
 
 const appointmentSelect = {
   id: true,
@@ -115,7 +124,220 @@ const appointmentSelect = {
       status: true,
     },
   },
+  invoice: {
+    select: {
+      id: true,
+      invoiceCode: true,
+      barcode: true,
+      totalAmount: true,
+      bhytDiscount: true,
+      finalAmount: true,
+      status: true,
+      paymentMethod: true,
+      paidAt: true,
+      createdAt: true,
+      updatedAt: true,
+      paymentTransactions: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 3,
+        select: {
+          id: true,
+          provider: true,
+          status: true,
+          amount: true,
+          transactionCode: true,
+          paymentUrl: true,
+          paidAt: true,
+          expiredAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  },
 } satisfies Prisma.AppointmentSelect;
+
+const publicAppointmentSummarySelect = {
+  id: true,
+  bookingCode: true,
+  appointmentDate: true,
+  startTime: true,
+  endTime: true,
+  status: true,
+  reason: true,
+  patientName: true,
+  patientPhone: true,
+  estimatedPrice: true,
+  serviceFee: true,
+  bhytDiscount: true,
+  finalAmount: true,
+  confirmedAt: true,
+  cancelledAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  doctor: {
+    select: {
+      id: true,
+      title: true,
+      specialization: true,
+      user: {
+        select: {
+          fullName: true,
+          avatar: true,
+        },
+      },
+    },
+  },
+  department: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+  package: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+  invoice: {
+    select: {
+      id: true,
+      invoiceCode: true,
+      barcode: true,
+      totalAmount: true,
+      bhytDiscount: true,
+      finalAmount: true,
+      status: true,
+      paymentMethod: true,
+      paidAt: true,
+      createdAt: true,
+      updatedAt: true,
+      paymentTransactions: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 3,
+        select: {
+          id: true,
+          provider: true,
+          status: true,
+          amount: true,
+          transactionCode: true,
+          paymentUrl: true,
+          paidAt: true,
+          expiredAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.AppointmentSelect;
+
+const publicAppointmentResultSelect = {
+  id: true,
+  bookingCode: true,
+  appointmentDate: true,
+  startTime: true,
+  endTime: true,
+  status: true,
+  patientName: true,
+  patientPhone: true,
+  completedAt: true,
+  doctor: {
+    select: {
+      id: true,
+      title: true,
+      specialization: true,
+      user: {
+        select: {
+          fullName: true,
+          avatar: true,
+        },
+      },
+    },
+  },
+  department: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+} satisfies Prisma.AppointmentSelect;
+
+const publicMedicalRecordResultSelect = {
+  id: true,
+  recordCode: true,
+  symptoms: true,
+  diagnosis: true,
+  treatment: true,
+  prescription: true,
+  doctorNotes: true,
+  status: true,
+  resultPdfUrl: true,
+  publishedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  labResults: {
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+      medicalRecordId: true,
+      testName: true,
+      resultValue: true,
+      unit: true,
+      referenceRange: true,
+      conclusion: true,
+      fileUrl: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+} satisfies Prisma.MedicalRecordSelect;
+
+const publicPrescriptionResultSelect = {
+  id: true,
+  prescriptionCode: true,
+  status: true,
+  note: true,
+  issuedAt: true,
+  cancelledAt: true,
+  createdAt: true,
+  updatedAt: true,
+  items: {
+    orderBy: [
+      {
+        sortOrder: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+    select: {
+      id: true,
+      prescriptionId: true,
+      medicineName: true,
+      dosage: true,
+      frequency: true,
+      duration: true,
+      quantity: true,
+      unit: true,
+      instruction: true,
+      sortOrder: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+} satisfies Prisma.PrescriptionSelect;
 
 const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
@@ -210,6 +432,14 @@ class AppointmentService {
     const patientDateOfBirth = parseOptionalDate(input.dateOfBirth);
     const normalizedPatientEmail = normalizeOptionalString(input.patientEmail);
     const otpChannel = input.otpChannel || "SMS";
+
+    if (isSlotStartInPastVietnamTime(timeSlot.date, timeSlot.startTime)) {
+      throw new AppError("Khung gio kham da qua", 400);
+    }
+
+    if (patientDateOfBirth && patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)) {
+      throw new AppError("Ngay sinh phai nho hon ngay hien tai", 400);
+    }
 
     if (otpChannel === "EMAIL" && !normalizedPatientEmail) {
       throw new AppError("Email la bat buoc khi chon xac thuc OTP qua email", 400);
@@ -533,6 +763,212 @@ class AppointmentService {
     }
 
     return appointment;
+  }
+
+  async lookupPublic(input: { bookingCode?: string; phone?: string }) {
+    const bookingCode = input.bookingCode?.trim().toUpperCase();
+    const phone = input.phone?.trim();
+
+    if (!bookingCode) {
+      throw new AppError("Thieu ma lich hen", 400);
+    }
+
+    if (!phone) {
+      throw new AppError("Thieu so dien thoai", 400);
+    }
+
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        bookingCode,
+        patientPhone: phone,
+      },
+      select: appointmentSelect,
+    });
+
+    if (!appointment) {
+      throw new AppError("Khong tim thay lich hen", 404);
+    }
+
+    return appointment;
+  }
+
+  async getPublicResult(input: { bookingCode?: string; phone?: string }) {
+    const bookingCode = input.bookingCode?.trim().toUpperCase();
+    const phone = input.phone?.trim();
+
+    if (!bookingCode) {
+      throw new AppError("Thieu ma lich hen", 400);
+    }
+
+    if (!phone) {
+      throw new AppError("Thieu so dien thoai", 400);
+    }
+
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        bookingCode,
+        patientPhone: phone,
+      },
+      select: publicAppointmentResultSelect,
+    });
+
+    if (!appointment) {
+      throw new AppError("Khong tim thay lich hen", 404);
+    }
+
+    const medicalRecord = await prisma.medicalRecord.findFirst({
+      where: {
+        appointmentId: appointment.id,
+        status: "PUBLISHED",
+      },
+      select: publicMedicalRecordResultSelect,
+    });
+
+    const prescription = medicalRecord
+      ? await prisma.prescription.findFirst({
+          where: {
+            medicalRecordId: medicalRecord.id,
+            status: "ISSUED",
+          },
+          select: publicPrescriptionResultSelect,
+        })
+      : null;
+
+    return {
+      appointment,
+      medicalRecord,
+      prescription,
+    };
+  }
+
+  async requestLookupOtp(input: { phone?: string; ipAddress: string }) {
+    const phone = input.phone?.trim();
+
+    if (!phone) {
+      throw new AppError("Thieu so dien thoai", 400);
+    }
+
+    const existingAppointments = await prisma.appointment.count({
+      where: {
+        patientPhone: phone,
+      },
+    });
+
+    if (existingAppointments === 0) {
+      throw new AppError("Khong tim thay lich hen voi so dien thoai nay", 404);
+    }
+
+    return AuthOtpService.sendOtp(
+      phone,
+      "LOOKUP_RESULT",
+      input.ipAddress,
+      { channel: "SMS" },
+    );
+  }
+
+  async verifyLookupOtp(input: { phone?: string; otp?: string; ipAddress?: string }) {
+    const phone = input.phone?.trim();
+
+    if (!phone) {
+      throw new AppError("Thieu so dien thoai", 400);
+    }
+
+    if (!input.otp) {
+      throw new AppError("Thieu ma OTP", 400);
+    }
+
+    await AuthOtpService.verifyOtp(
+      phone,
+      input.otp,
+      "LOOKUP_RESULT",
+      { ipAddress: input.ipAddress, channel: "SMS" },
+    );
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        patientPhone: phone,
+      },
+      select: publicAppointmentSummarySelect,
+      orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }],
+      take: 10,
+    });
+
+    return {
+      phone,
+      items: appointments,
+    };
+  }
+
+  async requestPublicCancelOtp(input: PublicCancelAppointmentInput) {
+    const appointment = await this.getPublicCancellableAppointment(input);
+
+    const otp = await AuthOtpService.sendOtp(
+      appointment.patientPhone,
+      "CANCEL_APPOINTMENT",
+      input.ipAddress,
+      { channel: appointment.otpChannel || "SMS" },
+    );
+
+    await prisma.appointmentLog.create({
+      data: {
+        appointmentId: appointment.id,
+        action: "OTP_SENT",
+        note: "OTP xac thuc huy lich da duoc gui",
+      },
+    });
+
+    return {
+      bookingCode: appointment.bookingCode,
+      patientPhone: appointment.patientPhone,
+      expiresIn: otp.expiresIn,
+    };
+  }
+
+  async verifyPublicCancel(input: PublicCancelAppointmentInput) {
+    if (!input.otp) {
+      throw new AppError("Thieu OTP", 400);
+    }
+
+    const appointment = await this.getPublicCancellableAppointment(input);
+
+    await AuthOtpService.verifyOtp(
+      appointment.patientPhone,
+      input.otp,
+      "CANCEL_APPOINTMENT",
+      { ipAddress: input.ipAddress, channel: appointment.otpChannel || "SMS" },
+    );
+
+    return prisma.$transaction(async (tx) => {
+      if (appointment.timeSlotId) {
+        await tx.doctorTimeSlot.update({
+          where: { id: appointment.timeSlotId },
+          data: {
+            status: "AVAILABLE",
+            isActive: true,
+            lockReason: null,
+          },
+        });
+      }
+
+      return tx.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          status: "CANCELLED_BY_PATIENT",
+          cancelledAt: new Date(),
+          cancelledByRole: "PATIENT",
+          cancelledById: appointment.patientId,
+          cancelledReason: input.reason?.trim(),
+          logs: {
+            create: {
+              action: "CANCELLED_BY_PATIENT",
+              createdById: appointment.patientId,
+              note: input.reason?.trim(),
+            },
+          },
+        },
+        select: appointmentSelect,
+      });
+    });
   }
 
   async dashboardList(query: {
@@ -885,6 +1321,50 @@ class AppointmentService {
     await prisma.appointment.delete({
       where: { id: appointmentId },
     });
+  }
+
+  private async getPublicCancellableAppointment(input: PublicCancelAppointmentInput) {
+    const bookingCode = input.bookingCode?.trim().toUpperCase();
+    const phone = input.phone?.trim();
+    const reason = input.reason?.trim();
+
+    if (!bookingCode) {
+      throw new AppError("Thieu ma lich hen", 400);
+    }
+
+    if (!phone) {
+      throw new AppError("Thieu so dien thoai", 400);
+    }
+
+    if (!reason || reason.length < 2) {
+      throw new AppError("Ly do huy toi thieu 2 ky tu", 400);
+    }
+
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        bookingCode,
+        patientPhone: phone,
+      },
+      select: {
+        id: true,
+        bookingCode: true,
+        patientId: true,
+        patientPhone: true,
+        otpChannel: true,
+        status: true,
+        timeSlotId: true,
+      },
+    });
+
+    if (!appointment) {
+      throw new AppError("Khong tim thay lich hen", 404);
+    }
+
+    if (!PUBLIC_CANCEL_ALLOWED_STATUSES.includes(appointment.status)) {
+      throw new AppError("Chi co the huy lich dang cho xac nhan hoac da xac nhan", 400);
+    }
+
+    return appointment;
   }
 
   private async getAppointmentStatus(id: string, actor: Actor) {

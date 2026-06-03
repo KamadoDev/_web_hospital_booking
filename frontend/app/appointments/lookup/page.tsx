@@ -1,0 +1,1150 @@
+"use client";
+
+import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Stethoscope } from "lucide-react";
+import Link from "next/link";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { apiRequest } from "@/lib/api";
+import type { AppointmentStatus, LabResult, PaymentProvider, PaymentTransaction, Prescription, PublicAppointmentInvoice } from "@/lib/types";
+
+type DisplayAppointment = {
+  id: string;
+  bookingCode: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+  reason: string | null;
+  patientName: string;
+  patientPhone: string;
+  estimatedPrice: number;
+  serviceFee: number;
+  bhytDiscount: number;
+  finalAmount: number;
+  confirmedAt: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  doctor: {
+    id: string;
+    title: string | null;
+    specialization: string | null;
+    user: {
+      fullName: string;
+      avatar: string | null;
+    };
+  };
+  department: {
+    id: string;
+    name: string;
+    slug: string | null;
+  };
+  package: {
+    id: string;
+    name: string;
+    slug: string | null;
+  } | null;
+  invoice: PublicAppointmentInvoice | null;
+};
+
+type LookupOtpResponse = {
+  phone: string;
+  items: DisplayAppointment[];
+};
+
+type PublicAppointmentResult = {
+  appointment: Pick<DisplayAppointment, "id" | "bookingCode" | "appointmentDate" | "startTime" | "endTime" | "status" | "patientName" | "patientPhone" | "completedAt" | "doctor" | "department">;
+  medicalRecord: {
+    id: string;
+    recordCode: string;
+    symptoms: string | null;
+    diagnosis: string | null;
+    treatment: string | null;
+    prescription: string | null;
+    doctorNotes: string | null;
+    status: "PUBLISHED";
+    resultPdfUrl: string | null;
+    publishedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    labResults: LabResult[];
+  } | null;
+  prescription: Pick<Prescription, "id" | "prescriptionCode" | "status" | "note" | "issuedAt" | "cancelledAt" | "createdAt" | "updatedAt" | "items"> | null;
+};
+
+const statusLabels: Record<AppointmentStatus, { label: string; tone: string; next: string }> = {
+  PENDING_OTP: {
+    label: "Chờ xác thực OTP",
+    tone: "border-[#f4d48b] bg-[#fff8eb] text-[#8a5a00]",
+    next: "Vui lòng xác thực OTP để bệnh viện tiếp nhận lịch.",
+  },
+  PENDING_CONFIRM: {
+    label: "Chờ bệnh viện xác nhận",
+    tone: "border-[#cfe4fa] bg-[#f3f8ff] text-[#0d4f8b]",
+    next: "Bệnh viện sẽ kiểm tra lịch và xác nhận trong thời gian sớm nhất.",
+  },
+  CONFIRMED: {
+    label: "Đã xác nhận",
+    tone: "border-[#bde5c8] bg-[#f0fff4] text-[#1f7a3a]",
+    next: "Vui lòng đến đúng giờ và mang theo giấy tờ cần thiết.",
+  },
+  CHECKED_IN: {
+    label: "Đã check-in",
+    tone: "border-[#bde5c8] bg-[#f0fff4] text-[#1f7a3a]",
+    next: "Bạn đã được tiếp nhận tại bệnh viện.",
+  },
+  IN_PROGRESS: {
+    label: "Đang khám",
+    tone: "border-[#cfe4fa] bg-[#f3f8ff] text-[#0d4f8b]",
+    next: "Quá trình khám đang được thực hiện.",
+  },
+  COMPLETED: {
+    label: "Hoàn tất",
+    tone: "border-[#d8e2ef] bg-[#f8fafc] text-[#42526b]",
+    next: "Lịch khám đã hoàn tất. Bạn có thể theo dõi hồ sơ khi bệnh viện công bố kết quả.",
+  },
+  RESCHEDULED: {
+    label: "Đã đổi lịch",
+    tone: "border-[#f4d48b] bg-[#fff8eb] text-[#8a5a00]",
+    next: "Lịch đã được điều chỉnh. Vui lòng kiểm tra lại thời gian mới.",
+  },
+  CANCELLED_BY_PATIENT: {
+    label: "Người bệnh đã hủy",
+    tone: "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]",
+    next: "Lịch đã bị hủy. Bạn có thể đặt lịch mới khi cần.",
+  },
+  CANCELLED_BY_DOCTOR: {
+    label: "Bác sĩ đã hủy",
+    tone: "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]",
+    next: "Lịch đã bị hủy bởi bác sĩ. Vui lòng đặt lại hoặc liên hệ bệnh viện.",
+  },
+  CANCELLED_BY_ADMIN: {
+    label: "Bệnh viện đã hủy",
+    tone: "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]",
+    next: "Lịch đã bị hủy bởi bệnh viện. Vui lòng liên hệ để được hỗ trợ.",
+  },
+  NO_SHOW: {
+    label: "Không đến khám",
+    tone: "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]",
+    next: "Lịch được ghi nhận là không đến khám.",
+  },
+};
+
+const invoiceStatusLabels = {
+  UNPAID: {
+    label: "Chưa thanh toán",
+    tone: "border-[#f4d48b] bg-[#fff8eb] text-[#8a5a00]",
+  },
+  PAID: {
+    label: "Đã thanh toán",
+    tone: "border-[#bde5c8] bg-[#f0fff4] text-[#1f7a3a]",
+  },
+  CANCELLED: {
+    label: "Đã hủy",
+    tone: "border-[#d8e2ef] bg-[#f8fafc] text-[#42526b]",
+  },
+  REFUNDED: {
+    label: "Đã hoàn tiền",
+    tone: "border-[#cfe4fa] bg-[#f3f8ff] text-[#0d4f8b]",
+  },
+} satisfies Record<PublicAppointmentInvoice["status"], { label: string; tone: string }>;
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
+
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+
+const formatDateTime = (value: string) =>
+  new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+
+const formatTime = (value: string) => value.slice(0, 5);
+
+const doctorName = (appointment: DisplayAppointment) =>
+  [appointment.doctor.title, appointment.doctor.user.fullName].filter(Boolean).join(" ");
+
+const cancellableStatuses: AppointmentStatus[] = ["PENDING_CONFIRM", "CONFIRMED"];
+
+const getInitialQueryValue = (key: string) => {
+  if (typeof window === "undefined") return "";
+
+  return new URLSearchParams(window.location.search).get(key) || "";
+};
+
+export default function AppointmentLookupPage() {
+  const [activeTab, setActiveTab] = useState<"CODE" | "FORGOT">("CODE");
+  const [bookingCode, setBookingCode] = useState(() => getInitialQueryValue("bookingCode"));
+  const [phone, setPhone] = useState(() => getInitialQueryValue("phone"));
+  const [forgotPhone, setForgotPhone] = useState(() => getInitialQueryValue("phone"));
+  const [otp, setOtp] = useState("");
+  const [appointment, setAppointment] = useState<DisplayAppointment | null>(null);
+  const [forgotItems, setForgotItems] = useState<DisplayAppointment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const status = useMemo(() => appointment ? statusLabels[appointment.status] : null, [appointment]);
+
+  const resetFeedback = () => {
+    setError("");
+    setMessage("");
+  };
+
+  const lookupAppointment = async () => {
+    resetFeedback();
+    setAppointment(null);
+
+    if (!bookingCode.trim()) {
+      setError("Vui lòng nhập mã lịch hẹn.");
+      return;
+    }
+
+    if (!phone.trim()) {
+      setError("Vui lòng nhập số điện thoại đã đặt lịch.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await apiRequest<DisplayAppointment>("/appointments/lookup", {
+        query: {
+          bookingCode: bookingCode.trim().toUpperCase(),
+          phone: phone.trim(),
+        },
+      });
+
+      setAppointment(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tra cứu được lịch hẹn");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestLookupOtp = async () => {
+    resetFeedback();
+    setForgotItems([]);
+    setAppointment(null);
+
+    if (!forgotPhone.trim()) {
+      setError("Vui lòng nhập số điện thoại đã đặt lịch.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await apiRequest("/appointments/lookup/request-otp", {
+        method: "POST",
+        body: { phone: forgotPhone.trim() },
+      });
+      setOtpSent(true);
+      setMessage("OTP tra cứu lịch hẹn đã được gửi.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không gửi được OTP tra cứu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyLookupOtp = async () => {
+    resetFeedback();
+    setForgotItems([]);
+    setAppointment(null);
+
+    if (!/^[0-9]{6}$/.test(otp)) {
+      setError("OTP phải gồm đúng 6 chữ số.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await apiRequest<LookupOtpResponse>("/appointments/lookup/verify-otp", {
+        method: "POST",
+        body: {
+          phone: forgotPhone.trim(),
+          otp,
+        },
+      });
+
+      setForgotItems(result.items);
+      setAppointment(result.items[0] || null);
+      setMessage(result.items.length ? "Đã xác thực OTP và tải danh sách lịch gần đây." : "Đã xác thực OTP nhưng chưa có lịch hẹn.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Xác thực OTP tra cứu thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchTab = (tab: "CODE" | "FORGOT") => {
+    setActiveTab(tab);
+    resetFeedback();
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
+      <header className="border-b border-[#dce3ee] bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#42526b] hover:text-[#0d4f8b]">
+            <ArrowLeft className="h-4 w-4" />
+            Về trang chủ
+          </Link>
+          <Link href="/#booking" className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">
+            Đặt lịch mới
+          </Link>
+        </div>
+      </header>
+
+      <section className="bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Tra cứu lịch hẹn</p>
+            <h1 className="mt-2 text-4xl font-semibold">Kiểm tra trạng thái lịch khám của bạn</h1>
+            <p className="mt-4 text-sm leading-6 text-[#667892]">
+              Có mã lịch thì tra cứu trực tiếp. Nếu quên mã, hãy xác thực OTP bằng số điện thoại để xem các lịch gần đây.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(360px,1fr)] lg:px-8">
+        <div className="h-fit rounded-md border border-[#dce3ee] bg-white p-5">
+          <div className="grid grid-cols-2 rounded-md bg-[#f1f5f9] p-1">
+            <button
+              type="button"
+              onClick={() => switchTab("CODE")}
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${activeTab === "CODE" ? "bg-white text-[#0d4f8b] shadow-sm" : "text-[#667892]"}`}
+            >
+              Có mã lịch
+            </button>
+            <button
+              type="button"
+              onClick={() => switchTab("FORGOT")}
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${activeTab === "FORGOT" ? "bg-white text-[#0d4f8b] shadow-sm" : "text-[#667892]"}`}
+            >
+              Quên mã lịch
+            </button>
+          </div>
+
+          {activeTab === "CODE" ? (
+            <div className="mt-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+                <Search className="h-4 w-4 text-[#0d4f8b]" />
+                Thông tin tra cứu
+              </div>
+              <div className="mt-4 space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-[#334155]">Mã lịch hẹn</span>
+                  <input
+                    value={bookingCode}
+                    onChange={(event) => setBookingCode(event.target.value.toUpperCase())}
+                    placeholder="VD: HB202606030001"
+                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm uppercase outline-none focus:border-[#0d4f8b]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-[#334155]">Số điện thoại</span>
+                  <input
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="0901234567"
+                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => void lookupAppointment()}
+                disabled={loading}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Tra cứu lịch hẹn
+              </button>
+            </div>
+          ) : (
+            <div className="mt-5">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+                <ShieldCheck className="h-4 w-4 text-[#0d4f8b]" />
+                Xác thực số điện thoại
+              </div>
+              <div className="mt-4 space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-[#334155]">Số điện thoại đã đặt lịch</span>
+                  <input
+                    value={forgotPhone}
+                    onChange={(event) => setForgotPhone(event.target.value)}
+                    placeholder="0901234567"
+                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                  />
+                </label>
+                {otpSent ? (
+                  <label className="block">
+                    <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
+                    <input
+                      value={otp}
+                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                      inputMode="numeric"
+                      placeholder="000000"
+                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+                    />
+                  </label>
+                ) : null}
+              </div>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => void requestLookupOtp()}
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-4 py-3 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+                >
+                  {loading && !otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                  {otpSent ? "Gửi lại OTP" : "Gửi OTP"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void verifyLookupOtp()}
+                  disabled={loading || !otpSent}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+                >
+                  {loading && otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Xem lịch gần đây
+                </button>
+              </div>
+            </div>
+          )}
+
+          {message ? <div className="mt-4 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{message}</div> : null}
+          {error ? <div className="mt-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{error}</div> : null}
+
+          {forgotItems.length ? (
+            <div className="mt-5 border-t border-[#e5ebf3] pt-5">
+              <p className="text-sm font-semibold text-[#172033]">Lịch gần đây</p>
+              <div className="mt-3 space-y-2">
+                {forgotItems.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => setAppointment(item)}
+                    className={`w-full rounded-md border px-3 py-3 text-left transition ${
+                      appointment?.id === item.id
+                        ? "border-[#0d4f8b] bg-[#f3f8ff]"
+                        : "border-[#e5ebf3] hover:border-[#0d4f8b]"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold text-[#172033]">{item.bookingCode}</span>
+                    <span className="mt-1 block text-xs text-[#667892]">{formatDate(item.appointmentDate)} - {formatTime(item.startTime)} - {formatTime(item.endTime)} - {statusLabels[item.status].label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-5 border-t border-[#e5ebf3] pt-4 text-sm text-[#667892]">
+            Chưa rõ quy trình?{" "}
+            <Link href="/guide/booking" className="font-semibold text-[#0d4f8b]">Xem hướng dẫn đặt lịch</Link>
+          </div>
+        </div>
+
+        <AppointmentResult appointment={appointment} status={status} />
+      </section>
+    </main>
+  );
+}
+
+function AppointmentResult({ appointment, status }: { appointment: DisplayAppointment | null; status: typeof statusLabels[AppointmentStatus] | null }) {
+  if (!appointment || !status) {
+    return (
+      <div className="rounded-md border border-[#dce3ee] bg-white p-5">
+        <div className="flex min-h-80 flex-col items-center justify-center rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] p-8 text-center">
+          <CheckCircle2 className="h-10 w-10 text-[#0d4f8b]" />
+          <h2 className="mt-4 text-lg font-semibold">Nhập thông tin để tra cứu</h2>
+          <p className="mt-2 max-w-md text-sm leading-6 text-[#667892]">
+            Kết quả lịch hẹn sẽ hiển thị tại đây sau khi thông tin khớp với hệ thống.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-[#dce3ee] bg-white p-5">
+      <div className="flex flex-col gap-3 border-b border-[#e5ebf3] pb-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm text-[#667892]">Mã lịch hẹn</p>
+          <h2 className="mt-1 text-2xl font-semibold">{appointment.bookingCode}</h2>
+        </div>
+        <span className={`inline-flex w-fit rounded-md border px-3 py-1.5 text-sm font-semibold ${status.tone}`}>{status.label}</span>
+      </div>
+
+      <p className="mt-4 rounded-md bg-[#f8fafc] px-4 py-3 text-sm leading-6 text-[#42526b]">{status.next}</p>
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <InfoItem icon={<CalendarDays className="h-4 w-4" />} label="Ngày khám" value={formatDate(appointment.appointmentDate)} />
+        <InfoItem icon={<Clock className="h-4 w-4" />} label="Khung giờ" value={`${formatTime(appointment.startTime)} - ${formatTime(appointment.endTime)}`} />
+        <InfoItem icon={<Stethoscope className="h-4 w-4" />} label="Bác sĩ" value={doctorName(appointment)} />
+        <InfoItem icon={<Phone className="h-4 w-4" />} label="Số điện thoại" value={appointment.patientPhone} />
+      </div>
+
+      <div className="mt-5 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+        <p className="text-sm font-semibold text-[#172033]">Thông tin khám</p>
+        <div className="mt-3 space-y-2 text-sm text-[#667892]">
+          <p>Chuyên khoa: <span className="font-semibold text-[#172033]">{appointment.department.name}</span></p>
+          <p>Gói khám: <span className="font-semibold text-[#172033]">{appointment.package?.name || "Khám theo bác sĩ"}</span></p>
+          <p>Lý do khám: <span className="font-semibold text-[#172033]">{appointment.reason || "-"}</span></p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <PriceItem label="Giá dự kiến" value={appointment.estimatedPrice} />
+        <PriceItem label="Phí dịch vụ" value={appointment.serviceFee} />
+        <PriceItem label="Thành tiền" value={appointment.finalAmount} highlight />
+      </div>
+
+      <CancelAppointmentPanel appointment={appointment} />
+      <PaymentPanel appointment={appointment} />
+      <MedicalResultPanel appointment={appointment} />
+    </div>
+  );
+}
+
+function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointment }) {
+  const [reason, setReason] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [cancelMessage, setCancelMessage] = useState("");
+  const [cancelError, setCancelError] = useState("");
+  const [cancelled, setCancelled] = useState(appointment.status === "CANCELLED_BY_PATIENT");
+
+  const canCancel = cancellableStatuses.includes(appointment.status) && !cancelled;
+
+  const resetFeedback = () => {
+    setCancelMessage("");
+    setCancelError("");
+  };
+
+  const requestCancelOtp = async () => {
+    resetFeedback();
+
+    if (reason.trim().length < 2) {
+      setCancelError("Vui lòng nhập lý do hủy tối thiểu 2 ký tự.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await apiRequest("/appointments/lookup/cancel/request-otp", {
+        method: "POST",
+        body: {
+          bookingCode: appointment.bookingCode,
+          phone: appointment.patientPhone,
+          reason: reason.trim(),
+        },
+      });
+
+      setOtpSent(true);
+      setCancelMessage("OTP xác nhận hủy lịch đã được gửi.");
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Không gửi được OTP hủy lịch");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCancel = async () => {
+    resetFeedback();
+
+    if (!/^[0-9]{6}$/.test(otp)) {
+      setCancelError("OTP phải gồm đúng 6 chữ số.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await apiRequest<DisplayAppointment>("/appointments/lookup/cancel/verify", {
+        method: "POST",
+        body: {
+          bookingCode: appointment.bookingCode,
+          phone: appointment.patientPhone,
+          reason: reason.trim(),
+          otp,
+        },
+      });
+
+      setCancelled(true);
+      setCancelMessage("Đã hủy lịch hẹn thành công. Khung giờ có thể được mở lại cho người khác.");
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Không xác thực được yêu cầu hủy lịch");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!canCancel && !cancelled) {
+    return (
+      <div className="mt-5 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+          <ShieldCheck className="h-4 w-4 text-[#0d4f8b]" />
+          Hủy lịch hẹn
+        </div>
+        <p className="mt-2 text-sm leading-6 text-[#667892]">
+          Lịch hẹn hiện không còn ở trạng thái có thể hủy trực tuyến. Vui lòng liên hệ bệnh viện nếu cần hỗ trợ.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-[#f4d48b] bg-[#fff8eb] p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[#8a5a00]">
+        <ShieldCheck className="h-4 w-4" />
+        Hủy lịch hẹn
+      </div>
+      {cancelled ? (
+        <p className="mt-2 text-sm leading-6 text-[#8a5a00]">
+          Lịch hẹn đã được hủy bởi người bệnh.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">
+            Bạn có thể hủy lịch đang chờ xác nhận hoặc đã xác nhận. Sau khi hủy, khung giờ có thể được mở lại cho người khác.
+          </p>
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={3}
+            placeholder="Nhập lý do hủy lịch"
+            className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+          />
+          {otpSent ? (
+            <input
+              value={otp}
+              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              placeholder="000000"
+              className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+            />
+          ) : null}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => void requestCancelOtp()}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-[#d9a441] bg-white px-4 py-2.5 text-sm font-semibold text-[#8a5a00] hover:bg-[#fff4d6] disabled:opacity-60"
+            >
+              {loading && !otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+              {otpSent ? "Gửi lại OTP" : "Gửi OTP hủy lịch"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void verifyCancel()}
+              disabled={loading || !otpSent}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#b3261e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#8f1d17] disabled:opacity-60"
+            >
+              {loading && otpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Xác nhận hủy lịch
+            </button>
+          </div>
+        </>
+      )}
+      {cancelMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{cancelMessage}</div> : null}
+      {cancelError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{cancelError}</div> : null}
+    </div>
+  );
+}
+
+function MedicalResultPanel({ appointment }: { appointment: DisplayAppointment }) {
+  const [result, setResult] = useState<PublicAppointmentResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [resultError, setResultError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadResult = async () => {
+      setLoading(true);
+      setResultError("");
+
+      try {
+        const data = await apiRequest<PublicAppointmentResult>("/appointments/lookup/result", {
+          query: {
+            bookingCode: appointment.bookingCode,
+            phone: appointment.patientPhone,
+          },
+        });
+
+        if (active) setResult(data);
+      } catch (err) {
+        if (active) {
+          setResult(null);
+          setResultError(err instanceof Error ? err.message : "Không tải được kết quả khám");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void loadResult();
+
+    return () => {
+      active = false;
+    };
+  }, [appointment.bookingCode, appointment.patientPhone]);
+
+  const medicalRecord = result?.medicalRecord || null;
+  const prescription = result?.prescription || null;
+
+  return (
+    <div className="mt-5 rounded-md border border-[#dce3ee] bg-white p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+            <ClipboardList className="h-4 w-4 text-[#0d4f8b]" />
+            Kết quả khám
+          </div>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">
+            Kết quả chỉ hiển thị khi bác sĩ đã công bố hồ sơ và phát hành đơn thuốc.
+          </p>
+        </div>
+        {medicalRecord?.publishedAt ? (
+          <span className="inline-flex w-fit rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-1.5 text-sm font-semibold text-[#1f7a3a]">
+            Đã công bố
+          </span>
+        ) : null}
+      </div>
+
+      {loading ? (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <span key={index} className="skeleton-shimmer h-24 rounded-md" />
+          ))}
+        </div>
+      ) : resultError ? (
+        <div className="mt-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{resultError}</div>
+      ) : !medicalRecord ? (
+        <div className="mt-5 rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] p-6 text-center">
+          <FileText className="mx-auto h-9 w-9 text-[#0d4f8b]" />
+          <h3 className="mt-3 font-semibold">Chưa có kết quả được công bố</h3>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">
+            Nếu lịch khám đã hoàn tất, vui lòng chờ bác sĩ công bố hồ sơ hoặc liên hệ bệnh viện để được hỗ trợ.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mt-5 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">Mã hồ sơ</p>
+                <h3 className="mt-1 text-xl font-semibold text-[#172033]">{medicalRecord.recordCode}</h3>
+              </div>
+              {medicalRecord.resultPdfUrl ? (
+                <a
+                  href={medicalRecord.resultPdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-semibold text-[#42526b] hover:bg-white"
+                >
+                  File kết quả
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <ResultText label="Triệu chứng" value={medicalRecord.symptoms} />
+              <ResultText label="Chẩn đoán" value={medicalRecord.diagnosis} />
+              <ResultText label="Điều trị" value={medicalRecord.treatment} />
+              <ResultText label="Lời dặn bác sĩ" value={medicalRecord.doctorNotes} />
+            </div>
+            {medicalRecord.prescription ? (
+              <div className="mt-3 rounded-md bg-white px-3 py-2 text-sm leading-6 text-[#42526b]">
+                <span className="font-semibold text-[#172033]">Ghi chú kê toa: </span>
+                {medicalRecord.prescription}
+              </div>
+            ) : null}
+          </div>
+
+          <LabResultsSection labResults={medicalRecord.labResults} />
+          <PrescriptionSection prescription={prescription} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function ResultText({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="rounded-md border border-[#e5ebf3] bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-[#172033]">{value || "Chưa cập nhật"}</p>
+    </div>
+  );
+}
+
+function LabResultsSection({ labResults }: { labResults: LabResult[] }) {
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+        <FlaskConical className="h-4 w-4 text-[#0d4f8b]" />
+        Kết quả lâm sàng
+      </div>
+      {labResults.length ? (
+        <div className="mt-3 grid gap-3">
+          {labResults.map((item) => (
+            <div key={item.id} className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h4 className="font-semibold text-[#172033]">{item.testName}</h4>
+                  <p className="mt-1 text-sm text-[#667892]">
+                    {item.resultValue || "-"} {item.unit || ""}
+                    {item.referenceRange ? ` · Tham chiếu: ${item.referenceRange}` : ""}
+                  </p>
+                </div>
+                {item.fileUrl ? (
+                  <a href={item.fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
+                    Xem file
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+              </div>
+              {item.conclusion ? <p className="mt-3 text-sm leading-6 text-[#42526b]">{item.conclusion}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] px-4 py-3 text-sm text-[#667892]">
+          Chưa có kết quả lâm sàng được công bố.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PrescriptionSection({ prescription }: { prescription: PublicAppointmentResult["prescription"] }) {
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+        <Pill className="h-4 w-4 text-[#0d4f8b]" />
+        Đơn thuốc
+      </div>
+      {prescription ? (
+        <div className="mt-3 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">Mã đơn thuốc</p>
+              <h4 className="mt-1 font-semibold text-[#172033]">{prescription.prescriptionCode}</h4>
+            </div>
+            <span className="inline-flex w-fit rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-1.5 text-sm font-semibold text-[#1f7a3a]">
+              Đã phát hành
+            </span>
+          </div>
+          {prescription.note ? <p className="mt-3 text-sm leading-6 text-[#42526b]">{prescription.note}</p> : null}
+          <div className="mt-4 space-y-2">
+            {prescription.items.map((item) => (
+              <div key={item.id} className="rounded-md bg-white p-3 text-sm">
+                <p className="font-semibold text-[#172033]">{item.medicineName}</p>
+                <p className="mt-1 text-[#667892]">
+                  {[item.dosage, item.frequency, item.duration].filter(Boolean).join(" · ") || "Chưa cập nhật liều dùng"}
+                  {item.quantity ? ` · SL: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}` : ""}
+                </p>
+                {item.instruction ? <p className="mt-1 text-[#42526b]">{item.instruction}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-dashed border-[#dce3ee] bg-[#f8fafc] px-4 py-3 text-sm text-[#667892]">
+          Chưa có đơn thuốc được phát hành.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PaymentPanel({ appointment }: { appointment: DisplayAppointment }) {
+  const latestPendingTransaction = appointment.invoice?.paymentTransactions.find((item) => item.status === "PENDING") || null;
+  const [provider, setProvider] = useState<Extract<PaymentProvider, "MOCK" | "MOMO">>("MOCK");
+  const [transaction, setTransaction] = useState<PaymentTransaction | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+
+  const activeTransaction = transaction || latestPendingTransaction;
+  const invoice = transaction?.invoice || appointment.invoice;
+  const invoiceStatus = invoice ? invoiceStatusLabels[invoice.status] : null;
+  const canCreatePayment = invoice?.status === "UNPAID";
+
+  const refreshPayment = useCallback(async (silent = false) => {
+    if (!activeTransaction) return;
+
+    if (!silent) {
+      setLoading(true);
+      setPaymentMessage("");
+      setPaymentError("");
+    }
+
+    try {
+      const result = await apiRequest<PaymentTransaction>(`/payments/${activeTransaction.id}`);
+
+      setTransaction(result);
+
+      if (!silent) {
+        setPaymentMessage(result.status === "SUCCESS" ? "Thanh toán đã được ghi nhận thành công." : "Đã cập nhật trạng thái giao dịch.");
+      }
+    } catch (err) {
+      if (!silent) {
+        setPaymentError(err instanceof Error ? err.message : "Không kiểm tra được trạng thái thanh toán");
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [activeTransaction]);
+
+  useEffect(() => {
+    if (!activeTransaction || activeTransaction.status !== "PENDING" || invoice?.status !== "UNPAID") return undefined;
+
+    const timer = window.setInterval(() => {
+      void refreshPayment(true);
+    }, 8000);
+
+    return () => window.clearInterval(timer);
+  }, [activeTransaction, invoice?.status, refreshPayment]);
+
+  const createPayment = async () => {
+    if (!appointment.invoice) return;
+
+    setLoading(true);
+    setPaymentMessage("");
+    setPaymentError("");
+
+    try {
+      const result = await apiRequest<PaymentTransaction>(`/payments/invoices/${appointment.invoice.id}/create`, {
+        method: "POST",
+        body: { provider },
+      });
+
+      setTransaction(result);
+      setPaymentMessage("Đã tạo giao dịch thanh toán. Bạn có thể mở cổng thanh toán để tiếp tục.");
+
+      if (result.paymentUrl) {
+        window.open(result.paymentUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Không tạo được giao dịch thanh toán");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markMockSuccess = async () => {
+    if (!activeTransaction) return;
+
+    setLoading(true);
+    setPaymentMessage("");
+    setPaymentError("");
+
+    try {
+      const result = await apiRequest<PaymentTransaction>(`/payments/mock/${activeTransaction.transactionCode}/success`, {
+        method: "POST",
+      });
+
+      setTransaction(result);
+      setPaymentMessage("Đã giả lập thanh toán thành công.");
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Không thể giả lập thanh toán");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelPayment = async () => {
+    if (!activeTransaction) return;
+
+    setLoading(true);
+    setPaymentMessage("");
+    setPaymentError("");
+
+    try {
+      const result = await apiRequest<PaymentTransaction>(`/payments/${activeTransaction.id}/cancel`, {
+        method: "PATCH",
+      });
+
+      setTransaction(result);
+      setPaymentMessage("Đã hủy giao dịch thanh toán đang chờ.");
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Không hủy được giao dịch thanh toán");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!appointment.invoice) {
+    return (
+      <div className="mt-5 rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+          <CreditCard className="h-4 w-4 text-[#0d4f8b]" />
+          Hóa đơn và thanh toán
+        </div>
+        <p className="mt-2 text-sm leading-6 text-[#667892]">
+          Lịch hẹn chưa có hóa đơn. Hóa đơn sẽ xuất hiện tại đây sau khi bệnh viện hoàn tất quy trình khám và phát hành hóa đơn.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#172033]">
+            <CreditCard className="h-4 w-4 text-[#0d4f8b]" />
+            Hóa đơn và thanh toán
+          </div>
+          <p className="mt-2 text-sm text-[#667892]">
+            Mã hóa đơn: <span className="font-semibold text-[#172033]">{appointment.invoice.invoiceCode}</span>
+          </p>
+        </div>
+        {invoiceStatus ? (
+          <span className={`inline-flex w-fit rounded-md border px-3 py-1.5 text-sm font-semibold ${invoiceStatus.tone}`}>
+            {invoiceStatus.label}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <PriceItem label="Tổng tiền" value={appointment.invoice.totalAmount} />
+        <PriceItem label="Giảm trừ BHYT" value={appointment.invoice.bhytDiscount} />
+        <PriceItem label="Cần thanh toán" value={invoice?.finalAmount || appointment.invoice.finalAmount} highlight />
+      </div>
+
+      {canCreatePayment ? (
+        <div className="mt-4 rounded-md border border-[#e5ebf3] bg-white p-4">
+          <p className="text-sm font-semibold text-[#172033]">Thanh toán online</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
+            <select
+              value={provider}
+              onChange={(event) => setProvider(event.target.value as typeof provider)}
+              className="rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+            >
+              <option value="MOCK">MOCK</option>
+              <option value="MOMO">MOMO</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => void createPayment()}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              Tạo giao dịch thanh toán
+            </button>
+          </div>
+
+          {activeTransaction ? (
+            <div className="mt-3 rounded-md bg-[#f8fafc] p-3 text-sm text-[#667892]">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <p>Mã giao dịch: <span className="font-semibold text-[#172033]">{activeTransaction.transactionCode}</span></p>
+                <p>Trạng thái: <span className="font-semibold text-[#172033]">{activeTransaction.status}</span></p>
+                <p>Số tiền: <span className="font-semibold text-[#172033]">{formatCurrency(activeTransaction.amount)}</span></p>
+                <p>Hạn thanh toán: <span className="font-semibold text-[#172033]">{formatDateTime(activeTransaction.expiredAt)}</span></p>
+              </div>
+              {activeTransaction.status === "PENDING" ? (
+                <p className="mt-3 rounded-md bg-white px-3 py-2 text-xs leading-5 text-[#667892]">
+                  Hệ thống sẽ tự kiểm tra trạng thái mỗi 8 giây khi giao dịch còn đang chờ.
+                </p>
+              ) : null}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => void refreshPayment()}
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-semibold text-[#42526b] hover:bg-white disabled:opacity-60"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Kiểm tra thanh toán
+                </button>
+                {activeTransaction.paymentUrl ? (
+                  <a
+                    href={activeTransaction.paymentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-semibold text-[#42526b] hover:bg-white"
+                  >
+                    Mở cổng thanh toán
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+                {activeTransaction.status === "PENDING" ? (
+                  <button
+                    type="button"
+                    onClick={() => void cancelPayment()}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#f2b8b5] px-3 py-2 text-sm font-semibold text-[#b3261e] hover:bg-[#fff3f2] disabled:opacity-60"
+                  >
+                    Hủy giao dịch
+                  </button>
+                ) : null}
+                {activeTransaction.provider === "MOCK" && activeTransaction.status === "PENDING" ? (
+                  <button
+                    type="button"
+                    onClick={() => void markMockSuccess()}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#bde5c8] px-3 py-2 text-sm font-semibold text-[#1f7a3a] hover:bg-[#f0fff4] disabled:opacity-60"
+                  >
+                    Giả lập đã thanh toán
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-md bg-white px-3 py-2 text-sm leading-6 text-[#667892]">
+          Hóa đơn hiện không ở trạng thái cần thanh toán online.
+        </p>
+      )}
+
+      {paymentMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{paymentMessage}</div> : null}
+      {paymentError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{paymentError}</div> : null}
+    </div>
+  );
+}
+
+function InfoItem({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-[#e5ebf3] p-4">
+      <div className="flex items-center gap-2 text-sm text-[#667892]">{icon}{label}</div>
+      <p className="mt-2 font-semibold text-[#172033]">{value}</p>
+    </div>
+  );
+}
+
+function PriceItem({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
+  return (
+    <div className={`rounded-md border p-4 ${highlight ? "border-[#cfe4fa] bg-[#f3f8ff]" : "border-[#e5ebf3] bg-white"}`}>
+      <p className="text-xs text-[#667892]">{label}</p>
+      <p className={`mt-2 text-lg font-semibold ${highlight ? "text-[#0d4f8b]" : "text-[#172033]"}`}>{formatCurrency(value)}</p>
+    </div>
+  );
+}

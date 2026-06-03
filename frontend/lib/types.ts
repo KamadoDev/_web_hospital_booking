@@ -233,10 +233,63 @@ export type Appointment = {
     endTime: string;
     status: string;
   } | null;
+  invoice: PublicAppointmentInvoice | null;
 };
 
 export type InvoiceStatus = "UNPAID" | "PAID" | "CANCELLED" | "REFUNDED";
 export type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "MOMO" | "VNPAY" | "OTHER";
+export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO" | "ZALOPAY";
+export type PaymentTransactionStatus = "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
+
+export type PublicInvoicePaymentTransaction = {
+  id: string;
+  provider: PaymentProvider;
+  status: PaymentTransactionStatus;
+  amount: number;
+  transactionCode: string;
+  paymentUrl: string | null;
+  paidAt: string | null;
+  expiredAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PublicAppointmentInvoice = {
+  id: string;
+  invoiceCode: string;
+  barcode: string;
+  totalAmount: number;
+  bhytDiscount: number;
+  finalAmount: number;
+  status: InvoiceStatus;
+  paymentMethod: PaymentMethod | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  paymentTransactions: PublicInvoicePaymentTransaction[];
+};
+
+export type PaymentTransaction = PublicInvoicePaymentTransaction & {
+  providerOrderId: string | null;
+  rawResponse: unknown;
+  invoice: {
+    id: string;
+    invoiceCode: string;
+    barcode: string;
+    totalAmount: number;
+    bhytDiscount: number;
+    finalAmount: number;
+    status: InvoiceStatus;
+    paymentMethod: PaymentMethod | null;
+    paidAt: string | null;
+    appointment: {
+      id: string;
+      bookingCode: string;
+      patientName: string;
+      patientPhone: string;
+    };
+  };
+};
 
 export type Invoice = {
   id: string;

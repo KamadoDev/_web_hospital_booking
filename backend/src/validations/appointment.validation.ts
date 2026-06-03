@@ -40,8 +40,27 @@ export const verifyAppointmentOtpSchema = z.object({
   otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
 });
 
+export const requestAppointmentLookupOtpSchema = z.object({
+  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
+});
+
+export const verifyAppointmentLookupOtpSchema = z.object({
+  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
+  otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
+});
+
 export const cancelAppointmentSchema = z.object({
   reason: z.string().trim().min(2, "Ly do huy toi thieu 2 ky tu"),
+});
+
+export const requestPublicCancelAppointmentOtpSchema = z.object({
+  bookingCode: z.string().trim().min(1, "Ma lich hen la bat buoc"),
+  phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
+  reason: z.string().trim().min(2, "Ly do huy toi thieu 2 ky tu"),
+});
+
+export const verifyPublicCancelAppointmentSchema = requestPublicCancelAppointmentOtpSchema.extend({
+  otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
 });
 
 export const updateAppointmentStatusSchema = z.object({

@@ -37,7 +37,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const currentUser = await apiRequest<DashboardUser>("/auth/dashboard/me");
+      const currentUser = await apiRequest<DashboardUser>("/auth/dashboard/me", {
+        suppressAuthExpired: true,
+      });
       setUser(currentUser);
       return currentUser;
     } catch {

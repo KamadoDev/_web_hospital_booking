@@ -8,9 +8,10 @@ type OtpEmailTemplateInput = {
 
 const purposeLabel: Record<OtpPurpose, string> = {
   BOOK_APPOINTMENT: "xác thực đặt lịch khám",
+  LOOKUP_APPOINTMENT: "tra cứu lịch hẹn",
   PATIENT_PORTAL_LOGIN: "đăng nhập cổng bệnh nhân",
   CANCEL_APPOINTMENT: "hủy lịch hẹn",
-  LOOKUP_RESULT: "tra cứu kết quả",
+  LOOKUP_RESULT: "tra cứu lịch hẹn hoặc kết quả",
   ADMIN_LOGIN: "đăng nhập dashboard admin",
   DOCTOR_LOGIN: "đăng nhập dashboard bác sĩ",
   STAFF_LOGIN: "đăng nhập dashboard nhân viên",

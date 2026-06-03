@@ -117,6 +117,142 @@ export const getPublicAppointmentHandler = async (
   }
 };
 
+export const lookupPublicAppointmentHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.lookupPublic({
+      bookingCode:
+        typeof req.query.bookingCode === "string"
+          ? req.query.bookingCode
+          : undefined,
+      phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
+    });
+
+    return res.json({
+      success: true,
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicAppointmentResultHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await AppointmentService.getPublicResult({
+      bookingCode:
+        typeof req.query.bookingCode === "string"
+          ? req.query.bookingCode
+          : undefined,
+      phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const requestPublicAppointmentLookupOtpHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await AppointmentService.requestLookupOtp({
+      phone: req.body.phone,
+      ipAddress: getIpAddress(req),
+    });
+
+    return res.json({
+      success: true,
+      message: "OTP tra cuu lich hen da duoc gui",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyPublicAppointmentLookupOtpHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await AppointmentService.verifyLookupOtp({
+      phone: req.body.phone,
+      otp: req.body.otp,
+      ipAddress: getIpAddress(req),
+    });
+
+    return res.json({
+      success: true,
+      message: "Xac thuc OTP tra cuu lich hen thanh cong",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const requestPublicAppointmentCancelOtpHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await AppointmentService.requestPublicCancelOtp({
+      bookingCode: req.body.bookingCode,
+      phone: req.body.phone,
+      reason: req.body.reason,
+      ipAddress: getIpAddress(req),
+    });
+
+    return res.json({
+      success: true,
+      message: "OTP huy lich hen da duoc gui",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyPublicAppointmentCancelHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.verifyPublicCancel({
+      bookingCode: req.body.bookingCode,
+      phone: req.body.phone,
+      reason: req.body.reason,
+      otp: req.body.otp,
+      ipAddress: getIpAddress(req),
+    });
+
+    return res.json({
+      success: true,
+      message: "Huy lich hen thanh cong",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const listDashboardAppointmentsHandler = async (
   req: Request,
   res: Response,

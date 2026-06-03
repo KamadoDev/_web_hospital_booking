@@ -12,6 +12,7 @@ type ApiEnvelope<T> = {
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
+  suppressAuthExpired?: boolean;
 };
 
 const buildUrl = (path: string, query?: RequestOptions["query"]) => {
@@ -42,7 +43,7 @@ const notifyAuthExpired = () => {
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}) {
-  const { body, query, headers, ...init } = options;
+  const { body, query, headers, suppressAuthExpired, ...init } = options;
 
   const response = await fetch(buildUrl(path, query), {
     ...init,
@@ -58,7 +59,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
 
   if (!response.ok || payload?.success === false) {
-    if (response.status === 401) {
+    if (response.status === 401 && !suppressAuthExpired) {
       notifyAuthExpired();
     }
 
