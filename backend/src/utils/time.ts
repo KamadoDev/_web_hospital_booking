@@ -74,6 +74,30 @@ export const parseDateOnly = (date: string) => {
 
 export const getUtcDayOfWeek = (date: Date) => date.getUTCDay();
 
+export const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
+
+export const getVietnamNowParts = () => {
+  const vietnamNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
+
+  return {
+    date: toDateOnly(vietnamNow),
+    time: `${vietnamNow.getUTCHours().toString().padStart(2, "0")}:${vietnamNow
+      .getUTCMinutes()
+      .toString()
+      .padStart(2, "0")}`,
+  };
+};
+
+export const isDateBeforeVietnamToday = (date: Date) =>
+  toDateOnly(date) < getVietnamNowParts().date;
+
+export const isSlotStartInPastVietnamTime = (date: Date, startTime: string) => {
+  const now = getVietnamNowParts();
+  const slotDate = toDateOnly(date);
+
+  return slotDate < now.date || (slotDate === now.date && startTime <= now.time);
+};
+
 export const hasTimeOverlap = (
   startA: string,
   endA: string,

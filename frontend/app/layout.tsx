@@ -3,8 +3,8 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Hospital Dashboard",
-  description: "Quan tri dat lich kham benh",
+  title: "Hospital Booking",
+  description: "Quản trị đặt lịch khám bệnh",
 };
 
 export default function RootLayout({

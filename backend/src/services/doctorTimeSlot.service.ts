@@ -2,7 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import type { Role, TimeSlotStatus } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
-import { buildTimeSlots, getUtcDayOfWeek, parseDateOnly } from "../utils/time.js";
+import { buildTimeSlots, getUtcDayOfWeek, isSlotStartInPastVietnamTime, parseDateOnly } from "../utils/time.js";
 
 type Actor = {
   userId: string;
@@ -247,7 +247,7 @@ class DoctorTimeSlotService {
   async getPublicAvailableSlots(doctorId: string, dateString: string) {
     const date = parseDateOnly(dateString);
 
-    return prisma.doctorTimeSlot.findMany({
+    const slots = await prisma.doctorTimeSlot.findMany({
       where: {
         doctorId,
         date,
@@ -273,6 +273,8 @@ class DoctorTimeSlotService {
         startTime: "asc",
       },
     });
+
+    return slots.filter((slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime));
   }
 
   private async getSlotForMutation(id: string) {
