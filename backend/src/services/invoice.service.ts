@@ -1,11 +1,23 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { InvoiceStatus, PaymentMethod } from "../../generated/prisma/enums.js";
+import type { InsuranceRouteType, InvoiceStatus, PaymentMethod } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generateInvoiceBarcode, generateInvoiceCode } from "../utils/invoiceCode.js";
 
 type CreateInvoiceInput = {
   bhytDiscount?: number;
+  insuranceEligibleAmount?: number;
+  insuranceCoverageRate?: number;
+  insuranceRouteType?: InsuranceRouteType | null;
+  insuranceNote?: string | null;
+};
+
+type UpdateInvoiceInput = {
+  bhytDiscount?: number;
+  insuranceEligibleAmount?: number;
+  insuranceCoverageRate?: number;
+  insuranceRouteType?: InsuranceRouteType | null;
+  insuranceNote?: string | null;
 };
 
 type PayInvoiceInput = {
@@ -16,6 +28,77 @@ type RefundInvoiceInput = {
   refundReason: string;
 };
 
+type InsuranceCalculationInput = {
+  bhytDiscount?: number;
+  insuranceEligibleAmount?: number;
+  insuranceCoverageRate?: number;
+  insuranceRouteType?: InsuranceRouteType | null;
+  insuranceNote?: string | null;
+};
+
+type InsuranceAppointmentPolicy = {
+  hasBHYT: boolean;
+  package: {
+    isBHYTSupport: boolean;
+  } | null;
+};
+
+const normalizeOptionalString = (value?: string | null) =>
+  value === undefined ? undefined : value?.trim() || null;
+
+const calculateInsurance = (
+  input: InsuranceCalculationInput,
+  totalAmount: number,
+  appointment: InsuranceAppointmentPolicy,
+  fallbackDiscount = 0,
+) => {
+  const hasStructuredInsurance =
+    input.insuranceEligibleAmount !== undefined ||
+    input.insuranceCoverageRate !== undefined ||
+    input.insuranceRouteType !== undefined ||
+    input.insuranceNote !== undefined;
+
+  const eligibleAmount = hasStructuredInsurance
+    ? input.insuranceEligibleAmount ?? 0
+    : input.bhytDiscount ?? fallbackDiscount;
+  const coverageRate = hasStructuredInsurance
+    ? input.insuranceCoverageRate ?? 0
+    : eligibleAmount > 0
+      ? 100
+      : 0;
+  const routeType = input.insuranceRouteType ?? (eligibleAmount > 0 ? "SERVICE" : null);
+  const note = normalizeOptionalString(input.insuranceNote);
+  const discountAmount = hasStructuredInsurance
+    ? Math.floor((eligibleAmount * coverageRate) / 100)
+    : input.bhytDiscount ?? fallbackDiscount;
+
+  if (eligibleAmount > totalAmount) {
+    throw new AppError("So tien du dieu kien BHYT khong duoc lon hon tong tien", 400);
+  }
+
+  if (discountAmount > totalAmount) {
+    throw new AppError("Giam tru BHYT khong duoc lon hon tong tien", 400);
+  }
+
+  if (!appointment.hasBHYT && discountAmount > 0) {
+    throw new AppError("Lich hen khong co BHYT nen khong duoc giam tru BHYT", 400);
+  }
+
+  if (appointment.hasBHYT && appointment.package && !appointment.package.isBHYTSupport && discountAmount > 0) {
+    throw new AppError("Goi kham nay khong ho tro giam tru BHYT", 400);
+  }
+
+  return {
+    insuranceEligibleAmount: eligibleAmount,
+    insuranceCoverageRate: coverageRate,
+    insuranceDiscountAmount: discountAmount,
+    insuranceRouteType: routeType,
+    insuranceNote: note,
+    bhytDiscount: discountAmount,
+    finalAmount: totalAmount - discountAmount,
+  };
+};
+
 export const invoiceSelect = {
   id: true,
   invoiceCode: true,
@@ -23,6 +106,11 @@ export const invoiceSelect = {
   totalAmount: true,
   bhytDiscount: true,
   finalAmount: true,
+  insuranceEligibleAmount: true,
+  insuranceCoverageRate: true,
+  insuranceDiscountAmount: true,
+  insuranceRouteType: true,
+  insuranceNote: true,
   status: true,
   paymentMethod: true,
   paidAt: true,
@@ -58,6 +146,7 @@ export const invoiceSelect = {
           id: true,
           name: true,
           slug: true,
+          isBHYTSupport: true,
         },
       },
       doctor: {
@@ -153,16 +242,28 @@ class InvoiceService {
     return invoice;
   }
 
-  async createForAppointment(appointmentId: string, input: CreateInvoiceInput) {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
+  async createForAppointment(appointmentIdOrCode: string, input: CreateInvoiceInput) {
+    const normalizedAppointmentKey = appointmentIdOrCode.trim();
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        OR: [
+          { id: normalizedAppointmentKey },
+          { bookingCode: normalizedAppointmentKey.toUpperCase() },
+        ],
+      },
       select: {
         id: true,
         status: true,
         patientId: true,
+        hasBHYT: true,
         estimatedPrice: true,
         serviceFee: true,
         bhytDiscount: true,
+        package: {
+          select: {
+            isBHYTSupport: true,
+          },
+        },
         invoice: {
           select: {
             id: true,
@@ -184,11 +285,7 @@ class InvoiceService {
     }
 
     const totalAmount = appointment.estimatedPrice + appointment.serviceFee;
-    const bhytDiscount = input.bhytDiscount ?? appointment.bhytDiscount;
-
-    if (bhytDiscount > totalAmount) {
-      throw new AppError("Giam tru BHYT khong duoc lon hon tong tien", 400);
-    }
+    const insurance = calculateInsurance(input, totalAmount, appointment, appointment.bhytDiscount);
 
     return prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
@@ -198,8 +295,13 @@ class InvoiceService {
           appointmentId: appointment.id,
           patientId: appointment.patientId,
           totalAmount,
-          bhytDiscount,
-          finalAmount: totalAmount - bhytDiscount,
+          bhytDiscount: insurance.bhytDiscount,
+          finalAmount: insurance.finalAmount,
+          insuranceEligibleAmount: insurance.insuranceEligibleAmount,
+          insuranceCoverageRate: insurance.insuranceCoverageRate,
+          insuranceDiscountAmount: insurance.insuranceDiscountAmount,
+          insuranceRouteType: insurance.insuranceRouteType,
+          insuranceNote: insurance.insuranceNote,
           status: "UNPAID",
         },
         select: {
@@ -212,8 +314,8 @@ class InvoiceService {
           id: appointment.id,
         },
         data: {
-          bhytDiscount,
-          finalAmount: totalAmount - bhytDiscount,
+          bhytDiscount: insurance.bhytDiscount,
+          finalAmount: insurance.finalAmount,
           logs: {
             create: {
               action: "INVOICE_CREATED",
@@ -226,6 +328,74 @@ class InvoiceService {
       return tx.invoice.findUniqueOrThrow({
         where: {
           id: invoice.id,
+        },
+        select: invoiceSelect,
+      });
+    });
+  }
+
+  async updateFinancials(id: string, input: UpdateInvoiceInput) {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        totalAmount: true,
+        bhytDiscount: true,
+        appointment: {
+          select: {
+            id: true,
+            hasBHYT: true,
+            package: {
+              select: {
+                isBHYTSupport: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      throw new AppError("Khong tim thay hoa don", 404);
+    }
+
+    if (!["UNPAID", "CANCELLED"].includes(invoice.status)) {
+      throw new AppError("Chi co the chinh sua hoa don chua thanh toan hoac da huy", 400);
+    }
+
+    const insurance = calculateInsurance(input, invoice.totalAmount, invoice.appointment, invoice.bhytDiscount);
+
+    return prisma.$transaction(async (tx) => {
+      await tx.appointment.update({
+        where: {
+          id: invoice.appointment.id,
+        },
+        data: {
+          bhytDiscount: insurance.bhytDiscount,
+          finalAmount: insurance.finalAmount,
+          logs: {
+            create: {
+              action: "INVOICE_CREATED",
+              note: invoice.status === "CANCELLED"
+                ? "Hoa don da duoc dieu chinh va mo lai"
+                : "Hoa don da duoc dieu chinh",
+            },
+          },
+        },
+      });
+
+      return tx.invoice.update({
+        where: { id },
+        data: {
+          status: "UNPAID",
+          bhytDiscount: insurance.bhytDiscount,
+          finalAmount: insurance.finalAmount,
+          insuranceEligibleAmount: insurance.insuranceEligibleAmount,
+          insuranceCoverageRate: insurance.insuranceCoverageRate,
+          insuranceDiscountAmount: insurance.insuranceDiscountAmount,
+          insuranceRouteType: insurance.insuranceRouteType,
+          insuranceNote: insurance.insuranceNote,
         },
         select: invoiceSelect,
       });

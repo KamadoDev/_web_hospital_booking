@@ -91,6 +91,24 @@ export const createInvoiceForAppointmentHandler = async (
   }
 };
 
+export const updateInvoiceHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const invoice = await InvoiceService.updateFinancials(getParam(req.params.id), req.body);
+
+    return res.json({
+      success: true,
+      message: "Cap nhat hoa don thanh cong",
+      data: invoice,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const payInvoiceHandler = async (
   req: Request,
   res: Response,

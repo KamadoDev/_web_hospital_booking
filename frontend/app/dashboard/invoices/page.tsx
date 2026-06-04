@@ -3,9 +3,15 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { Invoice, InvoiceStatus, ListResult, PaymentMethod } from "@/lib/types";
+import type { InsuranceRouteType, Invoice, InvoiceStatus, ListResult, PaymentMethod } from "@/lib/types";
 
-type InvoiceAction = "pay" | "cancel" | "refund";
+type InvoiceAction = "pay" | "cancel" | "refund" | "adjust";
+type InsuranceForm = {
+  eligibleAmount: string;
+  coverageRate: string;
+  routeType: InsuranceRouteType;
+  note: string;
+};
 
 const statusOptions: { value: "" | InvoiceStatus; label: string }[] = [
   { value: "", label: "Tất cả trạng thái" },
@@ -29,6 +35,31 @@ const manualPayments: { value: Exclude<PaymentMethod, "MOMO" | "VNPAY">; label: 
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
   { value: "OTHER", label: "Khác" },
 ];
+
+const insuranceCoverageOptions = ["0", "80", "95", "100"];
+
+const insuranceRouteOptions: { value: InsuranceRouteType; label: string }[] = [
+  { value: "RIGHT_ROUTE", label: "Đúng tuyến" },
+  { value: "WRONG_ROUTE", label: "Trái tuyến" },
+  { value: "REFERRAL", label: "Chuyển tuyến" },
+  { value: "EMERGENCY", label: "Cấp cứu" },
+  { value: "SERVICE", label: "Dịch vụ" },
+];
+
+const defaultInsuranceForm: InsuranceForm = {
+  eligibleAmount: "",
+  coverageRate: "80",
+  routeType: "RIGHT_ROUTE",
+  note: "",
+};
+
+const insuranceRouteLabel: Record<InsuranceRouteType, string> = {
+  RIGHT_ROUTE: "Đúng tuyến",
+  WRONG_ROUTE: "Trái tuyến",
+  REFERRAL: "Chuyển tuyến",
+  EMERGENCY: "Cấp cứu",
+  SERVICE: "Dịch vụ",
+};
 
 const statusLabel: Record<InvoiceStatus, string> = {
   UNPAID: "Chưa thanh toán",
@@ -70,6 +101,29 @@ const formatMoneyInput = (value: string) => {
   return digits ? new Intl.NumberFormat("vi-VN").format(Number(digits)) : "";
 };
 
+const toMoneyNumber = (value: string) => Number(parseMoneyInput(value) || 0);
+
+const calculateInsuranceDiscount = (form: InsuranceForm) =>
+  Math.floor((toMoneyNumber(form.eligibleAmount) * Number(form.coverageRate || 0)) / 100);
+
+const buildInsuranceForm = (invoice: Invoice): InsuranceForm => ({
+  eligibleAmount: invoice.insuranceEligibleAmount ? String(invoice.insuranceEligibleAmount) : "",
+  coverageRate: String(invoice.insuranceCoverageRate || 80),
+  routeType: invoice.insuranceRouteType || "RIGHT_ROUTE",
+  note: invoice.insuranceNote || "",
+});
+
+const buildInsurancePayload = (form: InsuranceForm) => {
+  const eligibleAmount = toMoneyNumber(form.eligibleAmount);
+
+  return {
+    insuranceEligibleAmount: eligibleAmount,
+    insuranceCoverageRate: eligibleAmount > 0 ? Number(form.coverageRate || 0) : 0,
+    insuranceRouteType: eligibleAmount > 0 ? form.routeType : null,
+    insuranceNote: eligibleAmount > 0 ? form.note.trim() || null : null,
+  };
+};
+
 const doctorName = (invoice: Invoice) =>
   [invoice.appointment.doctor.title, invoice.appointment.doctor.user.fullName]
     .filter(Boolean)
@@ -91,15 +145,22 @@ export default function InvoicesPage() {
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [appointmentId, setAppointmentId] = useState("");
-  const [bhytDiscount, setBhytDiscount] = useState("");
+  const [insuranceForm, setInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [actionTarget, setActionTarget] = useState<{ type: InvoiceAction; invoice: Invoice } | null>(null);
   const [payMethod, setPayMethod] = useState<Exclude<PaymentMethod, "MOMO" | "VNPAY">>("CASH");
+  const [adjustInsuranceForm, setAdjustInsuranceForm] = useState<InsuranceForm>(defaultInsuranceForm);
   const [refundReason, setRefundReason] = useState("");
   const listRef = useRef<HTMLElement | null>(null);
+  const createRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
   const canUse = user?.role === "ADMIN" || user?.role === "STAFF";
   const canRefund = user?.role === "ADMIN";
+  const createDiscount = calculateInsuranceDiscount(insuranceForm);
+  const adjustedDiscount = calculateInsuranceDiscount(adjustInsuranceForm);
+  const adjustedFinalAmount = actionTarget?.type === "adjust"
+    ? Math.max(actionTarget.invoice.totalAmount - adjustedDiscount, 0)
+    : 0;
 
   const query = useMemo(
     () => ({
@@ -151,6 +212,27 @@ export default function InvoicesPage() {
     }, 0);
   };
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const appointmentCode = params.get("appointment") || params.get("appointmentId") || params.get("bookingCode");
+      const initialInvoiceCode = params.get("invoiceCode");
+
+      if (appointmentCode) {
+        setAppointmentId(appointmentCode.trim().toUpperCase());
+        scrollTo(createRef);
+      }
+
+      if (initialInvoiceCode) {
+        setInvoiceCode(initialInvoiceCode.trim().toUpperCase());
+        setPage(1);
+        scrollTo(listRef);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
   const createInvoice = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canUse) return;
@@ -160,13 +242,11 @@ export default function InvoicesPage() {
     try {
       const invoice = await apiRequest<Invoice>(`/dashboard/invoices/appointments/${appointmentId}`, {
         method: "POST",
-        body: {
-          bhytDiscount: bhytDiscount ? Number(bhytDiscount) : undefined,
-        },
+        body: buildInsurancePayload(insuranceForm),
       });
       setSelected(invoice);
       setAppointmentId("");
-      setBhytDiscount("");
+      setInsuranceForm(defaultInsuranceForm);
       setNotice("Đã tạo hóa đơn");
       await loadInvoices();
       scrollTo(detailRef);
@@ -181,6 +261,7 @@ export default function InvoicesPage() {
     setSelected(invoice);
     setActionTarget(null);
     setRefundReason("");
+    setAdjustInsuranceForm(defaultInsuranceForm);
     setPayMethod("CASH");
     scrollTo(detailRef);
   };
@@ -189,6 +270,7 @@ export default function InvoicesPage() {
     setSelected(invoice);
     setActionTarget({ type, invoice });
     setRefundReason("");
+    setAdjustInsuranceForm(type === "adjust" ? buildInsuranceForm(invoice) : defaultInsuranceForm);
     setPayMethod("CASH");
     setError("");
     setNotice("");
@@ -199,6 +281,7 @@ export default function InvoicesPage() {
     setSelected(invoice);
     setActionTarget(null);
     setRefundReason("");
+    setAdjustInsuranceForm(defaultInsuranceForm);
     setNotice(message);
     await loadInvoices();
     scrollTo(detailRef);
@@ -239,6 +322,34 @@ export default function InvoicesPage() {
     }
   };
 
+  const adjustInvoice = async () => {
+    if (!actionTarget || actionTarget.type !== "adjust") return;
+    if (adjustedDiscount > actionTarget.invoice.totalAmount) {
+      setError("Giảm trừ BHYT không được lớn hơn tổng tiền");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Invoice>(`/dashboard/invoices/${actionTarget.invoice.id}`, {
+        method: "PATCH",
+        body: buildInsurancePayload(adjustInsuranceForm),
+      });
+      await updateSelectedInvoice(
+        updated,
+        actionTarget.invoice.status === "CANCELLED"
+          ? "Đã điều chỉnh và mở lại hóa đơn"
+          : "Đã điều chỉnh hóa đơn",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không điều chỉnh được hóa đơn");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const refundInvoice = async () => {
     if (!actionTarget || actionTarget.type !== "refund") return;
     if (refundReason.trim().length < 5) {
@@ -266,9 +377,13 @@ export default function InvoicesPage() {
     <>
       {invoice.status === "UNPAID" ? (
         <>
+          <button disabled={busy} onClick={() => startAction("adjust", invoice)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Chỉnh giảm</button>
           <button disabled={busy} onClick={() => startAction("pay", invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Thanh toán</button>
           <button disabled={busy} onClick={() => startAction("cancel", invoice)} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Hủy</button>
         </>
+      ) : null}
+      {invoice.status === "CANCELLED" ? (
+        <button disabled={busy} onClick={() => startAction("adjust", invoice)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Chỉnh và mở lại</button>
       ) : null}
       {canRefund && invoice.status === "PAID" ? (
         <button disabled={busy} onClick={() => startAction("refund", invoice)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Hoàn tiền</button>
@@ -372,18 +487,44 @@ export default function InvoicesPage() {
       </section>
 
       <aside className="space-y-4">
-        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
+        <section ref={createRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
           <h3 className="text-lg font-semibold">Tạo hóa đơn</h3>
-          <p className="mt-2 text-sm leading-6 text-[#667892]">Backend chỉ cho tạo hóa đơn từ lịch hẹn đã hoàn thành khám.</p>
+          <p className="mt-2 text-sm leading-6 text-[#667892]">Có thể nhập mã lịch hiển thị trên bảng, ví dụ BK..., hoặc UUID lịch hẹn đã hoàn thành khám.</p>
           <form className="mt-5 space-y-4" onSubmit={createInvoice}>
             <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Appointment ID</span>
-              <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="UUID lịch hẹn đã COMPLETED" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+              <span className="text-sm font-medium text-[#334155]">Mã lịch hẹn</span>
+              <input value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} placeholder="Mã lịch BK... hoặc UUID" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
             </label>
-            <label className="block">
-              <span className="text-sm font-medium text-[#334155]">Giảm trừ BHYT</span>
-              <input value={formatMoneyInput(bhytDiscount)} onChange={(e) => setBhytDiscount(parseMoneyInput(e.target.value))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            </label>
+            <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3">
+              <p className="text-sm font-semibold text-[#172033]">Tính BHYT</p>
+              <p className="mt-1 text-xs leading-5 text-[#667892]">Nhập phần tiền đủ điều kiện BHYT và mức hưởng, hệ thống sẽ tự tính giảm trừ.</p>
+              <label className="mt-3 block">
+                <span className="text-sm font-medium text-[#334155]">Số tiền đủ điều kiện</span>
+                <input value={formatMoneyInput(insuranceForm.eligibleAmount)} onChange={(event) => setInsuranceForm((current) => ({ ...current, eligibleAmount: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              </label>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-medium text-[#334155]">Mức hưởng</span>
+                  <select value={insuranceForm.coverageRate} onChange={(event) => setInsuranceForm((current) => ({ ...current, coverageRate: event.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                    {insuranceCoverageOptions.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-[#334155]">Tuyến/loại</span>
+                  <select value={insuranceForm.routeType} onChange={(event) => setInsuranceForm((current) => ({ ...current, routeType: event.target.value as InsuranceRouteType }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                    {insuranceRouteOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <label className="mt-3 block">
+                <span className="text-sm font-medium text-[#334155]">Ghi chú BHYT</span>
+                <textarea value={insuranceForm.note} onChange={(event) => setInsuranceForm((current) => ({ ...current, note: event.target.value }))} rows={2} placeholder="Ví dụ: áp dụng đúng tuyến theo thẻ BHYT" className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              </label>
+              <div className="mt-3 flex justify-between rounded-md bg-white px-3 py-2 text-sm">
+                <span className="text-[#667892]">Giảm BHYT dự kiến</span>
+                <span className="font-semibold text-[#0d4f8b]">{formatCurrency(createDiscount)}</span>
+              </div>
+            </div>
             <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{busy ? "Đang tạo..." : "Tạo hóa đơn"}</button>
           </form>
         </section>
@@ -403,6 +544,14 @@ export default function InvoicesPage() {
                 <div><p className="text-[#667892]">Bác sĩ</p><p className="font-semibold">{doctorName(selected)}</p><p>{selected.appointment.department.name}</p></div>
                 <div><p className="text-[#667892]">Dịch vụ</p><p>{selected.appointment.package?.name || "Khám bác sĩ"}</p></div>
                 <div><p className="text-[#667892]">Tiền</p><p>Tổng: {formatCurrency(selected.totalAmount)}</p><p>Giảm BHYT: {formatCurrency(selected.bhytDiscount)}</p><p className="font-semibold">Cần thu: {formatCurrency(selected.finalAmount)}</p></div>
+                <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3">
+                  <p className="font-semibold text-[#172033]">Tiêu chuẩn BHYT</p>
+                  <p className="mt-2">Phần đủ điều kiện: {formatCurrency(selected.insuranceEligibleAmount)}</p>
+                  <p>Mức hưởng: {selected.insuranceCoverageRate}%</p>
+                  <p>Tuyến/loại: {selected.insuranceRouteType ? insuranceRouteLabel[selected.insuranceRouteType] : "-"}</p>
+                  <p>Quỹ BHYT giảm: {formatCurrency(selected.insuranceDiscountAmount)}</p>
+                  {selected.insuranceNote ? <p className="mt-1 text-[#667892]">Ghi chú: {selected.insuranceNote}</p> : null}
+                </div>
                 <div><p className="text-[#667892]">Thanh toán</p><p>{selected.paymentMethod ? paymentLabel[selected.paymentMethod] || selected.paymentMethod : "Chưa thanh toán"}</p><p>{selected.paidAt ? formatDate(selected.paidAt) : "-"}</p></div>
                 {selected.status === "REFUNDED" ? (
                   <div><p className="text-[#667892]">Hoàn tiền</p><p>{selected.refundReason || "-"}</p><p className="text-xs text-[#667892]">{selected.refundedAt ? formatDate(selected.refundedAt) : "-"}</p></div>
@@ -428,6 +577,45 @@ export default function InvoicesPage() {
                       <h4 className="font-semibold text-[#b3261e]">Xác nhận hủy hóa đơn</h4>
                       <p className="mt-2 text-sm text-[#667892]">Hóa đơn chưa thanh toán sẽ chuyển sang trạng thái đã hủy.</p>
                       <div className="mt-3 flex gap-2"><button disabled={busy} onClick={() => void cancelInvoice()} className="rounded-md bg-[#b3261e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Xác nhận hủy</button><button type="button" onClick={() => setActionTarget(null)} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Giữ hóa đơn</button></div>
+                    </>
+                  ) : null}
+                  {actionTarget.type === "adjust" ? (
+                    <>
+                      <h4 className="font-semibold">{actionTarget.invoice.status === "CANCELLED" ? "Chỉnh và mở lại hóa đơn" : "Chỉnh giảm BHYT"}</h4>
+                      <p className="mt-2 text-sm leading-6 text-[#667892]">Chỉ áp dụng cho hóa đơn chưa thanh toán. Nếu hóa đơn đang bị hủy, lưu điều chỉnh sẽ đưa hóa đơn về trạng thái chưa thanh toán.</p>
+                      <label className="mt-3 block">
+                        <span className="text-sm font-medium text-[#334155]">Số tiền đủ điều kiện BHYT</span>
+                        <input value={formatMoneyInput(adjustInsuranceForm.eligibleAmount)} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, eligibleAmount: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      </label>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="text-sm font-medium text-[#334155]">Mức hưởng</span>
+                          <select value={adjustInsuranceForm.coverageRate} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, coverageRate: event.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                            {insuranceCoverageOptions.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-[#334155]">Tuyến/loại</span>
+                          <select value={adjustInsuranceForm.routeType} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, routeType: event.target.value as InsuranceRouteType }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                            {insuranceRouteOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="mt-3 block">
+                        <span className="text-sm font-medium text-[#334155]">Ghi chú BHYT</span>
+                        <textarea value={adjustInsuranceForm.note} onChange={(event) => setAdjustInsuranceForm((current) => ({ ...current, note: event.target.value }))} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      </label>
+                      <div className="mt-3 rounded-md border border-[#e5ebf3] bg-white p-3 text-sm">
+                        <div className="flex justify-between gap-3"><span className="text-[#667892]">Tổng tiền</span><span className="font-medium">{formatCurrency(actionTarget.invoice.totalAmount)}</span></div>
+                        <div className="mt-2 flex justify-between gap-3"><span className="text-[#667892]">Phần đủ điều kiện</span><span className="font-medium">{formatCurrency(toMoneyNumber(adjustInsuranceForm.eligibleAmount))}</span></div>
+                        <div className="mt-2 flex justify-between gap-3"><span className="text-[#667892]">Mức hưởng</span><span className="font-medium">{adjustInsuranceForm.coverageRate}%</span></div>
+                        <div className="mt-2 flex justify-between gap-3"><span className="text-[#667892]">Giảm BHYT mới</span><span className="font-medium">{formatCurrency(adjustedDiscount)}</span></div>
+                        <div className="mt-2 flex justify-between gap-3 border-t border-[#e5ebf3] pt-2"><span className="font-semibold">Cần thu mới</span><span className="font-semibold text-[#0d4f8b]">{formatCurrency(adjustedFinalAmount)}</span></div>
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <button disabled={busy || adjustedDiscount > actionTarget.invoice.totalAmount} onClick={() => void adjustInvoice()} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Lưu điều chỉnh</button>
+                        <button type="button" onClick={() => { setActionTarget(null); setAdjustInsuranceForm(defaultInsuranceForm); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Đóng</button>
+                      </div>
                     </>
                   ) : null}
                   {actionTarget.type === "refund" ? (

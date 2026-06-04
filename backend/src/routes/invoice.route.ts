@@ -6,6 +6,7 @@ import {
   listInvoicesHandler,
   payInvoiceHandler,
   refundInvoiceHandler,
+  updateInvoiceHandler,
 } from "../controllers/invoice.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
@@ -13,6 +14,7 @@ import {
   createInvoiceSchema,
   payInvoiceSchema,
   refundInvoiceSchema,
+  updateInvoiceSchema,
 } from "../validations/invoice.validation.js";
 
 const router = Router();
@@ -27,6 +29,12 @@ router.post(
   createInvoiceForAppointmentHandler,
 );
 router.get("/:id", requireRole("ADMIN", "STAFF"), getInvoiceHandler);
+router.patch(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  validate(updateInvoiceSchema),
+  updateInvoiceHandler,
+);
 router.patch(
   "/:id/pay",
   requireRole("ADMIN", "STAFF"),

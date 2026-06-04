@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle2, PackageCheck, ShieldCheck, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, PackageCheck, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -91,7 +91,7 @@ export default function PublicPackageDetailPage() {
               </p>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <PriceBox label="Giá gốc" value={packageItem.basePrice} />
+                <PriceBox label="Tổng hạng mục" value={packageItem.basePrice} />
                 <PriceBox label="Phí dịch vụ" value={packageItem.serviceFee} />
                 <PriceBox label="Thành tiền" value={packageItem.finalPrice} highlight />
               </div>
@@ -109,10 +109,12 @@ export default function PublicPackageDetailPage() {
                           <p className="font-semibold">{item.name}</p>
                           {item.description ? <p className="mt-1 text-sm leading-6 text-[#667892]">{item.description}</p> : null}
                         </div>
-                        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${item.included ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#fff4d6] text-[#8a5a00]"}`}>
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          {item.included ? "Đã bao gồm" : formatCurrency(item.price)}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="whitespace-nowrap text-sm font-semibold text-[#172033]">{formatCurrency(item.price)}</span>
+                          <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold ${item.included ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#fff4d6] text-[#8a5a00]"}`}>
+                            {item.included ? "Đã bao gồm" : "Tính riêng"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )) : (

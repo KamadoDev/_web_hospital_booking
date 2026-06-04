@@ -177,6 +177,12 @@ class ChatbotContextService {
         basePrice: true,
         serviceFee: true,
         summary: true,
+        items: {
+          select: {
+            price: true,
+            included: true,
+          },
+        },
         department: {
           select: {
             name: true,
@@ -194,7 +200,9 @@ class ChatbotContextService {
       departmentId: item.departmentId,
       departmentName: item.department?.name || null,
       summary: item.summary,
-      finalPrice: item.basePrice + item.serviceFee,
+      finalPrice:
+        (item.items.filter((packageItem) => packageItem.included).reduce((total, packageItem) => total + packageItem.price, 0) ||
+          item.basePrice) + item.serviceFee,
     }));
   }
 

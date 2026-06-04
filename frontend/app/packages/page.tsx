@@ -148,7 +148,7 @@ export default function PublicPackagesPage() {
               <div className="mt-5 rounded-md bg-[#f8fafc] p-4">
                 <p className="text-2xl font-semibold text-[#0d4f8b]">{formatCurrency(item.finalPrice)}</p>
                 <div className="mt-2 grid gap-1 text-xs text-[#667892]">
-                  <span>Giá gốc: {formatCurrency(item.basePrice)}</span>
+                  <span>Tổng hạng mục: {formatCurrency(item.basePrice)}</span>
                   <span>Phí dịch vụ: {formatCurrency(item.serviceFee)}</span>
                 </div>
               </div>

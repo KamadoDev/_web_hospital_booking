@@ -390,7 +390,7 @@ export default function PrescriptionsPage() {
               </select>
             ) : null}
             <input value={prescriptionCode} onChange={(e) => { setPrescriptionCode(e.target.value); setPage(1); }} placeholder="Mã đơn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
-            <input value={medicalRecordId} onChange={(e) => { setMedicalRecordId(e.target.value); setPage(1); }} placeholder="Medical record ID" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <input value={medicalRecordId} onChange={(e) => { setMedicalRecordId(e.target.value); setPage(1); }} placeholder="UUID hồ sơ" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
           </div>
 
           <div className="overflow-x-auto">
@@ -444,9 +444,9 @@ export default function PrescriptionsPage() {
         {canEdit ? (
           <section className="rounded-md border border-[#dce3ee] bg-white p-5">
             <h3 className="text-lg font-semibold">Tạo đơn thuốc</h3>
-            <p className="mt-2 text-sm text-[#667892]">Nhập ID hồ sơ khám đang IN_PROGRESS/COMPLETED và chưa có đơn.</p>
+            <p className="mt-2 text-sm text-[#667892]">Nhập mã hồ sơ hiển thị trên bảng, ví dụ MR..., hoặc UUID hồ sơ. Hồ sơ phải đang IN_PROGRESS/COMPLETED và chưa có đơn.</p>
             <form className="mt-4 space-y-3" onSubmit={createPrescription}>
-              <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Medical record ID" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+              <input value={createRecordId} onChange={(e) => setCreateRecordId(e.target.value)} placeholder="Mã hồ sơ MR... hoặc UUID" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
               <textarea value={createNote} onChange={(e) => setCreateNote(e.target.value)} placeholder="Ghi chú đơn" rows={2} className="w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
               <button disabled={busy} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang tạo..." : "Tạo đơn"}</button>
             </form>

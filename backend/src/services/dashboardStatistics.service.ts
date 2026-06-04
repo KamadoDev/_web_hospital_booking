@@ -81,6 +81,9 @@ class DashboardStatisticsService {
       cancelledAppointments,
       newPatients,
       unpaidInvoices,
+      consultationRequests,
+      pendingConsultationRequests,
+      completedWithoutInvoiceAppointments,
       paidInvoiceAggregate,
       refundedInvoiceAggregate,
       latestAppointments,
@@ -111,6 +114,21 @@ class DashboardStatisticsService {
         },
       }),
       prisma.invoice.count({ where: { createdAt, status: "UNPAID" } }),
+      prisma.consultationRequest.count({ where: { createdAt } }),
+      prisma.consultationRequest.count({
+        where: {
+          status: {
+            in: ["NEW", "CONTACTED"],
+          },
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          appointmentDate,
+          status: "COMPLETED",
+          invoice: null,
+        },
+      }),
       prisma.invoice.aggregate({
         where: { createdAt, status: { in: ["PAID", "REFUNDED"] } },
         _sum: { finalAmount: true },
@@ -160,6 +178,9 @@ class DashboardStatisticsService {
         cancelledAppointments,
         newPatients,
         unpaidInvoices,
+        consultationRequests,
+        pendingConsultationRequests,
+        completedWithoutInvoiceAppointments,
         collectedAmount,
         refundedAmount,
         netAmount: collectedAmount - refundedAmount,

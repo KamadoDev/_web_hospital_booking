@@ -344,6 +344,28 @@ export const updateDashboardAppointmentStatusHandler = async (
   }
 };
 
+export const updateDashboardAppointmentPatientInfoHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointment = await AppointmentService.updatePatientInfo(
+      getParam(req.params.id),
+      req.body,
+      getActor(req),
+    );
+
+    return res.json({
+      success: true,
+      message: "Cap nhat thong tin tiep nhan thanh cong",
+      data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const cancelDashboardAppointmentHandler = async (
   req: Request,
   res: Response,

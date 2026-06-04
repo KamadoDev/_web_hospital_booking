@@ -66,3 +66,26 @@ export const verifyPublicCancelAppointmentSchema = requestPublicCancelAppointmen
 export const updateAppointmentStatusSchema = z.object({
   status: z.enum(["CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "NO_SHOW"]),
 });
+
+export const updateAppointmentPatientInfoSchema = z.object({
+  patientName: z.string().trim().min(2, "Ho ten toi thieu 2 ky tu").optional(),
+  patientEmail: z.string().trim().email("Email khong hop le").nullable().optional(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).nullable().optional(),
+  dateOfBirth: dateOnlySchema.nullable().optional(),
+  cccd: z.string().trim().nullable().optional(),
+  address: z.string().trim().nullable().optional(),
+  hasBHYT: z.boolean().optional(),
+  healthInsuranceCode: z.string().trim().nullable().optional(),
+  registeredHospital: z.string().trim().nullable().optional(),
+  allergies: z.string().trim().nullable().optional(),
+  medicalHistory: z.string().trim().nullable().optional(),
+  familyHistory: z.string().trim().nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.hasBHYT === true && !value.healthInsuranceCode?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["healthInsuranceCode"],
+      message: "Ma the BHYT la bat buoc khi benh nhan co BHYT",
+    });
+  }
+});

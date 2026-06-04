@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Stethoscope } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, Copy, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/api";
@@ -183,6 +183,10 @@ const getInitialQueryValue = (key: string) => {
   if (typeof window === "undefined") return "";
 
   return new URLSearchParams(window.location.search).get(key) || "";
+};
+
+const copyText = async (value: string) => {
+  await navigator.clipboard.writeText(value).catch(() => undefined);
 };
 
 export default function AppointmentLookupPage() {
@@ -464,13 +468,21 @@ export default function AppointmentLookupPage() {
           </div>
         </div>
 
-        <AppointmentResult appointment={appointment} status={status} />
+        <AppointmentResult appointment={appointment} status={status} onAppointmentChange={setAppointment} />
       </section>
     </main>
   );
 }
 
-function AppointmentResult({ appointment, status }: { appointment: DisplayAppointment | null; status: typeof statusLabels[AppointmentStatus] | null }) {
+function AppointmentResult({
+  appointment,
+  status,
+  onAppointmentChange,
+}: {
+  appointment: DisplayAppointment | null;
+  status: typeof statusLabels[AppointmentStatus] | null;
+  onAppointmentChange: (appointment: DisplayAppointment) => void;
+}) {
   if (!appointment || !status) {
     return (
       <div className="rounded-md border border-[#dce3ee] bg-white p-5">
@@ -490,7 +502,20 @@ function AppointmentResult({ appointment, status }: { appointment: DisplayAppoin
       <div className="flex flex-col gap-3 border-b border-[#e5ebf3] pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm text-[#667892]">Mã lịch hẹn</p>
-          <h2 className="mt-1 text-2xl font-semibold">{appointment.bookingCode}</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h2 className="text-2xl font-semibold">{appointment.bookingCode}</h2>
+            <button
+              type="button"
+              onClick={() => void copyText(appointment.bookingCode)}
+              className="inline-flex items-center gap-1 rounded-md border border-[#cfd8e6] px-2 py-1.5 text-xs font-semibold text-[#42526b] hover:bg-[#f8fafc]"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy
+            </button>
+          </div>
+          <p className="mt-2 max-w-xl text-xs leading-5 text-[#667892]">
+            Hãy lưu mã này để tra cứu, xác thực lại OTP, thanh toán, hủy lịch hoặc xem kết quả khám sau này.
+          </p>
         </div>
         <span className={`inline-flex w-fit rounded-md border px-3 py-1.5 text-sm font-semibold ${status.tone}`}>{status.label}</span>
       </div>
@@ -519,9 +544,108 @@ function AppointmentResult({ appointment, status }: { appointment: DisplayAppoin
         <PriceItem label="Thành tiền" value={appointment.finalAmount} highlight />
       </div>
 
+      {appointment.status === "PENDING_OTP" ? (
+        <PendingOtpPanel appointment={appointment} onVerified={onAppointmentChange} />
+      ) : null}
       <CancelAppointmentPanel appointment={appointment} />
       <PaymentPanel appointment={appointment} />
       <MedicalResultPanel appointment={appointment} />
+    </div>
+  );
+}
+
+function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppointment; onVerified: (appointment: DisplayAppointment) => void }) {
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [otpMessage, setOtpMessage] = useState("");
+  const [otpError, setOtpError] = useState("");
+
+  const resetFeedback = () => {
+    setOtpMessage("");
+    setOtpError("");
+  };
+
+  const verifyPendingOtp = async () => {
+    resetFeedback();
+
+    if (!/^[0-9]{6}$/.test(otp)) {
+      setOtpError("OTP phải gồm đúng 6 chữ số.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await apiRequest<DisplayAppointment>(`/appointments/${appointment.id}/verify-otp`, {
+        method: "POST",
+        body: { otp },
+      });
+
+      onVerified(result);
+      setOtp("");
+      setOtpMessage("Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận.");
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendPendingOtp = async () => {
+    resetFeedback();
+    setLoading(true);
+
+    try {
+      await apiRequest(`/appointments/${appointment.id}/resend-otp`, {
+        method: "POST",
+      });
+
+      setOtpMessage("OTP đã được gửi lại. Vui lòng kiểm tra tin nhắn hoặc email.");
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : "Không gửi lại được OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
+        <ShieldCheck className="h-4 w-4" />
+        Xác thực lại OTP
+      </div>
+      <p className="mt-2 text-sm leading-6 text-[#42526b]">
+        Lịch này đã được tạo nhưng chưa xác thực OTP. Bạn có thể nhập OTP tại đây hoặc gửi lại OTP để hoàn tất đặt lịch.
+      </p>
+      <input
+        value={otp}
+        onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+        inputMode="numeric"
+        placeholder="000000"
+        className="mt-3 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+      />
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => void verifyPendingOtp()}
+          disabled={loading || otp.length !== 6}
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Xác nhận OTP
+        </button>
+        <button
+          type="button"
+          onClick={() => void resendPendingOtp()}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] bg-white px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+        >
+          <Phone className="h-4 w-4" />
+          Gửi lại OTP
+        </button>
+      </div>
+      {otpMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{otpMessage}</div> : null}
+      {otpError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{otpError}</div> : null}
     </div>
   );
 }

@@ -3,6 +3,10 @@ import appointmentRouter from "./appointment.route.js";
 import authOtpRouter from "./authOtp.route.js";
 import { dashboardBannerRouter, publicBannerRouter } from "./banner.route.js";
 import chatbotRouter from "./chatbot.route.js";
+import {
+  dashboardConsultationRequestRouter,
+  publicConsultationRequestRouter,
+} from "./consultationRequest.route.js";
 import departmentRouter from "./department.route.js";
 import dashboardAppointmentRouter from "./dashboardAppointment.route.js";
 import dashboardAuthRouter from "./dashboardAuth.route.js";
@@ -37,6 +41,7 @@ router.use("/appointments", appointmentRouter);
 router.use("/dashboard/appointments", dashboardAppointmentRouter);
 router.use("/dashboard/chatbot", dashboardChatbotRouter);
 router.use("/dashboard/chatbot/faqs", dashboardChatbotFaqRouter);
+router.use("/dashboard/consultation-requests", dashboardConsultationRequestRouter);
 router.use("/dashboard/banners", dashboardBannerRouter);
 router.use("/dashboard/faqs", dashboardFAQRouter);
 router.use("/dashboard/site-settings", dashboardSiteSettingsRouter);
@@ -56,6 +61,7 @@ router.use("/doctors", publicDoctorRouter);
 router.use("/faqs", publicFAQRouter);
 router.use("/packages", publicPackageRouter);
 router.use("/site-settings", publicSiteSettingsRouter);
+router.use("/consultation-requests", publicConsultationRequestRouter);
 router.use("/payments", paymentRouter);
 router.use("/uploads", uploadRouter);
 

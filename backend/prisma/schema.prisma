@@ -92,6 +92,14 @@ enum PaymentTransactionStatus {
   EXPIRED
 }
 
+enum InsuranceRouteType {
+  RIGHT_ROUTE
+  WRONG_ROUTE
+  REFERRAL
+  EMERGENCY
+  SERVICE
+}
+
 enum ConsultationStatus {
   NEW
   CONTACTED
@@ -775,6 +783,12 @@ model Invoice {
   totalAmount  Int
   bhytDiscount Int @default(0)
   finalAmount  Int
+
+  insuranceEligibleAmount Int @default(0)
+  insuranceCoverageRate   Int @default(0)
+  insuranceDiscountAmount Int @default(0)
+  insuranceRouteType      InsuranceRouteType?
+  insuranceNote           String?
 
   status        InvoiceStatus  @default(UNPAID)
   paymentMethod PaymentMethod?
