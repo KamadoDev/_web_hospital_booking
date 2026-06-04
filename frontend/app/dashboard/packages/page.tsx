@@ -86,6 +86,9 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+const getIncludedItemsTotal = (items: PackageItem[]) =>
+  items.filter((item) => item.included).reduce((total, item) => total + item.price, 0);
+
 const toPackageForm = (item: MedicalPackage): PackageForm => ({
   name: item.name,
   slug: item.slug || "",
@@ -448,11 +451,14 @@ export default function PackagesPage() {
                   <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Đang tải danh sách...</td></tr>
                 ) : packages.length === 0 ? (
                   <tr><td colSpan={7} className="px-4 py-10 text-center text-[#667892]">Chưa có gói khám phù hợp</td></tr>
-                ) : packages.map((item) => (
+                ) : packages.map((item) => {
+                  const includedTotal = item.includedItemsTotal ?? getIncludedItemsTotal(item.items);
+
+                  return (
                   <tr key={item.id} className="align-top">
                     <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold text-[#172033]">{item.name}</p><p className="mt-1 max-w-sm truncate text-xs text-[#667892]">{item.summary || item.slug || "Chưa có tóm tắt"}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">{item.department?.name || "Tất cả khoa"}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(item.finalPrice)}</p><p className="mt-1 text-xs text-[#667892]">Gói {formatCurrency(item.basePrice)} + phí {formatCurrency(item.serviceFee)}</p></td>
+                    <td className="border-b border-[#eef2f7] px-4 py-3"><p className="font-semibold">{formatCurrency(item.finalPrice)}</p><p className="mt-1 text-xs text-[#667892]">Hạng mục {formatCurrency(includedTotal || item.basePrice)} + phí {formatCurrency(item.serviceFee)}</p></td>
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {item.isPopular ? <span className="rounded-md bg-[#fff4d6] px-2 py-1 text-xs font-semibold text-[#8a5a00]">Nổi bật</span> : null}
@@ -470,7 +476,8 @@ export default function PackagesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -511,7 +518,7 @@ export default function PackagesPage() {
                         <td className="border-b border-[#eef2f7] px-3 py-2">{item.order}</td>
                         <td className="border-b border-[#eef2f7] px-3 py-2"><p className="font-semibold">{item.name}</p><p className="mt-1 text-xs text-[#667892]">{item.description || "Chưa có mô tả"}</p></td>
                         <td className="border-b border-[#eef2f7] px-3 py-2">{formatCurrency(item.price)}</td>
-                        <td className="border-b border-[#eef2f7] px-3 py-2">{item.included ? "Có" : "Tính riêng"}</td>
+                        <td className="border-b border-[#eef2f7] px-3 py-2"><span className={`inline-flex w-fit whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold ${item.included ? "bg-[#e7f6ed] text-[#1f7a3a]" : "bg-[#fff4d6] text-[#8a5a00]"}`}>{item.included ? "Đã bao gồm" : "Tính riêng"}</span></td>
                         <td className="border-b border-[#eef2f7] px-3 py-2"><div className="flex justify-end gap-2">{canWrite ? <><button onClick={() => startEditItem(item)} className="rounded-md border border-[#cfd8e6] px-2 py-1 text-xs text-[#42526b]">Sửa</button><button onClick={() => setDeleteItemTarget(item)} className="rounded-md border border-[#f2b8b5] px-2 py-1 text-xs text-[#b3261e]">Xóa</button></> : null}</div></td>
                       </tr>
                     ))}
@@ -528,7 +535,7 @@ export default function PackagesPage() {
                     <label className="block"><span className="text-xs font-medium text-[#667892]">Giá</span><input value={formatMoneyInput(itemForm.price)} onChange={(event) => setItemForm((current) => ({ ...current, price: parseMoneyInput(event.target.value) }))} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
                     <label className="block"><span className="text-xs font-medium text-[#667892]">Thứ tự</span><input value={itemForm.order} onChange={(event) => setItemForm((current) => ({ ...current, order: event.target.value.replace(/\D/g, "") }))} inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
                   </div>
-                  <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Nằm trong gói</span><input type="checkbox" checked={itemForm.included} onChange={(event) => setItemForm((current) => ({ ...current, included: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
+                  <label className="flex items-center justify-between gap-3 rounded-md border border-[#e5ebf3] px-3 py-2"><span className="min-w-0 text-sm font-medium text-[#334155]">Đã bao gồm trong giá gói</span><input type="checkbox" checked={itemForm.included} onChange={(event) => setItemForm((current) => ({ ...current, included: event.target.checked }))} className="h-4 w-4 shrink-0 accent-[#0d4f8b]" /></label>
                   <div className="flex gap-2"><button disabled={saving} className="flex-1 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{saving ? "Đang lưu..." : editingItem ? "Lưu hạng mục" : "Thêm hạng mục"}</button>{editingItem ? <button type="button" onClick={() => { setEditingItem(null); setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length) }); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Hủy</button> : null}</div>
                 </form>
               ) : null}
@@ -554,10 +561,10 @@ export default function PackagesPage() {
           <label className="block"><span className="text-sm font-medium text-[#334155]">Slug</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Chuyên khoa</span><select value={form.departmentId} onChange={(event) => setForm((current) => ({ ...current, departmentId: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"><option value="">Tất cả khoa</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Giá gói</span><input value={formatMoneyInput(form.basePrice)} onChange={(event) => setForm((current) => ({ ...current, basePrice: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="500.000" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
+            <label className="block"><span className="text-sm font-medium text-[#334155]">Giá nền khi chưa có hạng mục</span><input value={formatMoneyInput(form.basePrice)} onChange={(event) => setForm((current) => ({ ...current, basePrice: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="500.000" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
             <label className="block"><span className="text-sm font-medium text-[#334155]">Phí dịch vụ</span><input value={formatMoneyInput(form.serviceFee)} onChange={(event) => setForm((current) => ({ ...current, serviceFee: parseMoneyInput(event.target.value) }))} disabled={!canWrite} placeholder="0" inputMode="numeric" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           </div>
-          <p className="text-xs text-[#667892]">Tổng hiển thị: {formatCurrency(Number(form.basePrice || 0) + Number(form.serviceFee || 0))}</p>
+          <p className="text-xs leading-5 text-[#667892]">Khi gói có hạng mục “Đã bao gồm”, hệ thống tự lấy tổng giá hạng mục để tính giá gói. Giá nền chỉ dùng khi chưa có hạng mục.</p>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Tóm tắt</span><input value={form.summary} onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canWrite} rows={3} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Ghi chú</span><textarea value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} disabled={!canWrite} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>

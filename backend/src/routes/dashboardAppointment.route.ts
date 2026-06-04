@@ -9,12 +9,14 @@ import {
   listDashboardAppointmentsHandler,
   noShowDashboardAppointmentHandler,
   startDashboardAppointmentHandler,
+  updateDashboardAppointmentPatientInfoHandler,
   updateDashboardAppointmentStatusHandler,
 } from "../controllers/appointment.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import {
   cancelAppointmentSchema,
+  updateAppointmentPatientInfoSchema,
   updateAppointmentStatusSchema,
 } from "../validations/appointment.validation.js";
 
@@ -34,6 +36,12 @@ router.patch("/:id/check-in", requireRole("ADMIN", "STAFF"), checkInDashboardApp
 router.patch("/:id/start", requireRole("ADMIN", "STAFF", "DOCTOR"), startDashboardAppointmentHandler);
 router.patch("/:id/complete", requireRole("ADMIN", "STAFF", "DOCTOR"), completeDashboardAppointmentHandler);
 router.patch("/:id/no-show", requireRole("ADMIN", "STAFF"), noShowDashboardAppointmentHandler);
+router.patch(
+  "/:id/patient-info",
+  requireRole("ADMIN", "STAFF"),
+  validate(updateAppointmentPatientInfoSchema),
+  updateDashboardAppointmentPatientInfoHandler,
+);
 router.patch(
   "/:id/status",
   requireRole("ADMIN", "STAFF", "DOCTOR"),

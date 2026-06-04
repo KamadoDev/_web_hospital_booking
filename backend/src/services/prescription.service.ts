@@ -166,8 +166,8 @@ class PrescriptionService {
     return prescription;
   }
 
-  async createForMedicalRecord(recordId: string, input: CreatePrescriptionInput, actor: Actor) {
-    const record = await this.getRecordForWrite(recordId, actor);
+  async createForMedicalRecord(recordIdOrCode: string, input: CreatePrescriptionInput, actor: Actor) {
+    const record = await this.getRecordForWrite(recordIdOrCode, actor);
 
     if (record.prescriptionRecord) {
       throw new AppError("Ho so kham nay da co don thuoc", 409);
@@ -327,9 +327,13 @@ class PrescriptionService {
     return where;
   }
 
-  private async getRecordForWrite(recordId: string, actor: Actor) {
+  private async getRecordForWrite(recordIdOrCode: string, actor: Actor) {
+    const normalizedRecordKey = recordIdOrCode.trim();
     const where: Prisma.MedicalRecordWhereInput = {
-      id: recordId,
+      OR: [
+        { id: normalizedRecordKey },
+        { recordCode: normalizedRecordKey.toUpperCase() },
+      ],
     };
 
     if (actor.role === "DOCTOR") {

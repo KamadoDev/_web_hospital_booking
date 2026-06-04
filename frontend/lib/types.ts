@@ -1,5 +1,7 @@
 export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR";
 
+export type ConsultationStatus = "NEW" | "CONTACTED" | "CANCELLED" | "COMPLETED";
+
 export type DashboardUser = {
   id: string;
   fullName: string;
@@ -93,6 +95,7 @@ export type MedicalPackage = {
   } | null;
   basePrice: number;
   serviceFee: number;
+  includedItemsTotal?: number;
   finalPrice: number;
   summary: string | null;
   note: string | null;
@@ -240,6 +243,7 @@ export type InvoiceStatus = "UNPAID" | "PAID" | "CANCELLED" | "REFUNDED";
 export type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "MOMO" | "VNPAY" | "OTHER";
 export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO" | "ZALOPAY";
 export type PaymentTransactionStatus = "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
+export type InsuranceRouteType = "RIGHT_ROUTE" | "WRONG_ROUTE" | "REFERRAL" | "EMERGENCY" | "SERVICE";
 
 export type PublicInvoicePaymentTransaction = {
   id: string;
@@ -261,6 +265,11 @@ export type PublicAppointmentInvoice = {
   totalAmount: number;
   bhytDiscount: number;
   finalAmount: number;
+  insuranceEligibleAmount: number;
+  insuranceCoverageRate: number;
+  insuranceDiscountAmount: number;
+  insuranceRouteType: InsuranceRouteType | null;
+  insuranceNote: string | null;
   status: InvoiceStatus;
   paymentMethod: PaymentMethod | null;
   paidAt: string | null;
@@ -279,6 +288,11 @@ export type PaymentTransaction = PublicInvoicePaymentTransaction & {
     totalAmount: number;
     bhytDiscount: number;
     finalAmount: number;
+    insuranceEligibleAmount: number;
+    insuranceCoverageRate: number;
+    insuranceDiscountAmount: number;
+    insuranceRouteType: InsuranceRouteType | null;
+    insuranceNote: string | null;
     status: InvoiceStatus;
     paymentMethod: PaymentMethod | null;
     paidAt: string | null;
@@ -298,6 +312,11 @@ export type Invoice = {
   totalAmount: number;
   bhytDiscount: number;
   finalAmount: number;
+  insuranceEligibleAmount: number;
+  insuranceCoverageRate: number;
+  insuranceDiscountAmount: number;
+  insuranceRouteType: InsuranceRouteType | null;
+  insuranceNote: string | null;
   status: InvoiceStatus;
   paymentMethod: PaymentMethod | null;
   paidAt: string | null;
@@ -329,6 +348,7 @@ export type Invoice = {
       id: string;
       name: string;
       slug: string | null;
+      isBHYTSupport?: boolean;
     } | null;
     doctor: Appointment["doctor"];
     department: Appointment["department"];
@@ -594,6 +614,9 @@ export type DashboardStatisticsOverview = {
     cancelledAppointments: number;
     newPatients: number;
     unpaidInvoices: number;
+    consultationRequests: number;
+    pendingConsultationRequests: number;
+    completedWithoutInvoiceAppointments: number;
     collectedAmount: number;
     refundedAmount: number;
     netAmount: number;
@@ -665,6 +688,17 @@ export type DashboardDepartmentStatistics = {
 export type ListResult<T> = {
   items: T[];
   pagination: Pagination;
+};
+
+export type ConsultationRequest = {
+  id: string;
+  phone: string;
+  fullName: string | null;
+  message: string | null;
+  status: ConsultationStatus;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type MediaAsset = {

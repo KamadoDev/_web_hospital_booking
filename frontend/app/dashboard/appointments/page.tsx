@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -65,6 +65,56 @@ const doctorName = (doctor: DoctorProfile | Appointment["doctor"]) =>
 
 const isCancelled = (status: AppointmentStatus) => status.startsWith("CANCELLED");
 
+type PatientInfoForm = {
+  patientName: string;
+  patientEmail: string;
+  gender: "" | "MALE" | "FEMALE" | "OTHER";
+  dateOfBirth: string;
+  cccd: string;
+  address: string;
+  hasBHYT: boolean;
+  healthInsuranceCode: string;
+  registeredHospital: string;
+  allergies: string;
+  medicalHistory: string;
+  familyHistory: string;
+};
+
+const emptyPatientInfoForm: PatientInfoForm = {
+  patientName: "",
+  patientEmail: "",
+  gender: "",
+  dateOfBirth: "",
+  cccd: "",
+  address: "",
+  hasBHYT: false,
+  healthInsuranceCode: "",
+  registeredHospital: "",
+  allergies: "",
+  medicalHistory: "",
+  familyHistory: "",
+};
+
+const toDateInputValue = (value: string | null) => (value ? value.slice(0, 10) : "");
+
+const buildPatientInfoForm = (appointment: Appointment): PatientInfoForm => ({
+  patientName: appointment.patientName,
+  patientEmail: appointment.patientEmail || "",
+  gender: appointment.patientGender || "",
+  dateOfBirth: toDateInputValue(appointment.patientDateOfBirth),
+  cccd: appointment.patientCccd || "",
+  address: appointment.patientAddress || "",
+  hasBHYT: appointment.hasBHYT,
+  healthInsuranceCode: appointment.healthInsuranceCode || "",
+  registeredHospital: appointment.registeredHospital || "",
+  allergies: appointment.allergies || "",
+  medicalHistory: appointment.medicalHistory || "",
+  familyHistory: appointment.familyHistory || "",
+});
+
+const canEditPatientInfoStatus = (status: AppointmentStatus) =>
+  ["PENDING_CONFIRM", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED"].includes(status);
+
 export default function AppointmentsPage() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -83,11 +133,18 @@ export default function AppointmentsPage() {
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [editingPatientInfo, setEditingPatientInfo] = useState(false);
+  const [patientInfoForm, setPatientInfoForm] = useState<PatientInfoForm>(emptyPatientInfoForm);
   const listRef = useRef<HTMLElement | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
 
   const canStaffActions = user?.role === "ADMIN" || user?.role === "STAFF";
   const isDoctor = user?.role === "DOCTOR";
+  const canEditSelectedPatientInfo =
+    canStaffActions &&
+    Boolean(selected) &&
+    !selected?.invoice &&
+    Boolean(selected && canEditPatientInfoStatus(selected.status));
 
   const query = useMemo(
     () => ({
@@ -203,8 +260,73 @@ export default function AppointmentsPage() {
     }
   };
 
+  const openPatientInfoEditor = (appointment: Appointment) => {
+    setSelected(appointment);
+    setPatientInfoForm(buildPatientInfoForm(appointment));
+    setEditingPatientInfo(true);
+    setCancelTarget(null);
+    setCancelReason("");
+    setError("");
+    setNotice("");
+    scrollTo(detailRef);
+  };
+
+  const updatePatientInfoField = <K extends keyof PatientInfoForm>(key: K, value: PatientInfoForm[K]) => {
+    setPatientInfoForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "hasBHYT" && value === false) {
+        next.healthInsuranceCode = "";
+        next.registeredHospital = "";
+      }
+      return next;
+    });
+  };
+
+  const updatePatientInfo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selected || !canEditSelectedPatientInfo) return;
+    if (patientInfoForm.hasBHYT && !patientInfoForm.healthInsuranceCode.trim()) {
+      setError("Vui lòng nhập mã thẻ BHYT");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await apiRequest<Appointment>(`/dashboard/appointments/${selected.id}/patient-info`, {
+        method: "PATCH",
+        body: {
+          patientName: patientInfoForm.patientName.trim(),
+          patientEmail: patientInfoForm.patientEmail.trim() || null,
+          gender: patientInfoForm.gender || null,
+          dateOfBirth: patientInfoForm.dateOfBirth || null,
+          cccd: patientInfoForm.cccd.trim() || null,
+          address: patientInfoForm.address.trim() || null,
+          hasBHYT: patientInfoForm.hasBHYT,
+          healthInsuranceCode: patientInfoForm.hasBHYT ? patientInfoForm.healthInsuranceCode.trim() : null,
+          registeredHospital: patientInfoForm.hasBHYT ? patientInfoForm.registeredHospital.trim() || null : null,
+          allergies: patientInfoForm.allergies.trim() || null,
+          medicalHistory: patientInfoForm.medicalHistory.trim() || null,
+          familyHistory: patientInfoForm.familyHistory.trim() || null,
+        },
+      });
+      setSelected(updated);
+      setPatientInfoForm(buildPatientInfoForm(updated));
+      setEditingPatientInfo(false);
+      setNotice("Đã cập nhật thông tin tiếp nhận");
+      await loadAppointments();
+      scrollTo(detailRef);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không cập nhật được thông tin tiếp nhận");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const startCancelAppointment = (appointment: Appointment) => {
     setSelected(appointment);
+    setEditingPatientInfo(false);
     setCancelTarget(appointment);
     setCancelReason("");
     setError("");
@@ -244,6 +366,8 @@ export default function AppointmentsPage() {
 
   const openDetail = (appointment: Appointment) => {
     setSelected(appointment);
+    setPatientInfoForm(buildPatientInfoForm(appointment));
+    setEditingPatientInfo(false);
     setCancelTarget(null);
     setCancelReason("");
     scrollTo(detailRef);
@@ -268,6 +392,14 @@ export default function AppointmentsPage() {
         ) : null}
         {["IN_PROGRESS", "COMPLETED"].includes(appointment.status) ? (
           <Link href="/dashboard/medical-records" className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Hồ sơ</Link>
+        ) : null}
+        {canStaffActions && appointment.status === "COMPLETED" ? (
+          <Link
+            href={appointment.invoice ? `/dashboard/invoices?invoiceCode=${appointment.invoice.invoiceCode}` : `/dashboard/invoices?appointment=${appointment.bookingCode}`}
+            className="rounded-md border border-[#bde5c8] px-3 py-1.5 text-xs font-medium text-[#1f7a3a]"
+          >
+            {appointment.invoice ? "Hóa đơn" : "Tạo hóa đơn"}
+          </Link>
         ) : null}
         {canStaffActions && ["CONFIRMED", "CHECKED_IN"].includes(appointment.status) ? (
           <button onClick={() => void runAction(appointment, "/no-show", "Đã đánh dấu no-show")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">No-show</button>
@@ -421,7 +553,90 @@ export default function AppointmentsPage() {
               <div><p className="text-[#667892]">BHYT</p><p>{selected.hasBHYT ? selected.healthInsuranceCode || "Có BHYT" : "Không"}</p></div>
               <div><p className="text-[#667892]">Ghi chú sức khỏe</p><p>Dị ứng: {selected.allergies || "-"}</p><p>Tiền sử: {selected.medicalHistory || "-"}</p><p>Gia đình: {selected.familyHistory || "-"}</p></div>
             </div>
-            <div className="flex flex-wrap gap-2 border-t border-[#e5ebf3] pt-4">{renderActions(selected)}</div>
+            <div className="flex flex-wrap gap-2 border-t border-[#e5ebf3] pt-4">
+              {canEditSelectedPatientInfo ? (
+                <button type="button" onClick={() => openPatientInfoEditor(selected)} className="rounded-md border border-[#cfe4fa] px-3 py-1.5 text-xs font-medium text-[#0d4f8b]">Cập nhật tiếp nhận</button>
+              ) : null}
+              {renderActions(selected)}
+            </div>
+            {editingPatientInfo && canEditSelectedPatientInfo ? (
+              <form onSubmit={updatePatientInfo} className="rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4">
+                <div>
+                  <h4 className="font-semibold">Thông tin tiếp nhận</h4>
+                  <p className="mt-1 text-xs text-[#667892]">Dùng để xác minh thông tin bệnh nhân và BHYT trước khi phát hành hóa đơn.</p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-medium text-[#334155]">Họ tên bệnh nhân</span>
+                    <input value={patientInfoForm.patientName} onChange={(event) => updatePatientInfoField("patientName", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">Email</span>
+                    <input type="email" value={patientInfoForm.patientEmail} onChange={(event) => updatePatientInfoField("patientEmail", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">Giới tính</span>
+                    <select value={patientInfoForm.gender} onChange={(event) => updatePatientInfoField("gender", event.target.value as PatientInfoForm["gender"])} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
+                      <option value="">Chưa cập nhật</option>
+                      <option value="MALE">Nam</option>
+                      <option value="FEMALE">Nữ</option>
+                      <option value="OTHER">Khác</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">Ngày sinh</span>
+                    <input type="date" value={patientInfoForm.dateOfBirth} onChange={(event) => updatePatientInfoField("dateOfBirth", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">CCCD</span>
+                    <input value={patientInfoForm.cccd} onChange={(event) => updatePatientInfoField("cccd", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-medium text-[#334155]">Địa chỉ</span>
+                    <input value={patientInfoForm.address} onChange={(event) => updatePatientInfoField("address", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                </div>
+                <div className="mt-4 rounded-md border border-[#e5ebf3] bg-white p-3">
+                  <label className="flex items-center justify-between gap-3">
+                    <span>
+                      <span className="block text-sm font-semibold text-[#1f2937]">Bệnh nhân có BHYT</span>
+                      <span className="text-xs text-[#667892]">Tắt mục này sẽ đặt giảm trừ BHYT về 0.</span>
+                    </span>
+                    <input type="checkbox" checked={patientInfoForm.hasBHYT} onChange={(event) => updatePatientInfoField("hasBHYT", event.target.checked)} className="h-4 w-4 accent-[#0d4f8b]" />
+                  </label>
+                  {patientInfoForm.hasBHYT ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-medium text-[#334155]">Mã thẻ BHYT</span>
+                        <input value={patientInfoForm.healthInsuranceCode} onChange={(event) => updatePatientInfoField("healthInsuranceCode", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-medium text-[#334155]">Nơi đăng ký KCB</span>
+                        <input value={patientInfoForm.registeredHospital} onChange={(event) => updatePatientInfoField("registeredHospital", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-4 grid gap-3">
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">Dị ứng</span>
+                    <textarea value={patientInfoForm.allergies} onChange={(event) => updatePatientInfoField("allergies", event.target.value)} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">Tiền sử bệnh</span>
+                    <textarea value={patientInfoForm.medicalHistory} onChange={(event) => updatePatientInfoField("medicalHistory", event.target.value)} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#334155]">Tiền sử gia đình</span>
+                    <textarea value={patientInfoForm.familyHistory} onChange={(event) => updatePatientInfoField("familyHistory", event.target.value)} rows={2} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                  </label>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button disabled={busy} className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Đang lưu..." : "Lưu thông tin"}</button>
+                  <button type="button" onClick={() => { setEditingPatientInfo(false); setPatientInfoForm(buildPatientInfoForm(selected)); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Đóng</button>
+                </div>
+              </form>
+            ) : null}
             {cancelTarget?.id === selected.id ? (
               <div className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] p-4">
                 <h4 className="font-semibold text-[#b3261e]">Xác nhận hủy lịch</h4>

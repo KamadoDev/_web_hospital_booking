@@ -1,9 +1,22 @@
 import { z } from "zod";
 
 const manualPaymentMethods = ["CASH", "CARD", "BANK_TRANSFER", "OTHER"] as const;
+const insuranceRouteTypes = ["RIGHT_ROUTE", "WRONG_ROUTE", "REFERRAL", "EMERGENCY", "SERVICE"] as const;
+
+const invoiceInsuranceFields = {
+  bhytDiscount: z.number().int().min(0, "Giam tru BHYT khong duoc am").optional(),
+  insuranceEligibleAmount: z.number().int().min(0, "So tien du dieu kien BHYT khong duoc am").optional(),
+  insuranceCoverageRate: z.number().int().min(0, "Ty le huong BHYT khong duoc am").max(100, "Ty le huong BHYT khong duoc vuot qua 100").optional(),
+  insuranceRouteType: z.enum(insuranceRouteTypes).nullable().optional(),
+  insuranceNote: z.string().trim().max(500, "Ghi chu BHYT khong duoc vuot qua 500 ky tu").nullable().optional(),
+};
 
 export const createInvoiceSchema = z.object({
-  bhytDiscount: z.number().int().min(0, "Giam tru BHYT khong duoc am").optional(),
+  ...invoiceInsuranceFields,
+});
+
+export const updateInvoiceSchema = z.object({
+  ...invoiceInsuranceFields,
 });
 
 export const payInvoiceSchema = z.object({

@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import {
   ArrowRight,
   CalendarDays,
@@ -9,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  ExternalLink,
   HelpCircle,
   HeartPulse,
   Hospital,
@@ -24,7 +23,10 @@ import {
 import useEmblaCarousel from "embla-carousel-react";
 import Link from "next/link";
 import { Dispatch, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
+import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBookingWidget } from "@/components/public/public-booking-widget";
+import { PublicChatbotWidget } from "@/components/public/public-chatbot-widget";
+import { PublicConsultationRequest } from "@/components/public/public-consultation-request";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 import type { Banner, DoctorProfile } from "@/lib/types";
 import type { HomeSelection, PublicHomeData } from "./public-home-types";
@@ -106,11 +108,15 @@ export function PublicHomeView({ data, loading, error, selection, setSelection }
       />
 
       <PublicBookingWidget data={data} loading={loading} selection={selection} setSelection={setSelection} />
+      <PublicConsultationRequest />
       <DepartmentSection departments={data.departments.slice(0, 6)} loading={loading} />
       <DoctorSection doctors={data.doctors.slice(0, 4)} loading={loading} />
       <PackageSection packages={visiblePackages} loading={loading} />
       <FaqTopicSection faqs={data.faqs.slice(0, 5)} loading={loading} />
-      <PublicFooter settings={data.settings} hospitalName={hospitalName} logo={logo} hotline={hotline} />
+      <PublicFooter settings={data.settings} hospitalName={hospitalName} logo={logo} hotline={hotline} loading={loading} />
+      <PublicSocialDock settings={data.settings} hotline={hotline} loading={loading} />
+      <BackToTopButton />
+      <PublicChatbotWidget />
     </main>
   );
 }
@@ -121,6 +127,7 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
     ["#departments", "Chuyên khoa"],
     ["#doctors", "Bác sĩ"],
     ["#packages", "Gói khám"],
+    ["#consultation", "Tư vấn"],
     ["/faqs", "Hỏi đáp"],
     ["/guide/booking", "Hướng dẫn"],
     ["/appointments/lookup", "Tra cứu lịch"],
@@ -147,7 +154,7 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
               <a key={href} href={href} className="rounded-md px-3 py-2 hover:bg-[#f1f5f9]">{label}</a>
             )
           ))}
-          <Link href="/login" className="rounded-md px-3 py-2 hover:bg-[#f1f5f9]">Dashboard</Link>
+          {/* <Link href="/login" className="rounded-md px-3 py-2 hover:bg-[#f1f5f9]">Dashboard</Link> */}
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
@@ -250,7 +257,7 @@ function HeroSection({
     <section className="bg-white">
       <div className="mx-auto grid min-h-[calc(100vh-76px)] max-w-7xl items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)] lg:px-8">
         <ScrollReveal className="max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] px-3 py-2 text-sm font-semibold text-[#0d4f8b]">
+          <div className="ui-soft-glow inline-flex items-center gap-2 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] px-3 py-2 text-sm font-semibold text-[#0d4f8b]">
             <Sparkles className="h-4 w-4" />
             Tư vấn, chọn bác sĩ và đặt lịch trong một luồng
           </div>
@@ -263,17 +270,17 @@ function HeroSection({
               <Skeleton className="h-4 w-2/3 max-w-md" />
             </div>
           ) : (
-            <h1 className="mt-5 text-4xl font-semibold leading-tight text-[#172033] sm:text-5xl">{heroTitle}</h1>
+            <h1 className="mt-5 text-4xl font-semibold leading-tight text-[#172033] sm:text-5xl"><span className="ui-accent-text">{heroTitle}</span></h1>
           )}
           <p className={`mt-5 max-w-xl text-base leading-7 text-[#667892] ${loading ? "hidden" : ""}`}>
             {heroSubtitle || `Kết nối bệnh nhân với chuyên khoa, bác sĩ và khung giờ khám phù hợp tại ${hospitalName}. Quy trình rõ ràng, thông tin minh bạch, dễ theo dõi trạng thái lịch hẹn.`}
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <a href="#booking" className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white hover:bg-[#083d6d]">
+            <a href="#booking" className="ui-soft-glow inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#083d6d]">
               Bắt đầu đặt lịch
               <ArrowRight className="h-4 w-4" />
             </a>
-            <a href={`tel:${hotline}`} className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-5 py-3 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">
+            <a href={`tel:${hotline}`} className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-5 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc]">
               <Phone className="h-4 w-4" />
               Gọi {hotline}
             </a>
@@ -284,7 +291,7 @@ function HeroSection({
               ["Bác sĩ", counts.doctors],
               ["Gói khám", counts.packages],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+              <div key={label} className="ui-lift-card rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
                 {loading ? <Skeleton className="h-8 w-14" /> : <p className="text-2xl font-semibold text-[#0d4f8b]">{value}</p>}
                 <p className="mt-1 text-sm text-[#667892]">{label}</p>
               </div>
@@ -293,7 +300,7 @@ function HeroSection({
         </ScrollReveal>
 
         <ScrollReveal delay={120}>
-          <div className="relative min-h-[460px] overflow-hidden rounded-md bg-[#e7f0fb]">
+          <div className="ui-soft-glow relative min-h-[460px] overflow-hidden rounded-md bg-[#e7f0fb]">
             {loading ? (
               <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
             ) : heroSlides.length ? (
@@ -366,7 +373,7 @@ function HeroSection({
 
 function HeroInfo({ icon, title, text, tone = "blue" }: { icon: ReactNode; title: string; text: string; tone?: "blue" | "green" }) {
   return (
-    <div className="rounded-md bg-white/95 p-4 text-[#172033] shadow-lg">
+    <div className="ui-lift-card rounded-md bg-white/95 p-4 text-[#172033] shadow-lg">
       <div className={`flex items-center gap-2 text-sm font-semibold ${tone === "green" ? "text-[#1f7a3a]" : "text-[#0d4f8b]"}`}>{icon}{title}</div>
       <p className="mt-2 text-sm text-[#667892]">{text}</p>
     </div>
@@ -384,7 +391,7 @@ function DepartmentSection({ departments, loading }: { departments: PublicHomeDa
           </ScrollReveal>
         )) : departments.length ? departments.map((item, index) => (
           <ScrollReveal key={item.id} delay={index * 70}>
-            <article className="overflow-hidden rounded-md border border-[#dce3ee] bg-white transition hover:-translate-y-1 hover:shadow-lg">
+            <article className="ui-lift-card overflow-hidden rounded-md border border-[#dce3ee] bg-white">
               <div className="h-36 bg-[#e7f0fb]">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[#0d4f8b]"><HeartPulse className="h-10 w-10" /></div>}</div>
               <div className="p-4">
                 <h3 className="font-semibold">{item.name}</h3>
@@ -418,7 +425,7 @@ function DoctorSection({ doctors, loading }: { doctors: DoctorProfile[]; loading
             </ScrollReveal>
           )) : doctors.length ? doctors.map((doctor, index) => (
             <ScrollReveal key={doctor.id} delay={index * 70}>
-              <article className="rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4 transition hover:-translate-y-1 hover:shadow-lg">
+              <article className="ui-lift-card rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4">
                 <div className="flex items-center gap-3">
                   {doctor.user.avatar ? <img src={doctor.user.avatar} alt={doctor.user.fullName} className="h-14 w-14 rounded-md object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-md bg-[#e7f0fb] text-lg font-semibold text-[#0d4f8b]">{firstLetter(doctor.user.fullName)}</div>}
                   <div className="min-w-0">
@@ -459,7 +466,7 @@ function PackageSection({ packages, loading }: { packages: PublicHomeData["packa
           </ScrollReveal>
         )) : packages.length ? packages.map((item, index) => (
           <ScrollReveal key={item.id} delay={index * 80}>
-            <article className="rounded-md border border-[#dce3ee] bg-white p-5 transition hover:-translate-y-1 hover:shadow-lg">
+            <article className="ui-lift-card rounded-md border border-[#dce3ee] bg-white p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold">{item.name}</h3>
@@ -540,7 +547,7 @@ function FaqTopicSection({ faqs, loading }: { faqs: PublicHomeData["faqs"]; load
             <>
               {groupedFaqs.map(({ category, item, meta }, index) => (
                 <ScrollReveal key={item.id} delay={index * 60}>
-                  <article className="flex h-full flex-col rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4 transition hover:-translate-y-1 hover:border-[#0d4f8b] hover:bg-white hover:shadow-lg">
+                  <article className="ui-lift-card flex h-full flex-col rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4 hover:bg-white">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-wide text-[#0d4f8b]">{meta.label}</p>
@@ -560,7 +567,7 @@ function FaqTopicSection({ faqs, loading }: { faqs: PublicHomeData["faqs"]; load
               ))}
               {otherFaqs.map((item, index) => (
                 <ScrollReveal key={item.id} delay={(groupedFaqs.length + index) * 60}>
-                  <article className="flex h-full flex-col rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4 transition hover:-translate-y-1 hover:border-[#0d4f8b] hover:bg-white hover:shadow-lg">
+                  <article className="ui-lift-card flex h-full flex-col rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4 hover:bg-white">
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">Khác</p>
                     <h3 className="mt-2 line-clamp-2 font-semibold leading-6">{item.question}</h3>
                     <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#667892]">{item.answer}</p>
@@ -640,7 +647,139 @@ function FaqSection({ faqs, loading }: { faqs: PublicHomeData["faqs"]; loading: 
   );
 }
 
-function PublicFooter({ settings, hospitalName, logo, hotline }: { settings: PublicHomeData["settings"]; hospitalName: string; logo?: string; hotline: string }) {
+type SocialItem = {
+  key: string;
+  label: string;
+  href: string;
+  icon: ReactNode;
+  className: string;
+};
+
+const socialLabels: Record<string, string> = {
+  facebook: "Facebook",
+  zalo: "Zalo",
+  youtube: "YouTube",
+  tiktok: "TikTok",
+};
+
+const defaultSocialKeys = ["facebook", "zalo", "youtube", "tiktok"];
+
+const normalizeExternalUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
+function BrandSocialIcon({ name }: { name: string }) {
+  const key = name.toLowerCase();
+
+  if (key === "facebook") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="currentColor">
+        <path d="M14.2 8.4V6.9c0-.7.5-.9 1-.9h1.8V3.3A24 24 0 0 0 14.4 3c-2.6 0-4.4 1.6-4.4 4.5v2H7.2v3.1H10V21h3.5v-8.4h2.8l.4-3.1h-3.2c-.3 0-.4-.1-.4-.4Z" />
+      </svg>
+    );
+  }
+
+  if (key === "youtube") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="currentColor">
+        <path d="M21.6 7.1a3 3 0 0 0-2.1-2.1C17.7 4.5 12 4.5 12 4.5s-5.7 0-7.5.5a3 3 0 0 0-2.1 2.1C2 8.9 2 12 2 12s0 3.1.4 4.9a3 3 0 0 0 2.1 2.1c1.8.5 7.5.5 7.5.5s5.7 0 7.5-.5a3 3 0 0 0 2.1-2.1c.4-1.8.4-4.9.4-4.9s0-3.1-.4-4.9ZM10 15.3V8.7l5.7 3.3-5.7 3.3Z" />
+      </svg>
+    );
+  }
+
+  if (key === "tiktok") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="currentColor">
+        <path d="M15.4 3c.4 2.4 1.7 3.8 4.1 4v3.2a7 7 0 0 1-4-1.2v5.7c0 3.2-2.2 5.3-5.4 5.3A5.1 5.1 0 0 1 5 15c0-3 2.4-5.2 5.5-5.2.3 0 .6 0 .9.1v3.4a3 3 0 0 0-1-.2 1.9 1.9 0 1 0 1.9 1.9V3h3.1Z" />
+      </svg>
+    );
+  }
+
+  if (key === "zalo") {
+    return <img src="/zalo.svg" alt="" aria-hidden="true" className="h-6 w-6" />;
+  }
+
+  return <ExternalLink className="h-4 w-4" aria-hidden="true" />;
+}
+
+const socialTone: Record<string, string> = {
+  facebook: "text-[#1877f2] hover:bg-[#1877f2] hover:text-white",
+  zalo: "text-[#0068ff] hover:bg-[#0068ff] hover:text-white",
+  youtube: "text-[#ff0033] hover:bg-[#ff0033] hover:text-white",
+  tiktok: "text-[#111827] hover:bg-[#111827] hover:text-white",
+};
+
+function createSocialItem(rawKey: string, value = ""): SocialItem {
+  const key = rawKey.toLowerCase();
+
+  return {
+      key: rawKey,
+      label: socialLabels[key] || rawKey,
+      href: normalizeExternalUrl(value),
+      icon: <BrandSocialIcon name={key} />,
+      className: socialTone[key] || "text-[#42526b] hover:bg-[#42526b] hover:text-white",
+  };
+}
+
+function getSocialItems(settings: PublicHomeData["settings"], showPlaceholders = false): SocialItem[] {
+  if (!settings && showPlaceholders) {
+    return defaultSocialKeys.map((key) => createSocialItem(key));
+  }
+
+  return Object.entries(settings?.socialLinks || {})
+    .map<SocialItem>(([rawKey, value]) => createSocialItem(rawKey, value))
+    .filter((item) => Boolean(item.href));
+}
+
+function PublicSocialDock({ settings, hotline, loading }: { settings: PublicHomeData["settings"]; hotline: string; loading: boolean }) {
+  const socialItems = getSocialItems(settings, loading).slice(0, 4);
+
+  if (!socialItems.length && !hotline) return null;
+
+  return (
+    <aside className="fixed right-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2 lg:flex">
+      <a
+        href={`tel:${hotline}`}
+        className="group inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#cfd8e6] bg-white text-[#0d4f8b] shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#f3f8ff]"
+        aria-label={`Gọi hotline ${hotline}`}
+        title={`Gọi ${hotline}`}
+      >
+        <Phone className="h-5 w-5 transition group-hover:scale-110" aria-hidden="true" />
+      </a>
+      {socialItems.map((item) => (
+        item.href ? (
+          <a
+            key={item.key}
+            href={item.href}
+            target="_blank"
+            rel="noreferrer"
+            className={`group inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#cfd8e6] bg-white shadow-lg shadow-black/10 transition hover:-translate-y-0.5 ${item.className}`}
+            aria-label={`Mở ${item.label}`}
+            title={item.label}
+          >
+            {item.icon}
+          </a>
+        ) : (
+          <span
+            key={item.key}
+            className={`inline-flex h-11 w-11 animate-pulse items-center justify-center rounded-full border border-[#cfd8e6] bg-white shadow-lg shadow-black/10 ${item.className}`}
+            aria-label={`Đang tải ${item.label}`}
+            title={`Đang tải ${item.label}`}
+          >
+            {item.icon}
+          </span>
+        )
+      ))}
+    </aside>
+  );
+}
+
+function PublicFooter({ settings, hospitalName, logo, hotline, loading }: { settings: PublicHomeData["settings"]; hospitalName: string; logo?: string; hotline: string; loading: boolean }) {
+  const socialItems = getSocialItems(settings, loading);
+
   return (
     <footer className="border-t border-[#dce3ee] bg-[#172033] text-white">
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,420px)] lg:px-8">
@@ -658,8 +797,48 @@ function PublicFooter({ settings, hospitalName, logo, hotline }: { settings: Pub
           <p className="flex items-center gap-2"><Phone className="h-4 w-4" />{hotline}</p>
           {settings?.email ? <p>{settings.email}</p> : null}
           {settings?.address ? <p className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0" />{settings.address}</p> : null}
+          {settings?.mapUrl ? (
+            <a
+              href={normalizeExternalUrl(settings.mapUrl)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white hover:text-[#172033]"
+            >
+              <MapPin className="h-4 w-4" aria-hidden="true" />
+              Chỉ đường
+            </a>
+          ) : null}
+          {socialItems.length ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {socialItems.map((item) => (
+                item.href ? (
+                  <a
+                    key={item.key}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`inline-flex items-center gap-2 rounded-full border border-white/15 bg-white px-3 py-2 text-xs font-semibold transition hover:-translate-y-0.5 ${item.className}`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </a>
+                ) : (
+                  <span
+                    key={item.key}
+                    className={`inline-flex animate-pulse items-center gap-2 rounded-full border border-white/15 bg-white px-3 py-2 text-xs font-semibold ${item.className}`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </span>
+                )
+              ))}
+            </div>
+          ) : null}
           <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />Thông tin cấu hình từ dashboard</p>
         </div>
+      </div>
+      <div className="border-t border-white/10 px-4 py-4 text-center text-xs leading-5 text-white/60 sm:px-6">
+        Xây dựng website quàn lí đặt lịch khám bệnh có tích hợp chatbot hỗ trợ - Môn Tiểu Luận Chuyên Ngành - Ngô Quang Lợi - 248100336 - Đại Học Công Nghệ Kỹ Thuật TP HCM
       </div>
     </footer>
   );

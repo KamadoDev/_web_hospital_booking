@@ -1,7 +1,7 @@
 "use client";
 
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, Clock, CreditCard, Loader2, Send, ShieldCheck, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, Copy, CreditCard, Info, Loader2, Send, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import type { Appointment } from "@/lib/types";
@@ -323,6 +323,15 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
     }
   };
 
+  const copyBookingCode = async (bookingCode: string) => {
+    try {
+      await navigator.clipboard.writeText(bookingCode);
+      setMessage("Đã sao chép mã lịch. Vui lòng lưu lại để tra cứu hoặc xác thực sau.");
+    } catch {
+      setMessage(`Mã lịch của bạn là ${bookingCode}. Vui lòng lưu lại để tra cứu hoặc xác thực sau.`);
+    }
+  };
+
   return (
     <section id="booking" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8">
       <ScrollReveal>
@@ -557,7 +566,32 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                   <ShieldCheck className="h-4 w-4" />
                   Xác thực OTP
                 </div>
-                <p className="mt-2 text-sm text-[#667892]">Mã đặt lịch: <span className="font-semibold text-[#172033]">{pending.bookingCode}</span></p>
+                <div className="mt-3 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">Mã đặt lịch cần lưu</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="break-all text-lg font-semibold text-[#172033]">{pending.bookingCode}</span>
+                    <button
+                      type="button"
+                      onClick={() => void copyBookingCode(pending.bookingCode)}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#cfd8e6] bg-white px-2 py-1.5 text-xs font-semibold text-[#42526b] hover:bg-[#f8fafc]"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-start gap-2 rounded-md border border-[#b8d7f4] bg-[#eef7ff] px-3 py-2.5 text-[#0d4f8b]">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white text-[#0d4f8b] shadow-sm">
+                    <Info className="h-4 w-4" />
+                  </span>
+                  <p className="text-xs font-medium leading-5">
+                    Nếu lỡ thoát màn hình này, hãy vào{" "}
+                    <Link href={`/appointments/lookup?bookingCode=${pending.bookingCode}&phone=${pending.patientPhone}`} className="font-semibold underline underline-offset-2">
+                      Tra cứu lịch hẹn
+                    </Link>
+                    , nhập mã lịch và số điện thoại để xác thực OTP lại.
+                  </p>
+                </div>
                 <input
                   value={otp}
                   onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -576,6 +610,12 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                 <button type="button" onClick={() => void resendOtp()} disabled={submitting} className="mt-2 w-full rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b] hover:bg-[#f6f8fb] disabled:opacity-60">
                   Gửi lại OTP
                 </button>
+                <Link
+                  href={`/appointments/lookup?bookingCode=${pending.bookingCode}&phone=${pending.patientPhone}`}
+                  className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
+                >
+                  Xác thực lại qua tra cứu
+                </Link>
               </div>
             ) : null}
 
@@ -586,7 +626,23 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                   Đặt lịch thành công
                 </div>
                 <div className="mt-3 space-y-2 text-sm text-[#667892]">
-                  <p>Mã lịch: <span className="font-semibold text-[#172033]">{verifiedAppointment.bookingCode}</span></p>
+                  <div className="rounded-md border border-[#bde5c8] bg-[#f0fff4] p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a3a]">Mã lịch cần lưu</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="break-all text-lg font-semibold text-[#172033]">{verifiedAppointment.bookingCode}</span>
+                      <button
+                        type="button"
+                        onClick={() => void copyBookingCode(verifiedAppointment.bookingCode)}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#bde5c8] bg-white px-2 py-1.5 text-xs font-semibold text-[#1f7a3a] hover:bg-[#f8fafc]"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-[#667892]">
+                      Hãy lưu mã này để tra cứu lịch, thanh toán, hủy lịch hoặc xem kết quả khám sau này.
+                    </p>
+                  </div>
                   <p>Trạng thái: <span className="font-semibold text-[#172033]">{verifiedAppointment.status}</span></p>
                   <p>Giờ khám: {formatTime(verifiedAppointment.startTime)} - {formatTime(verifiedAppointment.endTime)}</p>
                   <p>Phí dự kiến: {formatCurrency(verifiedAppointment.finalAmount)}</p>

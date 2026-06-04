@@ -111,12 +111,22 @@ const publicPackageSelect = {
 const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
 
-const withFinalPrice = <T extends { basePrice: number; serviceFee: number }>(
+const getIncludedItemsTotal = (items?: { price: number; included: boolean }[]) =>
+  items?.filter((item) => item.included).reduce((total, item) => total + item.price, 0) || 0;
+
+const withFinalPrice = <T extends { basePrice: number; serviceFee: number; items?: { price: number; included: boolean }[] }>(
   item: T,
-) => ({
-  ...item,
-  finalPrice: item.basePrice + item.serviceFee,
-});
+) => {
+  const includedItemsTotal = getIncludedItemsTotal(item.items);
+  const packageBasePrice = includedItemsTotal || item.basePrice;
+
+  return {
+    ...item,
+    basePrice: packageBasePrice,
+    includedItemsTotal,
+    finalPrice: packageBasePrice + item.serviceFee,
+  };
+};
 
 class PackageService {
   async list(query: {

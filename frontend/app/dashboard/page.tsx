@@ -556,18 +556,21 @@ function DashboardPage() {
         <section className="space-y-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Vận hành</h3>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
               <MetricCard title="Tổng lịch hẹn" value={formatNumber(overview.metrics.totalAppointments)} tone="blue" />
               <MetricCard title="Chờ xác nhận" value={formatNumber(overview.metrics.pendingConfirmAppointments)} tone="amber" />
               <MetricCard title="Lịch hôm nay" value={formatNumber(overview.metrics.todayAppointments)} tone="slate" />
               <MetricCard title="Đã hoàn tất" value={formatNumber(overview.metrics.completedAppointments)} tone="green" />
+              <MetricCard title="Cần tạo hóa đơn" value={formatNumber(overview.metrics.completedWithoutInvoiceAppointments)} tone="amber" />
               <MetricCard title="Hủy / no-show" value={formatNumber(overview.metrics.cancelledAppointments)} tone="red" />
             </div>
           </div>
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Tài chính và tăng trưởng</h3>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <MetricCard title="Bệnh nhân mới" value={formatNumber(overview.metrics.newPatients)} tone="blue" />
+              <MetricCard title="Tư vấn trong kỳ" value={formatNumber(overview.metrics.consultationRequests)} tone="blue" />
+              <MetricCard title="Tư vấn cần xử lý" value={formatNumber(overview.metrics.pendingConsultationRequests)} tone="amber" />
               <MetricCard title="Hóa đơn chưa TT" value={formatNumber(overview.metrics.unpaidInvoices)} tone="amber" />
               <MetricCard title="Đã thu" value={formatCurrency(overview.metrics.collectedAmount)} tone="green" />
               <MetricCard title="Doanh thu thuần" value={formatCurrency(overview.metrics.netAmount)} tone="green" caption={`Hoàn tiền ${formatCurrency(overview.metrics.refundedAmount)}`} />
@@ -609,6 +612,8 @@ function DashboardPage() {
             <p className="mt-1 text-sm text-[#667892]">Các điểm nên kiểm tra trước trong ca vận hành.</p>
             <div className="mt-4 space-y-3">
               <ActionRow title="Lịch chờ xác nhận" value={formatNumber(overview.metrics.pendingConfirmAppointments)} href="/dashboard/appointments" tone="amber" />
+              <ActionRow title="Tư vấn cần xử lý" value={formatNumber(overview.metrics.pendingConsultationRequests)} href="/dashboard/consultation-requests?status=NEW" tone="amber" />
+              <ActionRow title="Hoàn tất chưa có hóa đơn" value={formatNumber(overview.metrics.completedWithoutInvoiceAppointments)} href="/dashboard/invoices" tone="amber" />
               <ActionRow title="Hóa đơn chưa thanh toán" value={formatNumber(overview.metrics.unpaidInvoices)} href="/dashboard/invoices" tone="amber" />
               <ActionRow title="Hủy / no-show trong kỳ" value={formatNumber(overview.metrics.cancelledAppointments)} href="/dashboard/appointments" tone="red" />
               <ActionRow title="Lịch hẹn hôm nay" value={formatNumber(overview.metrics.todayAppointments)} href="/dashboard/appointments" tone="blue" />
