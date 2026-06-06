@@ -52,6 +52,28 @@ export const getOrCreateChatSession = async (
     });
 
     if (existingSession) {
+      if (!existingSession.expiresAt || existingSession.expiresAt <= new Date()) {
+        const resetSession = await prisma.chatbotSession.update({
+          where: { id: sessionId },
+          data: {
+            draft: toPrismaJson({}),
+            currentIntent: null,
+            currentState: null,
+            lastActions: toPrismaJson([]),
+            lastMessage: null,
+            lastResponse: null,
+            isActive: true,
+            guestPhone: phone,
+            expiresAt: getSessionExpiresAt(sessionExpiresDays),
+          },
+        });
+
+        return {
+          id: resetSession.id,
+          draft: {},
+        };
+      }
+
       return {
         id: existingSession.id,
         draft: readDraft(existingSession.draft),
@@ -105,6 +127,29 @@ export const mergeDraftFromAction = (
   const payload = action.payload;
 
   switch (action.type) {
+    case "VIEW_DEPARTMENTS":
+      return {
+        ...draft,
+        departmentId: undefined,
+        departmentSlug: undefined,
+        packageId: undefined,
+        packageSlug: undefined,
+        doctorId: undefined,
+        timeSlotId: undefined,
+      };
+    case "VIEW_PACKAGES":
+      return {
+        ...draft,
+        packageId: undefined,
+        packageSlug: undefined,
+        timeSlotId: undefined,
+      };
+    case "VIEW_DOCTORS":
+      return {
+        ...draft,
+        doctorId: undefined,
+        timeSlotId: undefined,
+      };
     case "VIEW_DEPARTMENT":
     case "SELECT_DEPARTMENT":
       return {
@@ -132,6 +177,19 @@ export const mergeDraftFromAction = (
         doctorId: readString(payload, "doctorId") || draft.doctorId,
         date: readString(payload, "date") || draft.date,
         timeSlotId: readString(payload, "timeSlotId") || draft.timeSlotId,
+      };
+    case "CHANGE_DATE":
+      return {
+        ...draft,
+        doctorId: readString(payload, "doctorId") || draft.doctorId,
+        date: readString(payload, "date"),
+        timeSlotId: undefined,
+      };
+    case "CHANGE_DOCTOR":
+      return {
+        ...draft,
+        doctorId: undefined,
+        timeSlotId: undefined,
       };
     default:
       return draft;

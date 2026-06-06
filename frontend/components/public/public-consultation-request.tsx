@@ -48,11 +48,16 @@ export function PublicConsultationRequest() {
         setOpen(true);
       }
     };
+    const openFromEvent = () => setOpen(true);
 
     openFromHash();
     window.addEventListener("hashchange", openFromHash);
+    window.addEventListener("open-consultation-request", openFromEvent);
 
-    return () => window.removeEventListener("hashchange", openFromHash);
+    return () => {
+      window.removeEventListener("hashchange", openFromHash);
+      window.removeEventListener("open-consultation-request", openFromEvent);
+    };
   }, []);
 
   const submitRequest = async (event: FormEvent<HTMLFormElement>) => {

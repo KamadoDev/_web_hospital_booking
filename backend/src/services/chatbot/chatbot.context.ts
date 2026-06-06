@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
-import { parseDateOnly } from "../../utils/time.js";
+import type { Prisma } from "../../../generated/prisma/client.js";
+import { isSlotStartInPastVietnamTime, parseDateOnly } from "../../utils/time.js";
 import type { ChatBookingDraft, ChatIntent } from "./chatbot.types.js";
 
 export type ChatbotContext = {
@@ -64,7 +65,7 @@ class ChatbotContextService {
       "PACKAGE_DETAIL",
       "BOOKING_START",
       "BOOKING_FORM_HELP",
-    ].includes(intent);
+    ].includes(intent) || Boolean(draft.departmentId || draft.packageId);
     const shouldLoadDoctors =
       ["DOCTOR_LIST", "AVAILABLE_SLOT_LOOKUP", "BOOKING_START", "BOOKING_FORM_HELP"].includes(intent) ||
       Boolean(draft.departmentId || draft.doctorId);
@@ -255,16 +256,8 @@ class ChatbotContextService {
   private async getAvailableSlots(draft: ChatBookingDraft) {
     const today = toDateOnly(new Date());
     const requestedDate = draft.date && draft.date >= today ? draft.date : undefined;
-    const date = requestedDate
-      ? parseDateOnly(requestedDate)
-      : {
-          gte: parseDateOnly(today),
-        };
-
-    const slots = await prisma.doctorTimeSlot.findMany({
-      where: {
+    const baseWhere: Prisma.DoctorTimeSlotWhereInput = {
         ...(draft.doctorId ? { doctorId: draft.doctorId } : {}),
-        date,
         status: "AVAILABLE",
         isActive: true,
         doctor: {
@@ -274,25 +267,45 @@ class ChatbotContextService {
             isActive: true,
           },
         },
-      },
-      select: {
-        id: true,
-        doctorId: true,
-        date: true,
-        startTime: true,
-        endTime: true,
-      },
-      orderBy: [{ date: "asc" }, { startTime: "asc" }],
-      take: 20,
-    });
+      };
 
-    return slots.map((slot) => ({
-      id: slot.id,
-      doctorId: slot.doctorId,
-      date: toDateOnly(slot.date),
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-    }));
+    const select = {
+      id: true,
+      doctorId: true,
+      date: true,
+      startTime: true,
+      endTime: true,
+    } as const;
+
+    const findSlots = (date: Date | { gte: Date }, take = 20) =>
+      prisma.doctorTimeSlot.findMany({
+        where: {
+          ...baseWhere,
+          date,
+        },
+        select,
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        take,
+      });
+
+    const slots = requestedDate
+      ? await findSlots(parseDateOnly(requestedDate))
+      : await findSlots({ gte: parseDateOnly(today) });
+
+    const usableSlots = slots.filter((slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime));
+    const fallbackSlots = requestedDate && !usableSlots.length
+      ? (await findSlots({ gte: parseDateOnly(requestedDate) }))
+          .filter((slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime))
+      : usableSlots;
+
+    return fallbackSlots
+      .map((slot) => ({
+        id: slot.id,
+        doctorId: slot.doctorId,
+        date: toDateOnly(slot.date),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      }));
   }
 
   private async getFaqs() {

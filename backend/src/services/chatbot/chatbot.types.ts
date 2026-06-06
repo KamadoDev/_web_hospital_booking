@@ -36,6 +36,8 @@ export const SUGGESTED_ACTION_TYPES = [
   "VIEW_DOCTORS",
   "VIEW_DOCTOR",
   "VIEW_AVAILABLE_SLOTS",
+  "CHANGE_DATE",
+  "CHANGE_DOCTOR",
   "START_BOOKING",
   "LOOKUP_APPOINTMENT",
   "CONTACT_STAFF",
@@ -85,6 +87,27 @@ export type SuggestedAction = {
   payload: Record<string, unknown>;
 };
 
+export type ChatbotResultItem =
+  | {
+      type: "slot";
+      id: string;
+      doctorId: string;
+      doctorName?: string;
+      departmentName?: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+    };
+
+export type ChatbotResultGroup = {
+  type: "slots";
+  title: string;
+  description?: string;
+  items: ChatbotResultItem[];
+  total: number;
+  limit: number;
+};
+
 export type ChatbotRequestInput = {
   sessionId?: string;
   message: string;
@@ -100,6 +123,7 @@ export type AIChatbotOutput = {
   nextStep: ChatNextStep;
   confidence: number;
   draft: ChatBookingDraft;
+  results?: ChatbotResultGroup[];
   suggestedActions: SuggestedAction[];
 };
 

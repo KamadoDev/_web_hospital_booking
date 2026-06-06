@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma.js";
+import { isSlotStartInPastVietnamTime } from "../../utils/time.js";
 import type {
   ChatBookingDraft,
   SuggestedAction,
@@ -25,6 +26,8 @@ const defaultActionLabels: Record<SuggestedActionType, string> = {
   VIEW_DOCTORS: "Xem bác sĩ",
   VIEW_DOCTOR: "Xem bác sĩ",
   VIEW_AVAILABLE_SLOTS: "Xem lịch trống",
+  CHANGE_DATE: "Đổi ngày khám",
+  CHANGE_DOCTOR: "Đổi bác sĩ",
   START_BOOKING: "Đặt lịch ngay",
   LOOKUP_APPOINTMENT: "Tra cứu lịch hẹn",
   CONTACT_STAFF: "Liên hệ hỗ trợ",
@@ -160,10 +163,12 @@ class ChatbotActionService {
           status: "AVAILABLE",
           isActive: true,
         },
-        select: { id: true },
+        select: { id: true, date: true, startTime: true },
       });
 
-      return Boolean(slot);
+      if (!slot) return false;
+
+      return !isSlotStartInPastVietnamTime(slot.date, slot.startTime);
     }
 
     return true;

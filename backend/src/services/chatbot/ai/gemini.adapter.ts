@@ -20,15 +20,15 @@ const getFirebaseApp = (): FirebaseApp => {
   const config = getFirebaseConfig();
 
   if (!config.apiKey) {
-    throw new AppError("Chua cau hinh FIREBASE_API_KEY hoac API_KEY", 500);
+    throw new AppError("Chưa cấu hình FIREBASE_API_KEY hoặc API_KEY", 500);
   }
 
   if (!config.projectId) {
-    throw new AppError("Chua cau hinh FIREBASE_PROJECT_ID hoac PROJECT_ID", 500);
+    throw new AppError("Chưa cấu hình FIREBASE_PROJECT_ID hoặc PROJECT_ID", 500);
   }
 
   if (!config.appId) {
-    throw new AppError("Chua cau hinh FIREBASE_APP_ID hoac APP_ID", 500);
+    throw new AppError("Chưa cấu hình FIREBASE_APP_ID hoặc APP_ID", 500);
   }
 
   return getApps()[0] || initializeApp(config);
@@ -54,7 +54,7 @@ export class GeminiAdapter implements AIAdapter {
       const text = result.response.text().trim();
 
       if (!text) {
-        throw new AppError("Gemini khong tra ve noi dung", 502);
+        throw new AppError("Gemini không trả về nội dung", 502);
       }
 
       return text;
@@ -62,7 +62,7 @@ export class GeminiAdapter implements AIAdapter {
       if (error instanceof AppError) throw error;
 
       throw new AppError(
-        error instanceof Error ? error.message : "Gemini khong phan hoi thanh cong",
+        error instanceof Error ? error.message : "Gemini không phản hồi thành công",
         502,
       );
     }

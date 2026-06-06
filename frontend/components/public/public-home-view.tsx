@@ -391,12 +391,12 @@ function DepartmentSection({ departments, loading }: { departments: PublicHomeDa
           </ScrollReveal>
         )) : departments.length ? departments.map((item, index) => (
           <ScrollReveal key={item.id} delay={index * 70}>
-            <article className="ui-lift-card overflow-hidden rounded-md border border-[#dce3ee] bg-white">
-              <div className="h-36 bg-[#e7f0fb]">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[#0d4f8b]"><HeartPulse className="h-10 w-10" /></div>}</div>
-              <div className="p-4">
-                <h3 className="font-semibold">{item.name}</h3>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#667892]">{item.description || "Đội ngũ chuyên môn sẵn sàng tư vấn và tiếp nhận lịch khám."}</p>
-                <div className="mt-4 grid grid-cols-2 gap-2">
+            <article className="ui-lift-card flex h-full min-h-[328px] flex-col overflow-hidden rounded-md border border-[#dce3ee] bg-white">
+              <div className="h-36 shrink-0 bg-[#e7f0fb]">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[#0d4f8b]"><HeartPulse className="h-10 w-10" /></div>}</div>
+              <div className="flex flex-1 flex-col p-4">
+                <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{item.name}</h3>
+                <p className="mt-2 line-clamp-3 min-h-[72px] text-sm leading-6 text-[#667892]">{item.description || "Đội ngũ chuyên môn sẵn sàng tư vấn và tiếp nhận lịch khám."}</p>
+                <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
                   <Link href={item.slug ? `/departments/${item.slug}` : `/doctors?departmentId=${item.id}`} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-center text-xs font-semibold text-[#42526b] hover:bg-[#f8fafc]">
                     Chi tiết
                   </Link>
@@ -866,12 +866,17 @@ function Skeleton({ className = "" }: { className?: string }) {
 
 function DepartmentSkeletonCard() {
   return (
-    <article className="overflow-hidden rounded-md border border-[#dce3ee] bg-white">
+    <article className="min-h-[328px] overflow-hidden rounded-md border border-[#dce3ee] bg-white">
       <Skeleton className="h-36 rounded-none" />
       <div className="space-y-3 p-4">
         <Skeleton className="h-5 w-2/3" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-4 w-3/5" />
+        <div className="grid grid-cols-2 gap-2 pt-3">
+          <Skeleton className="h-9" />
+          <Skeleton className="h-9" />
+        </div>
       </div>
     </article>
   );
