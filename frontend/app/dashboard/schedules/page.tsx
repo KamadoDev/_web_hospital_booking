@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDate, getVietnamDateInput, isVietnamSlotStartInPast } from "@/lib/date";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import type {
   DoctorProfile,
   DoctorSchedule,
@@ -63,10 +65,25 @@ const statusLabel: Record<TimeSlotStatus, string> = {
   CANCELLED: "Đã huỷ",
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const effectiveSlotStatus = (slot: DoctorTimeSlot) => {
+  if (slot.status === "AVAILABLE" && isVietnamSlotStartInPast(slot.date, slot.startTime)) {
+    return {
+      label: "Đã qua giờ",
+      className: "bg-[#eef2f7] text-[#667892]",
+      note: "Ẩn trên website người dùng",
+    };
+  }
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN").format(new Date(value));
+  return {
+    label: statusLabel[slot.status],
+    className: statusClass[slot.status],
+    note: "",
+  };
+};
+
+const today = () => getVietnamDateInput();
+
+const formatDate = (value: string) => formatVietnamDate(value);
 
 const doctorName = (doctor: DoctorSchedule["doctor"] | DoctorProfile) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
@@ -249,7 +266,7 @@ export default function SchedulesPage() {
   const slotSummary = useMemo(
     () => ({
       total: slots.length,
-      available: slots.filter((slot) => slot.status === "AVAILABLE").length,
+      available: slots.filter((slot) => slot.status === "AVAILABLE" && !isVietnamSlotStartInPast(slot.date, slot.startTime)).length,
       booked: slots.filter((slot) => slot.status === "BOOKED").length,
       locked: slots.filter((slot) => slot.status === "LOCKED").length,
     }),
@@ -547,7 +564,7 @@ export default function SchedulesPage() {
               {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctorName(doctor)}</option>)}
             </select>
             ) : null}
-            <input type="date" value={slotDate} onChange={(e) => { setSlotDate(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <VietnamDateInput value={slotDate} onChange={(value) => { setSlotDate(value); setSlotPage(1); }} ariaLabel="Ngày lọc slot" className="w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <select value={slotStatus} onChange={(e) => { setSlotStatus(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {slotStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
@@ -569,37 +586,42 @@ export default function SchedulesPage() {
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Đang tải slot...</td></tr>
                 ) : slots.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-10 text-center text-[#667892]">Chưa có slot phù hợp</td></tr>
-                ) : slots.map((slot) => (
-                  <tr key={slot.id}>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{formatDate(slot.date)}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <p className="font-semibold">{doctorName(slot.doctor)}</p>
-                      <p className="mt-1 text-xs text-[#667892]">{slot.doctor.department.name}</p>
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{slot.startTime} - {slot.endTime}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClass[slot.status]}`}>{statusLabel[slot.status]}</span>
-                      {slot.lockReason ? <p className="mt-1 text-xs text-[#667892]">{slot.lockReason}</p> : null}
-                    </td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">{slot.appointment?.bookingCode || "-"}</td>
-                    <td className="border-b border-[#eef2f7] px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {canWrite && !slot.appointment && slot.status !== "BOOKED" ? (
-                          <>
-                            {slot.status === "LOCKED" ? (
-                              <button onClick={() => void handleUnlockSlot(slot)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Mở khoá</button>
-                            ) : (
-                              <button onClick={() => startLockSlot(slot)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Khoá</button>
-                            )}
-                            {slot.status !== "CANCELLED" ? <button onClick={() => void handleSlotStatus(slot, "CANCELLED")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Huỷ</button> : null}
-                            {slot.status !== "AVAILABLE" ? <button onClick={() => void handleSlotStatus(slot, "AVAILABLE")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Trống</button> : null}
-                            <button onClick={() => { setDeleteSlotTarget(slot); setLockSlotTarget(null); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button>
-                          </>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                ) : slots.map((slot) => {
+                  const status = effectiveSlotStatus(slot);
+
+                  return (
+                    <tr key={slot.id}>
+                      <td className="border-b border-[#eef2f7] px-4 py-3">{formatDate(slot.date)}</td>
+                      <td className="border-b border-[#eef2f7] px-4 py-3">
+                        <p className="font-semibold">{doctorName(slot.doctor)}</p>
+                        <p className="mt-1 text-xs text-[#667892]">{slot.doctor.department.name}</p>
+                      </td>
+                      <td className="border-b border-[#eef2f7] px-4 py-3">{slot.startTime} - {slot.endTime}</td>
+                      <td className="border-b border-[#eef2f7] px-4 py-3">
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${status.className}`}>{status.label}</span>
+                        {status.note ? <p className="mt-1 text-xs text-[#667892]">{status.note}</p> : null}
+                        {slot.lockReason ? <p className="mt-1 text-xs text-[#667892]">{slot.lockReason}</p> : null}
+                      </td>
+                      <td className="border-b border-[#eef2f7] px-4 py-3">{slot.appointment?.bookingCode || "-"}</td>
+                      <td className="border-b border-[#eef2f7] px-4 py-3">
+                        <div className="flex justify-end gap-2">
+                          {canWrite && !slot.appointment && slot.status !== "BOOKED" ? (
+                            <>
+                              {slot.status === "LOCKED" ? (
+                                <button onClick={() => void handleUnlockSlot(slot)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Mở khoá</button>
+                              ) : (
+                                <button onClick={() => startLockSlot(slot)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Khoá</button>
+                              )}
+                              {slot.status !== "CANCELLED" ? <button onClick={() => void handleSlotStatus(slot, "CANCELLED")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Huỷ</button> : null}
+                              {slot.status !== "AVAILABLE" ? <button onClick={() => void handleSlotStatus(slot, "AVAILABLE")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Trống</button> : null}
+                              <button onClick={() => { setDeleteSlotTarget(slot); setLockSlotTarget(null); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -726,7 +748,7 @@ export default function SchedulesPage() {
               </label>
               <label className="block">
                 <span className="text-sm font-medium text-[#334155]">Ngày sinh slot</span>
-                <input type="date" value={generateDate} onChange={(e) => setGenerateDate(e.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required />
+                <VietnamDateInput value={generateDate} onChange={setGenerateDate} required ariaLabel="Ngày sinh slot" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
               </label>
               <button disabled={saving} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang sinh..." : "Sinh slot"}</button>
             </form>

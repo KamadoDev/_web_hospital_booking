@@ -4,7 +4,9 @@ import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from "
 import { CalendarDays, CheckCircle2, Clock, Copy, CreditCard, Info, Loader2, Send, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
+import { formatVietnamDate, getVietnamDateInput, getVietnamTimeInput, getVietnamYesterdayDateInput } from "@/lib/date";
 import type { Appointment } from "@/lib/types";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import type { HomeSelection, PublicHomeData } from "./public-home-types";
 import { ScrollReveal } from "./scroll-reveal";
 
@@ -52,23 +54,8 @@ type PublicBookingWidgetProps = {
 const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const today = () => {
-  const date = new Date();
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
-
-  return offsetDate.toISOString().slice(0, 10);
-};
-
-const yesterday = () => {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
-
-  return offsetDate.toISOString().slice(0, 10);
-};
-
 const initialDraft: BookingDraft = {
-  date: today(),
+  date: getVietnamDateInput(),
   timeSlotId: "",
   patientName: "",
   patientPhone: "",
@@ -87,18 +74,6 @@ const initialDraft: BookingDraft = {
   familyHistory: "",
 };
 
-const getInitialDraft = (): BookingDraft => {
-  if (typeof window === "undefined") return initialDraft;
-
-  const params = new URLSearchParams(window.location.search);
-
-  return {
-    ...initialDraft,
-    date: params.get("date") || initialDraft.date,
-    timeSlotId: params.get("timeSlotId") || initialDraft.timeSlotId,
-  };
-};
-
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -112,7 +87,7 @@ const doctorName = (doctor: PublicHomeData["doctors"][number]) =>
 const formatTime = (value: string) => value.slice(0, 5);
 
 export function PublicBookingWidget({ data, loading, selection, setSelection }: PublicBookingWidgetProps) {
-  const [draft, setDraft] = useState<BookingDraft>(getInitialDraft);
+  const [draft, setDraft] = useState<BookingDraft>(initialDraft);
   const [slots, setSlots] = useState<PublicSlot[]>([]);
   const [slotLoading, setSlotLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -123,6 +98,24 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
   const [verifiedAppointment, setVerifiedAppointment] = useState<Appointment | null>(null);
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const date = params.get("date");
+      const timeSlotId = params.get("timeSlotId");
+
+      if (!date && !timeSlotId) return;
+
+      setDraft((current) => ({
+        ...current,
+        date: date || current.date,
+        timeSlotId: timeSlotId || current.timeSlotId,
+      }));
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const selectedDepartment = data.departments.find((item) => item.id === selection.departmentId);
   const selectedDoctor = data.doctors.find((item) => item.id === selection.doctorId);
@@ -216,13 +209,13 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
     if (!selection.departmentId) return "Vui lòng chọn chuyên khoa.";
     if (!selection.doctorId) return "Vui lòng chọn bác sĩ.";
     if (!draft.date) return "Vui lòng chọn ngày khám.";
-    if (draft.date < today()) return "Ngày khám không được nhỏ hơn ngày hiện tại.";
+    if (draft.date < getVietnamDateInput()) return "Ngày khám không được nhỏ hơn ngày hiện tại.";
     if (!draft.timeSlotId) return "Vui lòng chọn khung giờ khám.";
     if (draft.patientName.trim().length < 2) return "Họ tên bệnh nhân tối thiểu 2 ký tự.";
     if (!phoneRegex.test(draft.patientPhone.trim())) return "Số điện thoại không hợp lệ.";
     if (draft.patientEmail.trim() && !emailRegex.test(draft.patientEmail.trim())) return "Email không hợp lệ.";
     if (draft.otpChannel === "EMAIL" && !draft.patientEmail.trim()) return "Email là bắt buộc khi xác thực OTP qua email.";
-    if (draft.dateOfBirth && draft.dateOfBirth >= today()) return "Ngày sinh phải nhỏ hơn ngày hiện tại.";
+    if (draft.dateOfBirth && draft.dateOfBirth >= getVietnamDateInput()) return "Ngày sinh phải nhỏ hơn ngày hiện tại.";
     if (draft.hasBHYT && !draft.healthInsuranceCode.trim()) return "Vui lòng nhập mã thẻ BHYT.";
 
     return "";
@@ -335,19 +328,34 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
   return (
     <section id="booking" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8">
       <ScrollReveal>
-        <div className="grid gap-6 rounded-md border border-[#dce3ee] bg-white p-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-6 rounded-md border border-[#cfe0f3] bg-gradient-to-b from-[#f4f9ff] via-white to-white p-4 shadow-[0_18px_50px_rgba(13,79,139,0.10)] ring-1 ring-[#e7f0fb] sm:p-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Đặt lịch nhanh</p>
-            <h2 className="mt-2 text-2xl font-semibold">Chọn lịch khám và xác thực OTP</h2>
+            <div className="flex items-start gap-3 rounded-md border border-[#d8e9ff] bg-white/80 p-4 shadow-sm">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+                <CalendarDays className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-[#0d4f8b]">Đặt lịch nhanh</p>
+                <h2 className="mt-1 text-2xl font-semibold text-[#172033]">Chọn lịch khám và xác thực OTP</h2>
+                <p className="mt-2 text-sm leading-6 text-[#667892]">Chọn chuyên khoa, bác sĩ và khung giờ phù hợp. Sau đó nhập thông tin để bệnh viện gửi OTP giữ lịch.</p>
+              </div>
+            </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#172033]">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+                  <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                </span>
+                Lựa chọn lịch khám
+              </div>
+            <div className="grid gap-3 md:grid-cols-3">
               <select
                 value={selection.departmentId}
                 onChange={(event) => {
                   updateSelection({ departmentId: event.target.value, doctorId: "", packageId: "" });
                   updateDraft({ timeSlotId: "" });
                 }}
-                className="rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
                 disabled={loading}
               >
                 <option value="">Chọn chuyên khoa</option>
@@ -359,7 +367,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                   updateSelection({ doctorId: event.target.value });
                   updateDraft({ timeSlotId: "" });
                 }}
-                className="rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
                 disabled={loading || !selection.departmentId}
               >
                 <option value="">Chọn bác sĩ</option>
@@ -368,7 +376,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
               <select
                 value={selection.packageId}
                 onChange={(event) => updateSelection({ packageId: event.target.value })}
-                className="rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
+                className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
                 disabled={loading}
               >
                 <option value="">Chọn gói khám</option>
@@ -376,16 +384,17 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
               </select>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="mt-4 grid gap-4 rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-3 md:grid-cols-[220px_minmax(0,1fr)]">
               <label className="block">
                 <span className="text-sm font-medium text-[#334155]">Ngày khám</span>
-                <input
-                  type="date"
-                  min={today()}
+                <VietnamDateInput
                   value={draft.date}
-                  onChange={(event) => updateDraft({ date: event.target.value, timeSlotId: "" })}
-                  className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
+                  min={getVietnamDateInput()}
+                  onChange={(value) => updateDraft({ date: value, timeSlotId: "" })}
+                  ariaLabel="Ngày khám"
+                  className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
                 />
+                <span className="mt-1 block text-xs text-[#667892]">Hiển thị theo ngày/tháng/năm, múi giờ Việt Nam</span>
               </label>
               <div>
                 <div className="flex items-center justify-between gap-3">
@@ -409,21 +418,26 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                       onClick={() => updateDraft({ timeSlotId: slot.id })}
                       className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition ${
                         draft.timeSlotId === slot.id
-                          ? "border-[#0d4f8b] bg-[#e7f0fb] text-[#0d4f8b]"
-                          : "border-[#cfd8e6] text-[#42526b] hover:border-[#0d4f8b]"
+                      ? "border-[#0d4f8b] bg-[#e7f0fb] text-[#0d4f8b] shadow-[0_8px_18px_rgba(13,79,139,0.14)] ring-2 ring-[#cfe4fa]"
+                      : "border-[#cfd8e6] bg-white text-[#42526b] hover:border-[#0d4f8b] hover:bg-[#f8fbff]"
                       }`}
                     >
                       <Clock className="h-4 w-4" />
                       {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
                     </button>
                   )) : (
-                    <span className="rounded-md border border-dashed border-[#dce3ee] px-3 py-2 text-sm text-[#667892]">Chưa có khung giờ trống trong ngày này.</span>
+                    <span className="rounded-md border border-dashed border-[#dce3ee] px-3 py-2 text-sm text-[#667892]">
+                      {draft.date === getVietnamDateInput()
+                        ? `Không còn khung giờ khả dụng hôm nay sau ${getVietnamTimeInput()}. Các slot đã qua giờ sẽ không hiển thị cho người bệnh.`
+                        : `Chưa có khung giờ trống trong ngày ${formatVietnamDate(draft.date)}.`}
+                    </span>
                   )}
                 </div>
               </div>
             </div>
+            </div>
 
-            <div className="mt-5 rounded-md border border-[#e5ebf3] bg-[#fbfdff] p-4">
+            <div className="mt-5 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                   <UserRound className="h-4 w-4" />
@@ -437,31 +451,31 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Họ tên bệnh nhân</span>
-                  <input value={draft.patientName} onChange={(event) => updateDraft({ patientName: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" required />
+                  <input value={draft.patientName} onChange={(event) => updateDraft({ patientName: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]" required />
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Số điện thoại</span>
-                  <input value={draft.patientPhone} onChange={(event) => updateDraft({ patientPhone: event.target.value })} placeholder="0901234567" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" required />
+                  <input value={draft.patientPhone} onChange={(event) => updateDraft({ patientPhone: event.target.value })} placeholder="0901234567" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]" required />
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Kênh OTP</span>
-                  <select value={draft.otpChannel} onChange={(event) => updateDraft({ otpChannel: event.target.value as BookingDraft["otpChannel"] })} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]">
+                  <select value={draft.otpChannel} onChange={(event) => updateDraft({ otpChannel: event.target.value as BookingDraft["otpChannel"] })} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]">
                     <option value="SMS">SMS</option>
                     <option value="EMAIL">Email</option>
                   </select>
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Email {draft.otpChannel === "EMAIL" ? "(bắt buộc)" : "(không bắt buộc)"}</span>
-                  <input value={draft.patientEmail} onChange={(event) => updateDraft({ patientEmail: event.target.value })} placeholder="Nhập nếu xác thực qua email" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" />
+                  <input value={draft.patientEmail} onChange={(event) => updateDraft({ patientEmail: event.target.value })} placeholder="Nhập nếu xác thực qua email" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]" />
                 </label>
                 <label className="block md:col-span-2">
                   <span className="text-sm font-medium text-[#334155]">Lý do khám</span>
-                  <textarea value={draft.reason} onChange={(event) => updateDraft({ reason: event.target.value })} rows={3} placeholder="Ví dụ: đau đầu, tái khám, tư vấn kết quả..." className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" />
+                  <textarea value={draft.reason} onChange={(event) => updateDraft({ reason: event.target.value })} rows={3} placeholder="Ví dụ: đau đầu, tái khám, tư vấn kết quả..." className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]" />
                 </label>
               </div>
             </div>
 
-            <div className="mt-4 rounded-md border border-[#dce3ee] bg-white">
+            <div className="mt-4 overflow-hidden rounded-md border border-[#d8e9ff] bg-white shadow-sm">
               <button
                 type="button"
                 onClick={() => setShowAdditionalInfo((current) => !current)}
@@ -489,7 +503,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">Ngày sinh</span>
-                    <input type="date" max={yesterday()} value={draft.dateOfBirth} onChange={(event) => updateDraft({ dateOfBirth: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" />
+                    <input type="date" max={getVietnamYesterdayDateInput()} value={draft.dateOfBirth} onChange={(event) => updateDraft({ dateOfBirth: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" />
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">CCCD</span>
@@ -526,8 +540,9 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
             </div>
 
             {error ? (
-              <div className="mt-5 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm font-medium text-[#b3261e]">
-                {error}
+              <div className="mt-5 flex items-start gap-2 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm font-medium text-[#b3261e] shadow-sm">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{error}</span>
               </div>
             ) : null}
 
@@ -536,7 +551,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                 type="button"
                 onClick={() => void createAppointment()}
                 disabled={submitting || loading}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d] disabled:translate-y-0 disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Tạo lịch và gửi OTP
@@ -548,20 +563,27 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
             </div>
           </div>
 
-          <aside ref={resultRef} className="scroll-mt-24 rounded-md bg-[#f8fafc] p-4">
+          <aside ref={resultRef} className="scroll-mt-24 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-4">
             <p className="text-sm font-semibold text-[#172033]">Tóm tắt lịch hẹn</p>
             <div className="mt-3 space-y-2 text-sm text-[#667892]">
               <p>{selectedSummary.departmentName}</p>
               <p>{selectedSummary.doctorName}</p>
               <p>{selectedSummary.packageName}</p>
-              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />{draft.date || "Chưa chọn ngày"}</p>
+              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />{draft.date ? formatVietnamDate(draft.date) : "Chưa chọn ngày"}</p>
             </div>
             <p className="mt-4 text-lg font-semibold text-[#0d4f8b]">{selectedSummary.amount ? formatCurrency(selectedSummary.amount) : "Sẽ tính theo lựa chọn"}</p>
+            </div>
 
-            {message ? <div className="mt-4 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm text-[#1f7a3a]">{message}</div> : null}
+            {message ? (
+              <div className="mt-4 flex items-start gap-2 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm text-[#1f7a3a] shadow-sm">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{message}</span>
+              </div>
+            ) : null}
 
             {pending ? (
-              <div className="mt-5 rounded-md border border-[#cfe4fa] bg-white p-4">
+              <div className="mt-5 rounded-md border border-[#cfe4fa] bg-[#fbfdff] p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
                   <ShieldCheck className="h-4 w-4" />
                   Xác thực OTP
@@ -620,7 +642,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
             ) : null}
 
             {verifiedAppointment ? (
-              <div className="mt-5 rounded-md border border-[#bde5c8] bg-white p-4">
+              <div className="mt-5 rounded-md border border-[#bde5c8] bg-[#fbfffc] p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#1f7a3a]">
                   <CheckCircle2 className="h-4 w-4" />
                   Đặt lịch thành công

@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
 import type {
   Appointment,
   DashboardAppointmentStatistics,
@@ -69,7 +70,7 @@ const slotLabel: Record<string, string> = {
 
 const pieColors = ["#0d4f8b", "#2a7f62", "#b7791f", "#7c3aed", "#b3261e", "#42526b"];
 
-const toDateInput = (date: Date) => date.toISOString().slice(0, 10);
+const toDateInput = (date: Date) => getVietnamDateInput(date);
 
 const getMonthRange = () => {
   const now = new Date();
@@ -79,8 +80,7 @@ const getMonthRange = () => {
   };
 };
 
-const formatDate = (value?: string | null) =>
-  value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short" }).format(new Date(value)) : "-";
+const formatDate = (value?: string | null) => value ? formatVietnamDate(value) : "-";
 
 const formatDateTime = (value?: string | null) =>
   value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "-";

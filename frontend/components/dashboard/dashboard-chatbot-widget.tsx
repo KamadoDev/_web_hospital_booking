@@ -1,30 +1,35 @@
 "use client";
 
-import { Bot, MessageCircle, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import { Bot, Loader2, MessageCircle, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { ChatbotResultCards } from "@/components/ui/chatbot-result-cards";
+import {
+  buildBookingHref,
+  getActionEventMessage,
+  getActionEventRole,
+  getActionInputPlaceholder,
+  getActionLoadingText,
+  getActionRenderKey,
+  getFlowStatusText,
+  type ChatWidgetMessage,
+} from "@/lib/chatbot-ui";
 import type {
   ChatBookingDraft,
   ChatbotMessageResponse,
   ChatbotSuggestedAction,
 } from "@/lib/types";
 
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
-
 type StoredChat = {
   sessionId?: string;
   draft?: ChatBookingDraft;
-  messages?: ChatMessage[];
+  messages?: ChatWidgetMessage[];
 };
 
 const storageKey = "hospital-dashboard-chatbot";
 
-const defaultMessages: ChatMessage[] = [
+const defaultMessages: ChatWidgetMessage[] = [
   {
     id: "welcome",
     role: "assistant",
@@ -52,14 +57,19 @@ export function DashboardChatbotWidget() {
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(storedChat.sessionId);
   const [draft, setDraft] = useState<ChatBookingDraft | undefined>(storedChat.draft);
-  const [messages, setMessages] = useState<ChatMessage[]>(
+  const [messages, setMessages] = useState<ChatWidgetMessage[]>(
     storedChat.messages?.length ? storedChat.messages : defaultMessages,
   );
   const [actions, setActions] = useState<ChatbotSuggestedAction[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [loadingText, setLoadingText] = useState(getActionLoadingText());
+  const [inputPlaceholder, setInputPlaceholder] = useState("Nhập câu hỏi...");
+  const [flowStatus, setFlowStatus] = useState("");
   const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify({ sessionId, draft, messages }));
@@ -70,22 +80,57 @@ export function DashboardChatbotWidget() {
     window.setTimeout(() => {
       scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }, 0);
-  }, [messages, open, sending]);
+  }, [messages, open, sending, flowStatus]);
 
   const phone = useMemo(() => user?.phone || undefined, [user?.phone]);
 
+  const handleActionSideEffect = (action: ChatbotSuggestedAction, nextDraft?: ChatBookingDraft) => {
+    if (typeof window === "undefined") return;
+
+    if (action.type === "LOOKUP_APPOINTMENT") {
+      window.setTimeout(() => {
+        window.location.href = "/appointments/lookup";
+      }, 450);
+      return;
+    }
+
+    if (action.type === "START_BOOKING") {
+      window.setTimeout(() => {
+        window.location.href = buildBookingHref(action, nextDraft || draft);
+      }, 450);
+      return;
+    }
+
+    if (action.type === "CONTACT_STAFF") {
+      window.setTimeout(() => {
+        window.location.href = "/#consultation";
+      }, 450);
+      return;
+    }
+
+    if (action.type === "CHANGE_DATE" || action.type === "CHANGE_DOCTOR") {
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  };
+
   const sendMessage = async (content: string, action?: ChatbotSuggestedAction) => {
     const trimmed = content.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || sendingRef.current) return;
 
-    const userMessage: ChatMessage = {
-      id: createId(),
-      role: "user",
-      content: trimmed,
-    };
+    sendingRef.current = true;
 
-    setMessages((current) => [...current, userMessage]);
+    setMessages((current) => [
+      ...current,
+      {
+        id: createId(),
+        role: action ? getActionEventRole(action) : "user",
+        content: action ? getActionEventMessage(action) : trimmed,
+      },
+    ]);
+    setActions([]);
     setMessage("");
+    setInputPlaceholder(getActionInputPlaceholder(action));
+    setLoadingText(getActionLoadingText(action));
     setError("");
     setSending(true);
 
@@ -109,15 +154,18 @@ export function DashboardChatbotWidget() {
 
       setSessionId(result.sessionId);
       setDraft(result.draft);
+      setFlowStatus(getFlowStatusText(result.state, result.nextStep));
       setActions(result.suggestedActions || []);
       setMessages((current) => [
         ...current,
         {
           id: createId(),
-          role: "assistant",
+          role: result.state === "EMERGENCY_CARE" ? "alert" : "assistant",
           content: result.reply,
+          results: result.results || [],
         },
       ]);
+      if (action) handleActionSideEffect(action, result.draft);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi được tin nhắn");
       setMessages((current) => [
@@ -129,6 +177,7 @@ export function DashboardChatbotWidget() {
         },
       ]);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -144,6 +193,8 @@ export function DashboardChatbotWidget() {
     setMessages(defaultMessages);
     setActions([]);
     setMessage("");
+    setFlowStatus("");
+    setInputPlaceholder("Nhập câu hỏi...");
     setError("");
     window.localStorage.removeItem(storageKey);
   };
@@ -185,36 +236,61 @@ export function DashboardChatbotWidget() {
             </div>
           </header>
 
+          {flowStatus ? (
+            <div className="border-b border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-2 text-xs font-semibold text-[var(--primary)]">
+              {flowStatus}
+            </div>
+          ) : null}
+
           <div className="flex-1 space-y-3 overflow-y-auto bg-[var(--surface-muted)] px-4 py-4">
             {messages.map((item) => (
               <div
                 key={item.id}
-                className={`flex ${item.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex ${
+                  item.role === "user" ? "justify-end" : item.role === "system" || item.role === "alert" ? "justify-center" : "justify-start"
+                }`}
               >
                 <div
                   className={`max-w-[85%] rounded-md px-3 py-2 text-sm leading-6 ${
                     item.role === "user"
                       ? "bg-[var(--primary)] text-white"
-                      : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--foreground)]"
+                      : item.role === "system"
+                        ? "rounded-full border border-[var(--border)] bg-[var(--primary-soft)] px-3 py-1 text-xs font-medium text-[var(--primary)]"
+                        : item.role === "alert"
+                          ? "border border-[#f5c26b] bg-[#fff8e8] text-[#8a4b00]"
+                          : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--foreground)]"
                   }`}
                 >
                   {item.content}
+                  {item.role === "assistant" ? (
+                    <ChatbotResultCards
+                      groups={item.results}
+                      disabled={sending}
+                      onAction={(slotAction) => void sendMessage(slotAction.label, slotAction)}
+                    />
+                  ) : null}
                 </div>
               </div>
             ))}
-            {sending ? <p className="text-xs text-[var(--text-muted)]">Chatbot đang trả lời...</p> : null}
+            {sending ? (
+              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                {loadingText}
+              </div>
+            ) : null}
             <div ref={scrollRef} />
           </div>
 
           <div className="border-t border-[var(--border-soft)] p-3">
             {actions.length ? (
               <div className="mb-3 flex gap-2 overflow-x-auto">
-                {actions.map((action) => (
+                {actions.map((action, index) => (
                   <button
-                    key={`${action.type}-${action.label}`}
+                    key={getActionRenderKey(action, index)}
                     type="button"
+                    disabled={sending}
                     onClick={() => void sendMessage(action.label, action)}
-                    className="shrink-0 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]"
+                    className="shrink-0 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)] disabled:opacity-60"
                   >
                     {action.label}
                   </button>
@@ -224,9 +300,10 @@ export function DashboardChatbotWidget() {
             {error ? <p className="mb-2 text-xs text-[#b3261e]">{error}</p> : null}
             <form className="flex gap-2" onSubmit={submitMessage}>
               <input
+                ref={inputRef}
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Nhập câu hỏi..."
+                placeholder={inputPlaceholder}
                 className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
               />
               <button

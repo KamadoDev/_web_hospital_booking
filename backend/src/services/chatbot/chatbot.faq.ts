@@ -16,6 +16,18 @@ type FAQMatch = {
   score: number;
 };
 
+const workflowIntents = new Set<ChatIntent>([
+  "SYMPTOM_TRIAGE",
+  "DEPARTMENT_LIST",
+  "DEPARTMENT_DETAIL",
+  "PACKAGE_LIST",
+  "PACKAGE_DETAIL",
+  "DOCTOR_LIST",
+  "AVAILABLE_SLOT_LOOKUP",
+  "BOOKING_START",
+  "BOOKING_FORM_HELP",
+]);
+
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const foldText = (value: string) =>
@@ -40,10 +52,7 @@ const hasPhrase = (message: string, phrase: string) => {
   return message.includes(foldedPhrase);
 };
 
-const scoreFAQ = (
-  foldedMessage: string,
-  faq: FAQMatch["faq"],
-) => {
+const scoreFAQ = (foldedMessage: string, faq: FAQMatch["faq"]) => {
   let score = 0;
 
   for (const keyword of faq.keywords) {
@@ -59,71 +68,47 @@ const scoreFAQ = (
   return score;
 };
 
-const inferIntent = (detectedIntent: ChatIntent, faq: FAQMatch["faq"]): ChatIntent => {
+const inferKnowledgeIntent = (detectedIntent: ChatIntent, faq: FAQMatch["faq"]): ChatIntent => {
   const text = foldText(`${faq.question} ${faq.keywords.join(" ")}`);
 
-  if (text.includes("thanh toan") || text.includes("hoa don")) {
+  if (text.includes("thanh toan") || text.includes("hoa don") || text.includes("vien phi")) {
     return "PAYMENT_GUIDE";
   }
 
-  if (text.includes("tra cuu") || text.includes("lich hen")) {
+  if (text.includes("tra cuu") || text.includes("lich hen") || text.includes("quen ma")) {
     return "APPOINTMENT_LOOKUP_GUIDE";
-  }
-
-  if (text.includes("dat lich")) {
-    return "BOOKING_START";
   }
 
   return detectedIntent === "UNKNOWN" ? "GENERAL_HOSPITAL_INFO" : detectedIntent;
 };
 
-const buildActions = (intent: ChatIntent): SuggestedAction[] => {
+const buildKnowledgeActions = (intent: ChatIntent, faq: FAQMatch["faq"]): SuggestedAction[] => {
+  const text = foldText(`${faq.question} ${faq.keywords.join(" ")}`);
+
   if (intent === "PAYMENT_GUIDE") {
     return [
-      {
-        type: "CONTACT_STAFF",
-        label: "Liên hệ nhân viên hỗ trợ",
-        payload: {},
-      },
+      { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
+      { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
     ];
   }
 
   if (intent === "APPOINTMENT_LOOKUP_GUIDE") {
     return [
-      {
-        type: "LOOKUP_APPOINTMENT",
-        label: "Tra cứu lịch hẹn",
-        payload: {},
-      },
+      { type: "LOOKUP_APPOINTMENT", label: "Tra cứu lịch hẹn", payload: {} },
+      { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
     ];
   }
 
-  if (intent === "BOOKING_START") {
+  if (text.includes("cap cuu") || text.includes("khan cap")) {
     return [
-      {
-        type: "VIEW_DEPARTMENTS",
-        label: "Xem chuyên khoa",
-        payload: {},
-      },
-      {
-        type: "VIEW_PACKAGES",
-        label: "Xem gói khám",
-        payload: {},
-      },
+      { type: "EMERGENCY_ADVICE", label: "Hướng dẫn khẩn cấp", payload: {} },
+      { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
     ];
   }
 
   return [
-    {
-      type: "VIEW_DEPARTMENTS",
-      label: "Xem chuyên khoa",
-      payload: {},
-    },
-    {
-      type: "CONTACT_STAFF",
-      label: "Liên hệ hỗ trợ",
-      payload: {},
-    },
+    { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
+    { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
   ];
 };
 
@@ -133,7 +118,7 @@ class ChatbotFAQService {
     detectedIntent: ChatIntent,
     draft: ChatBookingDraft,
   ): Promise<AIChatbotOutput | null> {
-    if (detectedIntent === "SYMPTOM_TRIAGE" || detectedIntent === "DOCTOR_LIST") {
+    if (workflowIntents.has(detectedIntent)) {
       return null;
     }
 
@@ -161,21 +146,21 @@ class ChatbotFAQService {
 
     if (!bestMatch) return null;
 
-    const intent = inferIntent(detectedIntent, bestMatch.faq);
+    const intent = inferKnowledgeIntent(detectedIntent, bestMatch.faq);
 
     return {
       reply: bestMatch.faq.answer,
       intent,
-      state: intent === "BOOKING_START" ? "BOOKING_GUIDE" : "IDLE",
+      state: "BOOKING_GUIDE",
       nextStep:
-        intent === "BOOKING_START"
-          ? "CHOOSE_DEPARTMENT"
-          : intent === "PAYMENT_GUIDE"
-            ? "SHOW_PAYMENT_GUIDE"
+        intent === "PAYMENT_GUIDE"
+          ? "SHOW_PAYMENT_GUIDE"
+          : intent === "APPOINTMENT_LOOKUP_GUIDE"
+            ? "SHOW_BOOKING_GUIDE"
             : "END",
       confidence: Math.min(0.95, 0.65 + bestMatch.score / 10),
       draft,
-      suggestedActions: buildActions(intent),
+      suggestedActions: buildKnowledgeActions(intent, bestMatch.faq),
     };
   }
 }

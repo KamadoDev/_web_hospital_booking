@@ -8,6 +8,7 @@ import ChatbotFAQService from "./chatbot.faq.js";
 import ChatbotSettingsService, {
   DEFAULT_CHATBOT_RUNTIME_SETTINGS,
 } from "./chatbot.settings.js";
+import ChatbotWorkflowService from "./chatbot.workflow.js";
 import {
   detectIntent,
   hasEmergencySignal,
@@ -28,27 +29,28 @@ import {
   CHAT_STATES,
   type AIChatbotOutput,
   type ChatBookingDraft,
+  type ChatbotResultGroup,
   type ChatbotRequestInput,
   type ChatbotResponse,
   type SuggestedAction,
 } from "./chatbot.types.js";
 
 const systemPrompt = `
-Ban la tro ly dat lich kham benh cua he thong hospital booking.
+Bạn là trợ lý đặt lịch khám bệnh của hệ thống hospital booking.
 
-Nguyen tac bat buoc:
-- Tra loi bang tieng Viet, ngan gon, toi da 2 cau.
-- Chi goi y chuyen khoa, goi kham, bac si, lich kham dua tren CONTEXT.
-- Khong chan doan benh chac chan, khong ke thuoc, khong thay the bac si.
-- Khong bia ten khoa, bac si, goi kham, gia tien, lich kham.
-- Neu thieu du lieu, hoi them thong tin hoac huong dan nguoi dung chon buoc tiep theo.
-- Neu co dau hieu khan cap, khuyen nguoi dung den co so y te gan nhat hoac goi cap cuu.
-- suggestedActions toi da 3 item.
-- Chi tra ve JSON hop le, khong markdown.
-- Key bat buoc: reply,intent,state,nextStep,confidence,draft,suggestedActions.
-- Neu dang goi y khoa thi state=SUGGESTING_DEPARTMENT va nextStep=CHOOSE_DEPARTMENT.
-- Chi dung state hop le: IDLE, ASKING_SYMPTOMS, SUGGESTING_DEPARTMENT, SUGGESTING_PACKAGE, CHOOSING_DOCTOR, CHOOSING_DATE, CHOOSING_SLOT, READY_TO_BOOK, BOOKING_GUIDE, EMERGENCY_CARE.
-- Chi dung nextStep hop le: ASK_SYMPTOM_DETAILS, CHOOSE_DEPARTMENT, CHOOSE_PACKAGE, CHOOSE_DOCTOR, CHOOSE_DATE, CHOOSE_SLOT, READY_TO_BOOK, SHOW_BOOKING_GUIDE, SHOW_PAYMENT_GUIDE, EMERGENCY_CARE, END.
+Nguyên tắc bắt buộc:
+- Trả lời bằng tiếng Việt, ngắn gọn, tối đa 2 câu.
+- Chỉ gợi ý chuyên khoa, gói khám, bác sĩ, lịch khám dựa trên CONTEXT.
+- Không chẩn đoán bệnh chắc chắn, không kê thuốc, không thay thế bác sĩ.
+- Không bịa tên khoa, bác sĩ, gói khám, giá tiền, lịch khám.
+- Nếu thiếu dữ liệu, hỏi thêm thông tin hoặc hướng dẫn người dùng chọn bước tiếp theo.
+- Nếu có dấu hiệu khẩn cấp, khuyên người dùng đến cơ sở y tế gần nhất hoặc gọi cấp cứu.
+- suggestedActions tối đa 3 item.
+- Chỉ trả về JSON hợp lệ, không markdown.
+- Key bắt buộc: reply,intent,state,nextStep,confidence,draft,suggestedActions.
+- Nếu đang gợi ý khoa thì state=SUGGESTING_DEPARTMENT và nextStep=CHOOSE_DEPARTMENT.
+- Chỉ dùng state hợp lệ: IDLE, ASKING_SYMPTOMS, SUGGESTING_DEPARTMENT, SUGGESTING_PACKAGE, CHOOSING_DOCTOR, CHOOSING_DATE, CHOOSING_SLOT, READY_TO_BOOK, BOOKING_GUIDE, EMERGENCY_CARE.
+- Chỉ dùng nextStep hợp lệ: ASK_SYMPTOM_DETAILS, CHOOSE_DEPARTMENT, CHOOSE_PACKAGE, CHOOSE_DOCTOR, CHOOSE_DATE, CHOOSE_SLOT, READY_TO_BOOK, SHOW_BOOKING_GUIDE, SHOW_PAYMENT_GUIDE, EMERGENCY_CARE, END.
 `;
 
 const normalizeNextStep = (value: unknown, state: AIChatbotOutput["state"]) => {
@@ -68,6 +70,28 @@ const normalizeNextStep = (value: unknown, state: AIChatbotOutput["state"]) => {
   if (state === "IDLE") return "END";
 
   return "ASK_SYMPTOM_DETAILS";
+};
+
+const formatDateLabel = (value: string) => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+
+  return `${match[3]}/${match[2]}/${match[1]}`;
+};
+
+const resolveIntentForAction = (
+  detectedIntent: AIChatbotOutput["intent"],
+  action?: ChatbotRequestInput["action"],
+): AIChatbotOutput["intent"] => {
+  if (!action) return detectedIntent;
+
+  if (action.type === "VIEW_DEPARTMENTS") return "DEPARTMENT_LIST";
+  if (action.type === "VIEW_PACKAGES") return "PACKAGE_LIST";
+  if (action.type === "VIEW_DOCTORS") return "DOCTOR_LIST";
+  if (action.type === "VIEW_AVAILABLE_SLOTS") return "AVAILABLE_SLOT_LOOKUP";
+  if (action.type === "START_BOOKING") return "BOOKING_START";
+
+  return detectedIntent;
 };
 
 const buildGreetingOutput = (draft: ChatBookingDraft): AIChatbotOutput => ({
@@ -117,6 +141,7 @@ const parseAIJson = (text: string): AIChatbotOutput => {
     nextStep: normalizeNextStep(parsed.nextStep, CHAT_STATES.includes(parsed.state) ? parsed.state : "IDLE"),
     confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
     draft: parsed.draft || {},
+    results: [],
     suggestedActions: parsed.suggestedActions || [],
   };
 };
@@ -279,15 +304,22 @@ const buildDoctorSuggestion = (
   const slots = selectedDoctor
     ? context.availableSlots.filter((slot) => slot.doctorId === selectedDoctor.id)
     : [];
-  const slotActions = slots.slice(0, 3).map((slot) => ({
-    type: "VIEW_AVAILABLE_SLOTS" as const,
-    label: `${slot.date} ${slot.startTime}-${slot.endTime}`,
-    payload: {
-      doctorId: slot.doctorId,
-      date: slot.date,
-      timeSlotId: slot.id,
-    },
-  }));
+  const slotActions = slots.slice(0, 2).map((slot) => {
+    const doctor = uniqueDoctors.find((item) => item.id === slot.doctorId);
+    const doctorName = doctor ? `${doctor.title || ""} ${doctor.fullName}`.trim() : "";
+
+    return {
+      type: "VIEW_AVAILABLE_SLOTS" as const,
+      label: draft.doctorId || !doctorName
+        ? `${formatDateLabel(slot.date)} ${slot.startTime}-${slot.endTime}`
+        : `${doctorName} - ${formatDateLabel(slot.date)} ${slot.startTime}-${slot.endTime}`,
+      payload: {
+        doctorId: slot.doctorId,
+        date: slot.date,
+        timeSlotId: slot.id,
+      },
+    };
+  });
 
   return {
     doctor: selectedDoctor,
@@ -307,6 +339,22 @@ const buildDoctorSuggestion = (
         },
       })),
       ...slotActions,
+      ...(slotActions.length
+        ? [
+            {
+              type: "START_BOOKING" as const,
+              label: "Xem thêm ở phần đặt lịch",
+              payload: {
+                prefill: {
+                  departmentId: draft.departmentId || selectedDoctor?.departmentId,
+                  packageId: draft.packageId,
+                  doctorId: draft.doctorId || selectedDoctor?.id,
+                  date: draft.date || slots[0]?.date,
+                },
+              },
+            },
+          ]
+        : []),
       ...(selectedDoctor && !slotActions.length
         ? [
             {
@@ -322,6 +370,60 @@ const buildDoctorSuggestion = (
         : []),
     ],
   };
+};
+
+const buildSlotListText = (
+  context: ChatbotContext,
+  slots: ChatbotContext["availableSlots"],
+  includeDoctor: boolean,
+  limit = 6,
+) => {
+  if (!slots.length) return "";
+
+  const lines = slots.slice(0, limit).map((slot, index) => {
+    const doctor = context.doctors.find((item) => item.id === slot.doctorId);
+    const doctorName = doctor ? `${doctor.title || ""} ${doctor.fullName}`.trim() : "";
+    const prefix = includeDoctor && doctorName ? `${doctorName} - ` : "";
+
+    return `${index + 1}. ${prefix}${formatDateLabel(slot.date)} ${slot.startTime}-${slot.endTime}`;
+  });
+  const moreText = slots.length > limit ? `\nCòn ${slots.length - limit} khung giờ khác trong form đặt lịch.` : "";
+
+  return `\n\nDanh sách lịch trống:\n${lines.join("\n")}${moreText}\n\nBạn có thể bấm lựa chọn nhanh bên dưới hoặc xem thêm ở phần đặt lịch.`;
+};
+
+const buildSlotResults = (
+  context: ChatbotContext,
+  slots: ChatbotContext["availableSlots"],
+  limit = 6,
+): ChatbotResultGroup[] => {
+  if (!slots.length) return [];
+
+  return [
+    {
+      type: "slots",
+      title: "Lịch trống phù hợp",
+      description: slots.length > limit
+        ? `Đang hiển thị ${limit}/${slots.length} khung giờ. Bạn có thể xem thêm ở phần đặt lịch.`
+        : "Bạn có thể chọn nhanh một khung giờ bên dưới hoặc mở phần đặt lịch.",
+      items: slots.slice(0, limit).map((slot) => {
+        const doctor = context.doctors.find((item) => item.id === slot.doctorId);
+
+        return {
+          type: "slot",
+          id: slot.id,
+          doctorId: slot.doctorId,
+          doctorName: doctor ? `${doctor.title || ""} ${doctor.fullName}`.trim() : undefined,
+          departmentName: doctor?.departmentName,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        };
+      }),
+      total: slots.length,
+      limit,
+    },
+  ];
 };
 
 const repairAIOutput = (
@@ -363,6 +465,7 @@ const repairAIOutput = (
         intent: aiOutput.intent === "UNKNOWN" ? "DOCTOR_LIST" : aiOutput.intent,
         state: hasSlotActions ? "CHOOSING_SLOT" : "CHOOSING_DOCTOR",
         nextStep: hasSlotActions ? "CHOOSE_SLOT" : "CHOOSE_DOCTOR",
+        results: hasSlotActions ? buildSlotResults(context, suggestion.slots) : aiOutput.results,
         suggestedActions: [...suggestion.actions, ...aiOutput.suggestedActions],
       },
       draft: suggestion.draft,
@@ -441,8 +544,8 @@ const fallbackOutput = (
 
     return {
       reply: department
-        ? `AI dang tam thoi qua tai. Dua tren thong tin hien co, ban co the bat dau voi ${department.name} de duoc bac si danh gia phu hop.`
-        : "AI dang tam thoi qua tai. Ban co the xem danh sach chuyen khoa hoac mo ta them trieu chung de minh ho tro tiep.",
+        ? `AI đang tạm thời quá tải. Dựa trên thông tin hiện có, bạn có thể bắt đầu với ${department.name} để được bác sĩ đánh giá phù hợp.`
+        : "AI đang tạm thời quá tải. Bạn có thể xem danh sách chuyên khoa hoặc mô tả thêm triệu chứng để mình hỗ trợ tiếp.",
       intent: "SYMPTOM_TRIAGE",
       state: department ? "SUGGESTING_DEPARTMENT" : "ASKING_SYMPTOMS",
       nextStep: department ? "CHOOSE_DEPARTMENT" : "ASK_SYMPTOM_DETAILS",
@@ -465,7 +568,7 @@ const fallbackOutput = (
 
     if (suggestion.department) {
       return {
-        reply: `AI dang tam thoi qua tai. Dua tren thong tin hien co, ban co the xem ${suggestion.department.name} hoac goi kham lien quan de tiep tuc dat lich.`,
+        reply: `AI đang tạm thời quá tải. Dựa trên thông tin hiện có, bạn có thể xem ${suggestion.department.name} hoặc gói khám liên quan để tiếp tục đặt lịch.`,
         intent: "DEPARTMENT_LIST",
         state: "SUGGESTING_DEPARTMENT",
         nextStep: "CHOOSE_DEPARTMENT",
@@ -479,8 +582,8 @@ const fallbackOutput = (
   if (detectedIntent === "PACKAGE_LIST") {
     return {
       reply: context.packages.length
-        ? "AI dang tam thoi qua tai. Day la mot so goi kham dang co trong he thong, ban co the chon de xem chi tiet."
-        : "AI dang tam thoi qua tai. Hien chua tim thay goi kham phu hop trong du lieu.",
+        ? "AI đang tạm thời quá tải. Đây là một số gói khám đang có trong hệ thống, bạn có thể chọn để xem chi tiết."
+        : "AI đang tạm thời quá tải. Hiện chưa tìm thấy gói khám phù hợp trong dữ liệu.",
       intent: "PACKAGE_LIST",
       state: "SUGGESTING_PACKAGE",
       nextStep: "CHOOSE_PACKAGE",
@@ -499,39 +602,43 @@ const fallbackOutput = (
 
   if (detectedIntent === "DOCTOR_LIST") {
     const suggestion = buildDoctorSuggestion(context, draft);
+    const slotListText = buildSlotListText(context, suggestion.slots, !draft.doctorId);
 
     return {
       reply: suggestion.doctor
-        ? "AI dang tam thoi qua tai. Minh tim thay cac bac si phu hop trong he thong, ban co the chon bac si de xem lich."
-        : "AI dang tam thoi qua tai. Hien chua tim thay bac si phu hop, ban co the chon chuyen khoa truoc.",
+        ? `AI đang tạm thời quá tải. Mình tìm thấy các bác sĩ phù hợp trong hệ thống, bạn có thể chọn bác sĩ để xem lịch.${slotListText}`
+        : "AI đang tạm thời quá tải. Hiện chưa tìm thấy bác sĩ phù hợp, bạn có thể chọn chuyên khoa trước.",
       intent: "DOCTOR_LIST",
       state: suggestion.slots.length ? "CHOOSING_SLOT" : "CHOOSING_DOCTOR",
       nextStep: suggestion.slots.length ? "CHOOSE_SLOT" : "CHOOSE_DOCTOR",
       confidence: 0.55,
       draft: suggestion.draft,
+      results: buildSlotResults(context, suggestion.slots),
       suggestedActions: suggestion.actions,
     };
   }
 
   if (detectedIntent === "AVAILABLE_SLOT_LOOKUP") {
     const suggestion = buildDoctorSuggestion(context, draft);
+    const slotListText = buildSlotListText(context, suggestion.slots, !draft.doctorId);
 
     return {
       reply: suggestion.slots.length
-        ? "AI dang tam thoi qua tai. Minh tim thay mot so lich trong, ban co the chon khung gio phu hop."
-        : "AI dang tam thoi qua tai. De xem lich trong, ban vui long chon bac si va ngay muon kham.",
+        ? `AI đang tạm thời quá tải. Mình tìm thấy một số lịch trống.${slotListText}`
+        : "AI đang tạm thời quá tải. Để xem lịch trống, bạn vui lòng chọn bác sĩ và ngày muốn khám.",
       intent: "AVAILABLE_SLOT_LOOKUP",
       state: suggestion.slots.length ? "CHOOSING_SLOT" : "CHOOSING_DOCTOR",
       nextStep: suggestion.slots.length ? "CHOOSE_SLOT" : "CHOOSE_DOCTOR",
       confidence: 0.55,
       draft: suggestion.draft,
+      results: buildSlotResults(context, suggestion.slots),
       suggestedActions: suggestion.actions,
     };
   }
 
   if (detectedIntent === "BOOKING_START") {
     return {
-      reply: "AI dang tam thoi qua tai. De dat lich, ban can chon chuyen khoa, goi kham hoac bac si, sau do chon khung gio va xac thuc OTP.",
+      reply: "AI đang tạm thời quá tải. Để đặt lịch, bạn cần chọn chuyên khoa, gói khám hoặc bác sĩ, sau đó chọn khung giờ và xác thực OTP.",
       intent: "BOOKING_START",
       state: "BOOKING_GUIDE",
       nextStep: "CHOOSE_DEPARTMENT",
@@ -545,7 +652,7 @@ const fallbackOutput = (
   }
 
   return {
-    reply: "AI dang tam thoi qua tai. Minh van co the ho tro ban xem chuyen khoa, goi kham, bac si hoac huong dan dat lich.",
+    reply: "AI đang tạm thời quá tải. Mình vẫn có thể hỗ trợ bạn xem chuyên khoa, gói khám, bác sĩ hoặc hướng dẫn đặt lịch.",
     intent: detectedIntent || "UNKNOWN",
     state: "ASKING_SYMPTOMS",
     nextStep: "ASK_SYMPTOM_DETAILS",
@@ -585,7 +692,7 @@ class ChatbotService {
     if (hasEmergencySignal(normalizedMessage)) {
       const response: ChatbotResponse = {
         sessionId,
-        reply: "Trieu chung ban mo ta co the can xu ly khan cap. Ban nen den co so y te gan nhat hoac goi cap cuu ngay de duoc ho tro kip thoi.",
+        reply: "Triệu chứng bạn mô tả có thể cần xử lý khẩn cấp. Bạn nên đến cơ sở y tế gần nhất hoặc gọi cấp cứu ngay để được hỗ trợ kịp thời.",
         intent: "SYMPTOM_TRIAGE",
         state: "EMERGENCY_CARE",
         nextStep: "EMERGENCY_CARE",
@@ -594,7 +701,7 @@ class ChatbotService {
         suggestedActions: [
           {
             type: "EMERGENCY_ADVICE",
-            label: "Den co so y te gan nhat",
+            label: "Đến cơ sở y tế gần nhất",
             payload: {},
           },
           {
@@ -617,6 +724,7 @@ class ChatbotService {
     }
 
     const detectedIntent = detectIntent(normalizedMessage);
+    const effectiveIntent = resolveIntentForAction(detectedIntent, input.action);
 
     if (
       detectedIntent === "UNKNOWN" &&
@@ -646,10 +754,42 @@ class ChatbotService {
       return response;
     }
 
+    const context = await ChatbotContextService.load(effectiveIntent, baseDraft);
+    const workflowOutput = ChatbotWorkflowService.resolve({
+      message: input.message,
+      detectedIntent: effectiveIntent,
+      context,
+      draft: baseDraft,
+      action: input.action,
+    });
+
+    if (workflowOutput) {
+      const suggestedActions = await ChatbotActionService.validateActions(
+        workflowOutput.suggestedActions,
+        workflowOutput.draft,
+        settings.maxSuggestedActions,
+      );
+      const response: ChatbotResponse = {
+        sessionId,
+        ...workflowOutput,
+        suggestedActions,
+      };
+
+      await updateChatSession(
+        sessionId,
+        response,
+        input.message,
+        input.phone,
+        settings.sessionExpiresDays,
+      );
+      await this.saveLog(input, response);
+      return response;
+    }
+
     const faqOutput = settings.faqEnabled
       ? await ChatbotFAQService.findDirectAnswer(
           input.message,
-          detectedIntent,
+          effectiveIntent,
           baseDraft,
         )
       : null;
@@ -677,11 +817,10 @@ class ChatbotService {
       return response;
     }
 
-    const context = await ChatbotContextService.load(detectedIntent, baseDraft);
     const contextText = ChatbotContextService.format(context);
     const userPrompt = [
       `SESSION_ID: ${sessionId}`,
-      `DETECTED_INTENT: ${detectedIntent}`,
+      `DETECTED_INTENT: ${effectiveIntent}`,
       `CURRENT_DRAFT: ${JSON.stringify(baseDraft)}`,
       `USER_ACTION: ${JSON.stringify(input.action || null)}`,
       "",
@@ -703,16 +842,16 @@ class ChatbotService {
         aiOutput = parseAIJson(text);
       } catch {
         if (!settings.fallbackEnabled) {
-          throw new AppError("AI khong phan hoi thanh cong va fallback dang tat", 502);
+          throw new AppError("AI không phản hồi thành công và fallback đang tắt", 502);
         }
 
-        aiOutput = fallbackOutput(input.message, detectedIntent, context, baseDraft);
+        aiOutput = fallbackOutput(input.message, effectiveIntent, context, baseDraft);
       }
     } else {
       if (!settings.fallbackEnabled) {
         aiOutput = {
-          reply: "Chatbot AI dang tam tat. Ban co the lien he nhan vien ho tro hoac thu lai sau.",
-          intent: detectedIntent,
+          reply: "Chatbot AI đang tạm tắt. Bạn có thể liên hệ nhân viên hỗ trợ hoặc thử lại sau.",
+          intent: effectiveIntent,
           state: "IDLE",
           nextStep: "END",
           confidence: 0.3,
@@ -726,7 +865,7 @@ class ChatbotService {
           ],
         };
       } else {
-        aiOutput = fallbackOutput(input.message, detectedIntent, context, baseDraft);
+        aiOutput = fallbackOutput(input.message, effectiveIntent, context, baseDraft);
       }
     }
 
@@ -735,7 +874,7 @@ class ChatbotService {
     );
     const repaired = repairAIOutput(
       aiOutput,
-      detectedIntent,
+      effectiveIntent,
       context,
       input.message,
       aiDraft,
@@ -754,6 +893,7 @@ class ChatbotService {
       nextStep: repaired.output.nextStep,
       confidence: repaired.output.confidence,
       draft: mergedDraft,
+      results: repaired.output.results || [],
       suggestedActions,
     };
 

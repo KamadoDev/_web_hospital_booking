@@ -26,6 +26,47 @@ const greetingKeywords = [
   "hey",
 ];
 
+const toVietnamDateOnly = (date: Date) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+const getVietnamDateParts = (date: Date) => {
+  const value = toVietnamDateOnly(date);
+  const [year, month, day] = value.split("-").map(Number);
+
+  return { year, month, day };
+};
+
+const pad2 = (value: number) => value.toString().padStart(2, "0");
+
+const buildValidDateOnly = (year: number, month: number, day: number) => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() + 1 !== month ||
+    date.getUTCDate() !== day
+  ) {
+    return undefined;
+  }
+
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+};
+
+const addDays = (date: Date, days: number) => {
+  const nextDate = new Date(date);
+  nextDate.setUTCDate(nextDate.getUTCDate() + days);
+  return nextDate;
+};
+
 const symptomRules: SymptomRule[] = [
   { canonical: "dau dau", aliases: ["dau dau", "đau đầu", "nhuc dau", "nhức đầu"] },
   { canonical: "dau vung tran", aliases: ["dau vung tran", "đau vùng trán", "dau tran", "đau trán", "vung tran", "vùng trán"] },
@@ -139,6 +180,16 @@ export const detectIntent = (normalizedMessage: string): ChatIntent => {
 
   if (hasEmergencySignal(normalizedMessage)) return "SYMPTOM_TRIAGE";
 
+  if (
+    foldedMessage.includes("tra cuu") ||
+    foldedMessage.includes("tim lich") ||
+    foldedMessage.includes("quen ma") ||
+    foldedMessage.includes("ma lich") ||
+    foldedMessage.includes("lich hen cua toi")
+  ) {
+    return "APPOINTMENT_LOOKUP_GUIDE";
+  }
+
   if (foldedMessage.includes("thanh toan") || foldedMessage.includes("hoa don")) {
     return "PAYMENT_GUIDE";
   }
@@ -213,16 +264,58 @@ export const inferDraftFromMessage = (
   const currentSymptoms = (draft.symptoms || []).filter(
     (symptom) => !negatedSymptoms.includes(foldVietnamese(symptom)),
   );
+  const date = inferDateFromMessage(normalizedMessage) || draft.date;
 
   if (!symptoms.length && currentSymptoms.length === (draft.symptoms || []).length) {
-    return draft;
+    return date === draft.date ? draft : { ...draft, date };
   }
 
   return {
     ...draft,
+    date,
     symptoms: cleanupSymptoms([...currentSymptoms, ...symptoms]),
     reason: draft.reason || originalMessage?.trim() || symptoms.join(", "),
   };
+};
+
+export const inferDateFromMessage = (normalizedMessage: string) => {
+  const foldedMessage = foldVietnamese(normalizedMessage);
+  const isoDate = foldedMessage.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1];
+
+  if (isoDate) return isoDate;
+
+  const today = new Date();
+
+  if (foldedMessage.includes("ngay mai") || /(^|[^a-z0-9à-ỹ])mai([^a-z0-9à-ỹ]|$)/i.test(normalizedMessage)) {
+    return toVietnamDateOnly(addDays(today, 1));
+  }
+
+  if (foldedMessage.includes("hom nay")) {
+    return toVietnamDateOnly(today);
+  }
+
+  const slashDate = foldedMessage.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](20\d{2}))?\b/);
+  if (slashDate) {
+    const parts = getVietnamDateParts(today);
+    const day = Number(slashDate[1]);
+    const month = Number(slashDate[2]);
+    const year = slashDate[3] ? Number(slashDate[3]) : parts.year;
+    const parsed = buildValidDateOnly(year, month, day);
+    if (parsed) return parsed;
+  }
+
+  const dayOnly = foldedMessage.match(/\bngay\s+(\d{1,2})\b/)?.[1];
+  if (dayOnly) {
+    const parts = getVietnamDateParts(today);
+    const requestedDay = Number(dayOnly);
+    const month = requestedDay >= parts.day ? parts.month : parts.month + 1;
+    const year = month > 12 ? parts.year + 1 : parts.year;
+    const normalizedMonth = month > 12 ? 1 : month;
+    const parsed = buildValidDateOnly(year, normalizedMonth, requestedDay);
+    if (parsed) return parsed;
+  }
+
+  return undefined;
 };
 
 export const sanitizeBookingDraft = (draft: ChatBookingDraft): ChatBookingDraft => ({

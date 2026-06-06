@@ -573,6 +573,27 @@ export type ChatbotSuggestedAction = {
   payload: Record<string, unknown>;
 };
 
+export type ChatbotResultItem =
+  | {
+      type: "slot";
+      id: string;
+      doctorId: string;
+      doctorName?: string;
+      departmentName?: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+    };
+
+export type ChatbotResultGroup = {
+  type: "slots";
+  title: string;
+  description?: string;
+  items: ChatbotResultItem[];
+  total: number;
+  limit: number;
+};
+
 export type ChatbotMessageResponse = {
   sessionId: string;
   reply: string;
@@ -581,6 +602,7 @@ export type ChatbotMessageResponse = {
   nextStep: string;
   confidence: number;
   draft: ChatBookingDraft;
+  results?: ChatbotResultGroup[];
   suggestedActions: ChatbotSuggestedAction[];
 };
 
