@@ -205,6 +205,23 @@ Backend upload anh len Cloudinary, tao `MediaAsset` voi `isUsed=false`, va tra v
 
 Upload hien cho phep JPG/JPEG, PNG, WEBP, GIF, SVG va ICO. Gioi han toi da 5MB moi file va 10 file moi request.
 
+## Render Deploy Notes
+
+Khi deploy len Render, build TypeScript can cai ca `devDependencies` vi cac goi nhu `typescript`, `prisma` va `@types/*` chi dung luc build.
+
+Nen them environment variable:
+
+```txt
+NPM_CONFIG_PRODUCTION=false
+```
+
+Neu thieu bien nay, Render co the bo qua `devDependencies` khi `NODE_ENV=production`, dan den loi dang:
+
+```txt
+Could not find a declaration file for module 'express'
+Namespace 'global.Express' has no exported member 'Multer'
+```
+
 Response mau:
 
 ```json
