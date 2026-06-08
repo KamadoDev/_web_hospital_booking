@@ -56,7 +56,7 @@ class ChatbotActionService {
   async validateActions(
     actions: SuggestedAction[],
     draft: ChatBookingDraft,
-    maxSuggestedActions = 4,
+    maxSuggestedActions = 3,
   ) {
     const validActions: SuggestedAction[] = [];
     const seen = new Set<string>();

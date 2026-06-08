@@ -20,7 +20,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -77,7 +77,7 @@ export const createDashboardUserHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao tai khoan dashboard thanh cong",
+      message: "Tạo tài khoản dashboard thành công",
       data: user,
     });
   } catch (error) {
@@ -96,7 +96,7 @@ export const updateDashboardUserHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat tai khoan dashboard thanh cong",
+      message: "Cập nhật tài khoản dashboard thành công",
       data: user,
     });
   } catch (error) {
@@ -118,7 +118,7 @@ export const updateDashboardUserStatusHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat trang thai tai khoan thanh cong",
+      message: "Cập nhật trạng thái tài khoản thành công",
       data: user,
     });
   } catch (error) {
@@ -140,7 +140,7 @@ export const updateDashboardUserPasswordHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat mat khau thanh cong",
+      message: "Cập nhật mật khẩu thành công",
       data: user,
     });
   } catch (error) {

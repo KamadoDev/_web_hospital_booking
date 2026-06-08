@@ -12,7 +12,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -75,7 +75,7 @@ export const createDashboardBannerHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao banner thanh cong",
+      message: "Tạo banner thành công",
       data: banner,
     });
   } catch (error) {
@@ -93,7 +93,7 @@ export const updateDashboardBannerHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat banner thanh cong",
+      message: "Cập nhật banner thành công",
       data: banner,
     });
   } catch (error) {
@@ -111,7 +111,7 @@ export const deleteDashboardBannerHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa banner thanh cong",
+      message: "Xóa banner thành công",
       data: banner,
     });
   } catch (error) {

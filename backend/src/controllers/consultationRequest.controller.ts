@@ -7,7 +7,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -31,7 +31,7 @@ export const createPublicConsultationRequestHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Da gui yeu cau tu van thanh cong",
+      message: "Đã gửi yêu cầu tư vấn thành công",
       data: request,
     });
   } catch (error) {
@@ -82,7 +82,7 @@ export const updateDashboardConsultationRequestHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat yeu cau tu van thanh cong",
+      message: "Cập nhật yêu cầu tư vấn thành công",
       data: request,
     });
   } catch (error) {
@@ -100,7 +100,7 @@ export const deleteDashboardConsultationRequestHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa yeu cau tu van thanh cong",
+      message: "Xóa yêu cầu tư vấn thành công",
       data: request,
     });
   } catch (error) {

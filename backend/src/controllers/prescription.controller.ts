@@ -14,7 +14,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -22,7 +22,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
-    throw new AppError("Chua dang nhap", 401);
+    throw new AppError("Chưa đăng nhập", 401);
   }
 
   return {
@@ -100,7 +100,7 @@ export const createPrescriptionHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao don thuoc thanh cong",
+      message: "Tạo đơn thuốc thành công",
       data: prescription,
     });
   } catch (error) {
@@ -122,7 +122,7 @@ export const updatePrescriptionHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat don thuoc thanh cong",
+      message: "Cập nhật đơn thuốc thành công",
       data: prescription,
     });
   } catch (error) {
@@ -143,7 +143,7 @@ export const issuePrescriptionHandler = async (
 
     return res.json({
       success: true,
-      message: "Phat hanh don thuoc thanh cong",
+      message: "Phát hành đơn thuốc thành công",
       data: prescription,
     });
   } catch (error) {
@@ -164,7 +164,7 @@ export const cancelPrescriptionHandler = async (
 
     return res.json({
       success: true,
-      message: "Huy don thuoc thanh cong",
+      message: "Hủy đơn thuốc thành công",
       data: prescription,
     });
   } catch (error) {
@@ -186,7 +186,7 @@ export const createPrescriptionItemHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Them thuoc vao don thanh cong",
+      message: "Thêm thuốc vào đơn thành công",
       data: prescription,
     });
   } catch (error) {
@@ -209,7 +209,7 @@ export const updatePrescriptionItemHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat thuoc trong don thanh cong",
+      message: "Cập nhật thuốc trong đơn thành công",
       data: prescription,
     });
   } catch (error) {
@@ -231,7 +231,7 @@ export const deletePrescriptionItemHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa thuoc khoi don thanh cong",
+      message: "Xóa thuốc khỏi đơn thành công",
       data: item,
     });
   } catch (error) {

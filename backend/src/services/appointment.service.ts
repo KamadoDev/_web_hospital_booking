@@ -385,11 +385,11 @@ class AppointmentService {
     });
 
     if (!doctor || !doctor.isAvailable || !doctor.user.isActive) {
-      throw new AppError("Bac si khong san sang nhan lich", 400);
+      throw new AppError("Bác sĩ không sẵn sàng nhận lịch", 400);
     }
 
     if (doctor.departmentId !== input.departmentId || !doctor.department.isActive) {
-      throw new AppError("Bac si khong thuoc chuyen khoa da chon", 400);
+      throw new AppError("Bác sĩ không thuộc chuyên khoa đã chọn", 400);
     }
 
     const department = await prisma.department.findUnique({
@@ -398,7 +398,7 @@ class AppointmentService {
     });
 
     if (!department || !department.isActive) {
-      throw new AppError("Chuyen khoa khong hoat dong", 400);
+      throw new AppError("Chuyên khoa không hoạt động", 400);
     }
 
     const packageItem = input.packageId
@@ -421,15 +421,15 @@ class AppointmentService {
       : null;
 
     if (input.packageId && !packageItem) {
-      throw new AppError("Khong tim thay goi kham", 404);
+      throw new AppError("Không tìm thấy gói khám", 404);
     }
 
     if (packageItem && !packageItem.isActive) {
-      throw new AppError("Goi kham khong hoat dong", 400);
+      throw new AppError("Gói khám không hoạt động", 400);
     }
 
     if (packageItem?.departmentId && packageItem.departmentId !== input.departmentId) {
-      throw new AppError("Goi kham khong thuoc chuyen khoa da chon", 400);
+      throw new AppError("Gói khám không thuộc chuyên khoa đã chọn", 400);
     }
 
     const timeSlot = await prisma.doctorTimeSlot.findUnique({
@@ -453,7 +453,7 @@ class AppointmentService {
       !timeSlot.isActive ||
       timeSlot.appointment
     ) {
-      throw new AppError("Khung gio khong kha dung", 409);
+      throw new AppError("Khung giờ không khả dụng", 409);
     }
 
     const packageIncludedItemsTotal =
@@ -467,15 +467,15 @@ class AppointmentService {
     const otpChannel = input.otpChannel || "SMS";
 
     if (isSlotStartInPastVietnamTime(timeSlot.date, timeSlot.startTime)) {
-      throw new AppError("Khung gio kham da qua", 400);
+      throw new AppError("Khung giờ khám đã qua", 400);
     }
 
     if (patientDateOfBirth && patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)) {
-      throw new AppError("Ngay sinh phai nho hon ngay hien tai", 400);
+      throw new AppError("Ngày sinh phải nhỏ hơn ngày hiện tại", 400);
     }
 
     if (otpChannel === "EMAIL" && !normalizedPatientEmail) {
-      throw new AppError("Email la bat buoc khi chon xac thuc OTP qua email", 400);
+      throw new AppError("Email là bắt buộc khi chọn xác thực OTP qua email", 400);
     }
     const existingUser = await prisma.user.findUnique({
       where: { phone: input.patientPhone },
@@ -483,7 +483,7 @@ class AppointmentService {
     });
 
     if (existingUser && existingUser.role !== "PATIENT") {
-      throw new AppError("So dien thoai da thuoc tai khoan noi bo", 409);
+      throw new AppError("Số điện thoại đã thuộc tài khoản nội bộ", 409);
     }
 
     const emailOwner = normalizedPatientEmail
@@ -494,7 +494,7 @@ class AppointmentService {
       : null;
 
     if (emailOwner && emailOwner.phone !== input.patientPhone) {
-      throw new AppError("Email da duoc su dung cho tai khoan khac", 409);
+      throw new AppError("Email đã được sử dụng cho tài khoản khác", 409);
     }
 
     let appointmentId = "";
@@ -514,7 +514,7 @@ class AppointmentService {
         });
 
         if (slotUpdate.count !== 1) {
-          throw new AppError("Khung gio da duoc dat", 409);
+          throw new AppError("Khung giờ đã được đặt", 409);
         }
 
         const patient = await tx.user.upsert({
@@ -537,7 +537,7 @@ class AppointmentService {
         });
 
         if (patient.role !== "PATIENT") {
-          throw new AppError("So dien thoai da thuoc tai khoan noi bo", 409);
+          throw new AppError("Số điện thoại đã thuộc tài khoản nội bộ", 409);
         }
 
         const createdAppointment = await tx.appointment.create({
@@ -574,7 +574,7 @@ class AppointmentService {
             logs: {
               create: {
                 action: "APPOINTMENT_CREATED",
-                note: "Benh nhan tao lich hen va cho xac thuc OTP",
+                note: "Bệnh nhân tạo lịch hẹn và chờ xác thực OTP",
               },
             },
           },
@@ -601,7 +601,7 @@ class AppointmentService {
         data: {
           appointmentId,
           action: "OTP_SENT",
-          note: "OTP xac thuc dat lich da duoc gui",
+          note: "OTP xác thực đặt lịch đã được gửi",
         },
       });
 
@@ -633,11 +633,11 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     if (appointment.status !== "PENDING_OTP") {
-      throw new AppError("Lich hen khong o trang thai cho OTP", 400);
+      throw new AppError("Lịch hẹn không ở trạng thái chờ OTP", 400);
     }
 
     const otp = await AuthOtpService.sendOtp(
@@ -651,7 +651,7 @@ class AppointmentService {
       data: {
         appointmentId: appointment.id,
         action: "OTP_SENT",
-        note: "OTP xac thuc dat lich da duoc gui lai",
+        note: "OTP xác thực đặt lịch đã được gửi lại",
       },
     });
 
@@ -685,11 +685,11 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     if (appointment.status !== "PENDING_OTP") {
-      throw new AppError("Lich hen khong o trang thai cho OTP", 400);
+      throw new AppError("Lịch hẹn không ở trạng thái chờ OTP", 400);
     }
 
     await AuthOtpService.verifyOtp(
@@ -708,7 +708,7 @@ class AppointmentService {
         : null;
 
       if (emailOwner && emailOwner.id !== appointment.patientId) {
-        throw new AppError("Email da duoc su dung cho tai khoan khac", 409);
+        throw new AppError("Email đã được sử dụng cho tài khoản khác", 409);
       }
 
       const cccdOwner = appointment.patientCccd
@@ -719,7 +719,7 @@ class AppointmentService {
         : null;
 
       if (cccdOwner && cccdOwner.userId !== appointment.patientId) {
-        throw new AppError("CCCD da duoc su dung cho ho so benh nhan khac", 409);
+        throw new AppError("CCCD đã được sử dụng cho hồ sơ bệnh nhân khác", 409);
       }
 
       await tx.user.update({
@@ -767,7 +767,7 @@ class AppointmentService {
           logs: {
             create: {
               action: "OTP_VERIFIED",
-              note: "Benh nhan da xac thuc OTP dat lich",
+              note: "Bệnh nhân đã xác thực OTP đặt lịch",
             },
           },
         },
@@ -780,7 +780,7 @@ class AppointmentService {
 
   async getPublicById(id: string, phone: string) {
     if (!phone) {
-      throw new AppError("Thieu so dien thoai", 400);
+      throw new AppError("Thiếu số điện thoại", 400);
     }
 
     const appointment = await prisma.appointment.findFirst({
@@ -792,7 +792,7 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     return appointment;
@@ -803,11 +803,11 @@ class AppointmentService {
     const phone = input.phone?.trim();
 
     if (!bookingCode) {
-      throw new AppError("Thieu ma lich hen", 400);
+      throw new AppError("Thiếu mã lịch hẹn", 400);
     }
 
     if (!phone) {
-      throw new AppError("Thieu so dien thoai", 400);
+      throw new AppError("Thiếu số điện thoại", 400);
     }
 
     const appointment = await prisma.appointment.findFirst({
@@ -819,7 +819,7 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     return appointment;
@@ -830,11 +830,11 @@ class AppointmentService {
     const phone = input.phone?.trim();
 
     if (!bookingCode) {
-      throw new AppError("Thieu ma lich hen", 400);
+      throw new AppError("Thiếu mã lịch hẹn", 400);
     }
 
     if (!phone) {
-      throw new AppError("Thieu so dien thoai", 400);
+      throw new AppError("Thiếu số điện thoại", 400);
     }
 
     const appointment = await prisma.appointment.findFirst({
@@ -846,7 +846,7 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     const medicalRecord = await prisma.medicalRecord.findFirst({
@@ -878,7 +878,7 @@ class AppointmentService {
     const phone = input.phone?.trim();
 
     if (!phone) {
-      throw new AppError("Thieu so dien thoai", 400);
+      throw new AppError("Thiếu số điện thoại", 400);
     }
 
     const existingAppointments = await prisma.appointment.count({
@@ -888,7 +888,7 @@ class AppointmentService {
     });
 
     if (existingAppointments === 0) {
-      throw new AppError("Khong tim thay lich hen voi so dien thoai nay", 404);
+      throw new AppError("Không tìm thấy lịch hẹn với số điện thoại này", 404);
     }
 
     return AuthOtpService.sendOtp(
@@ -903,11 +903,11 @@ class AppointmentService {
     const phone = input.phone?.trim();
 
     if (!phone) {
-      throw new AppError("Thieu so dien thoai", 400);
+      throw new AppError("Thiếu số điện thoại", 400);
     }
 
     if (!input.otp) {
-      throw new AppError("Thieu ma OTP", 400);
+      throw new AppError("Thiếu mã OTP", 400);
     }
 
     await AuthOtpService.verifyOtp(
@@ -946,7 +946,7 @@ class AppointmentService {
       data: {
         appointmentId: appointment.id,
         action: "OTP_SENT",
-        note: "OTP xac thuc huy lich da duoc gui",
+        note: "OTP xác thực hủy lịch đã được gửi",
       },
     });
 
@@ -959,7 +959,7 @@ class AppointmentService {
 
   async verifyPublicCancel(input: PublicCancelAppointmentInput) {
     if (!input.otp) {
-      throw new AppError("Thieu OTP", 400);
+      throw new AppError("Thiếu OTP", 400);
     }
 
     const appointment = await this.getPublicCancellableAppointment(input);
@@ -1066,7 +1066,7 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     return appointment;
@@ -1074,7 +1074,7 @@ class AppointmentService {
 
   async updatePatientInfo(id: string, input: UpdateAppointmentPatientInfoInput, actor: Actor) {
     if (actor.role === "DOCTOR") {
-      throw new AppError("Bac si khong co quyen cap nhat thong tin tiep nhan", 403);
+      throw new AppError("Bác sĩ không có quyền cập nhật thông tin tiếp nhận", 403);
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -1092,22 +1092,22 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     if (appointment.invoice) {
-      throw new AppError("Khong the cap nhat thong tin khi lich hen da co hoa don", 400);
+      throw new AppError("Không thể cập nhật thông tin khi lịch hẹn đã có hóa đơn", 400);
     }
 
     if (["PENDING_OTP", "CANCELLED_BY_ADMIN", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_PATIENT", "NO_SHOW"].includes(appointment.status)) {
-      throw new AppError("Chi cap nhat thong tin tiep nhan cho lich da xac thuc va chua huy", 400);
+      throw new AppError("Chỉ cập nhật thông tin tiếp nhận cho lịch đã xác thực và chưa hủy", 400);
     }
 
     const patientDateOfBirth =
       input.dateOfBirth === undefined ? undefined : parseOptionalDate(input.dateOfBirth);
 
     if (patientDateOfBirth && patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)) {
-      throw new AppError("Ngay sinh phai nho hon ngay hien tai", 400);
+      throw new AppError("Ngày sinh phải nhỏ hơn ngày hiện tại", 400);
     }
 
     const hasBHYT = input.hasBHYT;
@@ -1189,7 +1189,7 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "PENDING_CONFIRM") {
-      throw new AppError("Chi co the xac nhan lich dang cho xac nhan", 400);
+      throw new AppError("Chỉ có thể xác nhận lịch đang chờ xác nhận", 400);
     }
 
     return prisma.appointment.update({
@@ -1201,7 +1201,7 @@ class AppointmentService {
           create: {
             action: "CONFIRMED",
             createdById: actor.userId,
-            note: "Lich hen da duoc xac nhan",
+            note: "Lịch hẹn đã được xác nhận",
           },
         },
       },
@@ -1226,7 +1226,7 @@ class AppointmentService {
       case "NO_SHOW":
         return this.markNoShow(id, actor);
       default:
-        throw new AppError("Trang thai lich hen khong hop le", 400);
+        throw new AppError("Trạng thái lịch hẹn không hợp lệ", 400);
     }
   }
 
@@ -1234,7 +1234,7 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (["COMPLETED", "CANCELLED_BY_ADMIN", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_PATIENT"].includes(appointment.status)) {
-      throw new AppError("Khong the huy lich hen nay", 400);
+      throw new AppError("Không thể hủy lịch hẹn này", 400);
     }
 
     const cancelStatus =
@@ -1279,7 +1279,7 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "CONFIRMED") {
-      throw new AppError("Chi co the check-in lich da xac nhan", 400);
+      throw new AppError("Chỉ có thể check-in lịch đã xác nhận", 400);
     }
 
     return prisma.appointment.update({
@@ -1302,7 +1302,7 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "CHECKED_IN") {
-      throw new AppError("Chi co the bat dau kham sau khi benh nhan check-in", 400);
+      throw new AppError("Chỉ có thể bắt đầu khám sau khi bệnh nhân check-in", 400);
     }
 
     return prisma.$transaction(async (tx) => {
@@ -1316,7 +1316,7 @@ class AppointmentService {
             create: {
               action: "IN_PROGRESS",
               createdById: actor.userId,
-              note: "Bat dau kham va tao ho so kham",
+              note: "Bắt đầu khám và tạo hồ sơ khám",
             },
           },
         },
@@ -1329,7 +1329,7 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "IN_PROGRESS") {
-      throw new AppError("Chi co the hoan thanh lich dang kham", 400);
+      throw new AppError("Chỉ có thể hoàn thành lịch đang khám", 400);
     }
 
     return prisma.appointment.update({
@@ -1341,7 +1341,7 @@ class AppointmentService {
           create: {
             action: "COMPLETED",
             createdById: actor.userId,
-            note: "Hoan thanh kham",
+            note: "Hoàn thành khám",
           },
         },
       },
@@ -1353,7 +1353,7 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (!["CONFIRMED", "CHECKED_IN"].includes(appointment.status)) {
-      throw new AppError("Chi co the danh dau no-show cho lich da xac nhan hoac da check-in", 400);
+      throw new AppError("Chỉ có thể đánh dấu no-show cho lịch đã xác nhận hoặc đã check-in", 400);
     }
 
     return prisma.$transaction(async (tx) => {
@@ -1376,7 +1376,7 @@ class AppointmentService {
             create: {
               action: "NO_SHOW",
               createdById: actor.userId,
-              note: "Benh nhan khong den",
+              note: "Bệnh nhân không đến",
             },
           },
         },
@@ -1437,7 +1437,7 @@ class AppointmentService {
               create: {
                 action: "CANCELLED_BY_ADMIN",
                 createdById: actor.userId,
-                note: `Tu dong huy do qua ${safeExpireMinutes} phut chua xac thuc OTP`,
+                note: `Tự động hủy do quá ${safeExpireMinutes} phút chưa xác thực OTP`,
               },
             },
           },
@@ -1475,15 +1475,15 @@ class AppointmentService {
     const reason = input.reason?.trim();
 
     if (!bookingCode) {
-      throw new AppError("Thieu ma lich hen", 400);
+      throw new AppError("Thiếu mã lịch hẹn", 400);
     }
 
     if (!phone) {
-      throw new AppError("Thieu so dien thoai", 400);
+      throw new AppError("Thiếu số điện thoại", 400);
     }
 
     if (!reason || reason.length < 2) {
-      throw new AppError("Ly do huy toi thieu 2 ky tu", 400);
+      throw new AppError("Lý do hủy tối thiểu 2 ký tự", 400);
     }
 
     const appointment = await prisma.appointment.findFirst({
@@ -1503,11 +1503,11 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     if (!PUBLIC_CANCEL_ALLOWED_STATUSES.includes(appointment.status)) {
-      throw new AppError("Chi co the huy lich dang cho xac nhan hoac da xac nhan", 400);
+      throw new AppError("Chỉ có thể hủy lịch đang chờ xác nhận hoặc đã xác nhận", 400);
     }
 
     return appointment;
@@ -1532,7 +1532,7 @@ class AppointmentService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     return appointment;
@@ -1551,7 +1551,7 @@ class AppointmentService {
       }
     }
 
-    throw new AppError("Khong the tao ma dat lich", 500);
+    throw new AppError("Không thể tạo mã đặt lịch", 500);
   }
 }
 

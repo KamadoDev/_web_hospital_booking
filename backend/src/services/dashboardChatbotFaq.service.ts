@@ -89,7 +89,7 @@ class DashboardChatbotFAQService {
     });
 
     if (!faq) {
-      throw new AppError("Khong tim thay FAQ chatbot", 404);
+      throw new AppError("Không tìm thấy FAQ chatbot", 404);
     }
 
     return faq;
@@ -107,7 +107,7 @@ class DashboardChatbotFAQService {
     });
 
     if (existingFAQ) {
-      throw new AppError("Cau hoi FAQ da ton tai", 409);
+      throw new AppError("Câu hỏi FAQ đã tồn tại", 409);
     }
 
     return prisma.chatbotFAQ.create({
@@ -137,7 +137,7 @@ class DashboardChatbotFAQService {
       });
 
       if (existingFAQ) {
-        throw new AppError("Cau hoi FAQ da ton tai", 409);
+        throw new AppError("Câu hỏi FAQ đã tồn tại", 409);
       }
     }
 

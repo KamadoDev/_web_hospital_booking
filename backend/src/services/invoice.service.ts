@@ -73,19 +73,19 @@ const calculateInsurance = (
     : input.bhytDiscount ?? fallbackDiscount;
 
   if (eligibleAmount > totalAmount) {
-    throw new AppError("So tien du dieu kien BHYT khong duoc lon hon tong tien", 400);
+    throw new AppError("Số tiền đủ điều kiện BHYT không được lớn hơn tổng tiền", 400);
   }
 
   if (discountAmount > totalAmount) {
-    throw new AppError("Giam tru BHYT khong duoc lon hon tong tien", 400);
+    throw new AppError("Giảm trừ BHYT không được lớn hơn tổng tiền", 400);
   }
 
   if (!appointment.hasBHYT && discountAmount > 0) {
-    throw new AppError("Lich hen khong co BHYT nen khong duoc giam tru BHYT", 400);
+    throw new AppError("Lịch hẹn không có BHYT nên không được giảm trừ BHYT", 400);
   }
 
   if (appointment.hasBHYT && appointment.package && !appointment.package.isBHYTSupport && discountAmount > 0) {
-    throw new AppError("Goi kham nay khong ho tro giam tru BHYT", 400);
+    throw new AppError("Gói khám này không hỗ trợ giảm trừ BHYT", 400);
   }
 
   return {
@@ -236,7 +236,7 @@ class InvoiceService {
     });
 
     if (!invoice) {
-      throw new AppError("Khong tim thay hoa don", 404);
+      throw new AppError("Không tìm thấy hóa đơn", 404);
     }
 
     return invoice;
@@ -273,15 +273,15 @@ class InvoiceService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     if (appointment.status !== "COMPLETED") {
-      throw new AppError("Chi co the tao hoa don cho lich da hoan thanh kham", 400);
+      throw new AppError("Chỉ có thể tạo hóa đơn cho lịch đã hoàn thành khám", 400);
     }
 
     if (appointment.invoice) {
-      throw new AppError("Lich hen nay da co hoa don", 409);
+      throw new AppError("Lịch hẹn này đã có hóa đơn", 409);
     }
 
     const totalAmount = appointment.estimatedPrice + appointment.serviceFee;
@@ -319,7 +319,7 @@ class InvoiceService {
           logs: {
             create: {
               action: "INVOICE_CREATED",
-              note: "Hoa don da duoc tao",
+              note: "Hóa đơn đã được tạo",
             },
           },
         },
@@ -357,11 +357,11 @@ class InvoiceService {
     });
 
     if (!invoice) {
-      throw new AppError("Khong tim thay hoa don", 404);
+      throw new AppError("Không tìm thấy hóa đơn", 404);
     }
 
     if (!["UNPAID", "CANCELLED"].includes(invoice.status)) {
-      throw new AppError("Chi co the chinh sua hoa don chua thanh toan hoac da huy", 400);
+      throw new AppError("Chỉ có thể chỉnh sửa hóa đơn chưa thanh toán hoặc đã hủy", 400);
     }
 
     const insurance = calculateInsurance(input, invoice.totalAmount, invoice.appointment, invoice.bhytDiscount);
@@ -378,8 +378,8 @@ class InvoiceService {
             create: {
               action: "INVOICE_CREATED",
               note: invoice.status === "CANCELLED"
-                ? "Hoa don da duoc dieu chinh va mo lai"
-                : "Hoa don da duoc dieu chinh",
+                ? "Hóa đơn đã được điều chỉnh và mở lại"
+                : "Hóa đơn đã được điều chỉnh",
             },
           },
         },
@@ -406,11 +406,11 @@ class InvoiceService {
     const invoice = await this.getById(id);
 
     if (invoice.status !== "UNPAID") {
-      throw new AppError("Chi co the thanh toan hoa don chua thanh toan", 400);
+      throw new AppError("Chỉ có thể thanh toán hóa đơn chưa thanh toán", 400);
     }
 
     if (["MOMO", "VNPAY"].includes(input.paymentMethod)) {
-      throw new AppError("MOMO/VNPAY phai thanh toan qua API online payment", 400);
+      throw new AppError("MOMO/VNPAY phải thanh toán qua API online payment", 400);
     }
 
     return prisma.invoice.update({
@@ -428,7 +428,7 @@ class InvoiceService {
     const invoice = await this.getById(id);
 
     if (invoice.status !== "UNPAID") {
-      throw new AppError("Chi co the huy hoa don chua thanh toan", 400);
+      throw new AppError("Chỉ có thể hủy hóa đơn chưa thanh toán", 400);
     }
 
     return prisma.invoice.update({
@@ -444,11 +444,11 @@ class InvoiceService {
     const invoice = await this.getById(id);
 
     if (invoice.status !== "PAID") {
-      throw new AppError("Chi co the hoan tien hoa don da thanh toan", 400);
+      throw new AppError("Chỉ có thể hoàn tiền hóa đơn đã thanh toán", 400);
     }
 
     if (invoice.finalAmount <= 0) {
-      throw new AppError("Hoa don khong co so tien de hoan", 400);
+      throw new AppError("Hóa đơn không có số tiền để hoàn", 400);
     }
 
     return prisma.invoice.update({
@@ -475,7 +475,7 @@ class InvoiceService {
       }
     }
 
-    throw new AppError("Khong the tao ma hoa don", 500);
+    throw new AppError("Không thể tạo mã hóa đơn", 500);
   }
 
   private async generateUniqueBarcode(tx: Prisma.TransactionClient) {
@@ -491,7 +491,7 @@ class InvoiceService {
       }
     }
 
-    throw new AppError("Khong the tao ma vach hoa don", 500);
+    throw new AppError("Không thể tạo mã vạch hóa đơn", 500);
   }
 }
 

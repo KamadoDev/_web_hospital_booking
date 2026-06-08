@@ -6,6 +6,6 @@ export const createUnsupportedProvider = (provider: PaymentProvider): PaymentPro
   provider,
 
   async createPayment() {
-    throw new AppError(`${provider} chua duoc tich hop adapter thanh toan`, 501);
+    throw new AppError(`${provider} chưa được tích hợp adapter thanh toán`, 501);
   },
 });

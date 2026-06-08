@@ -24,7 +24,7 @@ export const mockPaymentProvider: PaymentProviderAdapter = {
       },
       rawResponse: {
         mode: "MOCK",
-        message: "Dung mock success/fail de gia lap ket qua thanh toan.",
+        message: "Dùng mock success/fail để giả lập kết quả thanh toán.",
         paymentUrl,
       },
     };

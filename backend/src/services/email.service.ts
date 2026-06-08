@@ -23,7 +23,7 @@ class EmailService {
         return null;
       }
 
-      throw new AppError("Chua cau hinh SMTP de gui email", 500);
+      throw new AppError("Chưa cấu hình SMTP để gửi email", 500);
     }
 
     return nodemailer.createTransport({

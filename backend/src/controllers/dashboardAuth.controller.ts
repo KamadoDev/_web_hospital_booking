@@ -1,10 +1,22 @@
 import { Request, Response, NextFunction } from "express";
 import DashboardAuthService from "../services/dashboardAuth.service.js";
 
+type CookieSameSite = "strict" | "lax" | "none";
+
+const readSameSite = (): CookieSameSite => {
+  const value = (process.env.DASHBOARD_COOKIE_SAME_SITE || "").toLowerCase();
+
+  if (value === "strict" || value === "lax" || value === "none") {
+    return value as CookieSameSite;
+  }
+
+  return process.env.NODE_ENV === "production" ? "none" : "lax";
+};
+
 const dashboardCookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  sameSite: readSameSite(),
   path: "/",
 };
 
@@ -25,7 +37,7 @@ export const loginHandler = async (
 
     return res.json({
       success: true,
-      message: "OTP da duoc gui",
+      message: "OTP đã được gửi",
       data: result,
     });
   } catch (error) {
@@ -50,7 +62,7 @@ export const verifyOtpHandler = async (
 
     return res.json({
       success: true,
-      message: "Dang nhap thanh cong",
+      message: "Đăng nhập thành công",
       data: {
         user: result.user,
         redirectPath: result.redirectPath,
@@ -72,7 +84,7 @@ export const meHandler = async (
     if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Chua dang nhap",
+        message: "Chưa đăng nhập",
       });
     }
 
@@ -92,6 +104,6 @@ export const logoutHandler = (req: Request, res: Response) => {
 
   return res.json({
     success: true,
-    message: "Dang xuat thanh cong",
+    message: "Đăng xuất thành công",
   });
 };

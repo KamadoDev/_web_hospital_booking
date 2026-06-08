@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, MessageSquareText, PhoneCall, RefreshCw, Search, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDateTime } from "@/lib/date";
 import type { ConsultationRequest, ConsultationStatus, ListResult } from "@/lib/types";
 
 const statusOptions: { label: string; value: "" | ConsultationStatus }[] = [
@@ -21,11 +22,7 @@ const statusMeta: Record<ConsultationStatus, { label: string; className: string 
   CANCELLED: { label: "Đã hủy", className: "bg-[#fff3f2] text-[#b3261e]" },
 };
 
-const formatDateTime = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
+const formatDateTime = (value: string) => formatVietnamDateTime(value);
 
 export default function DashboardConsultationRequestsPage() {
   const { user } = useAuth();

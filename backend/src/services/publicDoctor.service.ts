@@ -74,7 +74,7 @@ class PublicDoctorService {
     });
 
     if (!doctor) {
-      throw new AppError("Khong tim thay bac si", 404);
+      throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
     return doctor;

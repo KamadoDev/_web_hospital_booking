@@ -120,6 +120,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
   const selectedDepartment = data.departments.find((item) => item.id === selection.departmentId);
   const selectedDoctor = data.doctors.find((item) => item.id === selection.doctorId);
   const selectedPackage = data.packages.find((item) => item.id === selection.packageId);
+  const selectedSlot = slots.find((slot) => slot.id === draft.timeSlotId);
   const filteredDoctors = selection.departmentId
     ? data.doctors.filter((item) => item.department.id === selection.departmentId)
     : data.doctors;
@@ -503,7 +504,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">Ngày sinh</span>
-                    <input type="date" max={getVietnamYesterdayDateInput()} value={draft.dateOfBirth} onChange={(event) => updateDraft({ dateOfBirth: event.target.value })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" />
+                    <VietnamDateInput max={getVietnamYesterdayDateInput()} value={draft.dateOfBirth} onChange={(value) => updateDraft({ dateOfBirth: value })} ariaLabel="Ngày sinh" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]" />
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">CCCD</span>
@@ -565,14 +566,54 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
 
           <aside ref={resultRef} className="scroll-mt-24 rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-4">
-            <p className="text-sm font-semibold text-[#172033]">Tóm tắt lịch hẹn</p>
-            <div className="mt-3 space-y-2 text-sm text-[#667892]">
-              <p>{selectedSummary.departmentName}</p>
-              <p>{selectedSummary.doctorName}</p>
-              <p>{selectedSummary.packageName}</p>
-              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4" />{draft.date ? formatVietnamDate(draft.date) : "Chưa chọn ngày"}</p>
-            </div>
-            <p className="mt-4 text-lg font-semibold text-[#0d4f8b]">{selectedSummary.amount ? formatCurrency(selectedSummary.amount) : "Sẽ tính theo lựa chọn"}</p>
+              <p className="text-sm font-semibold text-[#172033]">Tóm tắt lịch hẹn</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <SummaryLink
+                  label="Chuyên khoa"
+                  value={selectedSummary.departmentName}
+                  hint={selectedDepartment ? "Bấm để xem nhanh thông tin khoa" : "Chọn khoa để hệ thống lọc bác sĩ và gói khám"}
+                  href={selectedDepartment ? selectedDepartment.slug ? `/departments/${selectedDepartment.slug}` : `/departments` : undefined}
+                />
+                <SummaryLink
+                  label="Bác sĩ"
+                  value={selectedSummary.doctorName}
+                  hint={selectedDoctor ? "Bấm để xem nhanh hồ sơ bác sĩ" : "Chọn bác sĩ để xem lịch trống"}
+                  href={selectedDoctor ? `/doctors/${selectedDoctor.id}` : undefined}
+                />
+                <SummaryLink
+                  label="Gói khám"
+                  value={selectedSummary.packageName}
+                  hint={selectedPackage ? "Bấm để xem nhanh hạng mục và giá gói" : "Nếu không chọn gói, giá tạm tính theo phí khám bác sĩ"}
+                  href={selectedPackage ? `/packages/${selectedPackage.slug || selectedPackage.id}` : undefined}
+                />
+                <div className="rounded-md border border-[#e5ebf3] bg-white px-3 py-2">
+                  <span className="text-xs font-medium text-[#667892]">Ngày khám</span>
+                  <p className="mt-1 flex items-center gap-2 font-semibold text-[#172033]">
+                    <CalendarDays className="h-4 w-4 text-[#0d4f8b]" />
+                    {draft.date ? formatVietnamDate(draft.date) : "Chưa chọn ngày"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-[#e5ebf3] bg-white px-3 py-2">
+                  <span className="text-xs font-medium text-[#667892]">Giờ khám</span>
+                  <p className="mt-1 flex items-center gap-2 font-semibold text-[#172033]">
+                    <Clock className="h-4 w-4 text-[#0d4f8b]" />
+                    {selectedSlot ? `${formatTime(selectedSlot.startTime)} - ${formatTime(selectedSlot.endTime)}` : "Chưa chọn khung giờ"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-md border border-[#cfe4fa] bg-white px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#667892]">Tạm tính</p>
+                <p className="mt-1 text-lg font-semibold text-[#0d4f8b]">
+                  {selectedSummary.amount ? formatCurrency(selectedSummary.amount) : "Sẽ tính theo lựa chọn"}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[#667892]">
+                  {selectedPackage
+                    ? "Giá tạm tính dựa trên gói khám đã chọn, bao gồm các hạng mục đang được cấu hình trong gói."
+                    : selectedDoctor
+                      ? "Giá tạm tính dựa trên phí khám của bác sĩ đã chọn. Chi phí cuối cùng có thể thay đổi sau khi bệnh viện xác nhận."
+                      : "Giá sẽ hiển thị sau khi bạn chọn gói khám hoặc bác sĩ."}
+                </p>
+              </div>
             </div>
 
             {message ? (
@@ -690,5 +731,28 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
         </div>
       </ScrollReveal>
     </section>
+  );
+}
+
+function SummaryLink({ label, value, hint, href }: { label: string; value: string; hint: string; href?: string }) {
+  const content = (
+    <>
+      <span className="text-xs font-medium text-[#667892]">{label}</span>
+      <span className="mt-1 block font-semibold text-[#172033]">{value}</span>
+      <span className="mt-1 block text-xs leading-5 text-[#667892]">{hint}</span>
+    </>
+  );
+
+  if (!href) {
+    return <div className="rounded-md border border-[#e5ebf3] bg-white px-3 py-2">{content}</div>;
+  }
+
+  return (
+    <Link
+      href={href}
+      className="block rounded-md border border-[#e5ebf3] bg-white px-3 py-2 transition hover:border-[#0d4f8b] hover:bg-[#f8fbff]"
+    >
+      {content}
+    </Link>
   );
 }

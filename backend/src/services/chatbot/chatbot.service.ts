@@ -72,6 +72,53 @@ const normalizeNextStep = (value: unknown, state: AIChatbotOutput["state"]) => {
   return "ASK_SYMPTOM_DETAILS";
 };
 
+const normalizeReplyKey = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+const dedupeTextParts = (parts: string[]) => {
+  const seen = new Set<string>();
+
+  return parts.filter((part) => {
+    const key = normalizeReplyKey(part);
+    if (!key || key.length < 12) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const sanitizeReplyText = (reply: string) => {
+  const paragraphs = reply
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const cleanedParagraphs = dedupeTextParts(paragraphs).map((paragraph) => {
+    if (paragraph.includes("\n")) return paragraph;
+
+    const sentences = paragraph
+      .split(/(?<=[.!?])\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    return dedupeTextParts(sentences).join(" ");
+  });
+
+  return cleanedParagraphs.join("\n\n").trim();
+};
+
+const cleanResponse = (response: ChatbotResponse): ChatbotResponse => ({
+  ...response,
+  reply: sanitizeReplyText(response.reply),
+});
+
 const formatDateLabel = (value: string) => {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return value;
@@ -358,10 +405,9 @@ const buildDoctorSuggestion = (
       ...(selectedDoctor && !slotActions.length
         ? [
             {
-              type: "ASK_MORE_INFO" as const,
+              type: "CHANGE_DATE" as const,
               label: "Chọn ngày khám",
               payload: {
-                field: "date",
                 doctorId: selectedDoctor.id,
                 departmentId: selectedDoctor.departmentId,
               },
@@ -690,7 +736,7 @@ class ChatbotService {
     );
 
     if (hasEmergencySignal(normalizedMessage)) {
-      const response: ChatbotResponse = {
+      const response = cleanResponse({
         sessionId,
         reply: "Triệu chứng bạn mô tả có thể cần xử lý khẩn cấp. Bạn nên đến cơ sở y tế gần nhất hoặc gọi cấp cứu ngay để được hỗ trợ kịp thời.",
         intent: "SYMPTOM_TRIAGE",
@@ -710,7 +756,7 @@ class ChatbotService {
             payload: {},
           },
         ],
-      };
+      });
 
       await updateChatSession(
         sessionId,
@@ -737,11 +783,11 @@ class ChatbotService {
         greetingOutput.draft,
         settings.maxSuggestedActions,
       );
-      const response: ChatbotResponse = {
+      const response = cleanResponse({
         sessionId,
         ...greetingOutput,
         suggestedActions,
-      };
+      });
 
       await updateChatSession(
         sessionId,
@@ -769,11 +815,11 @@ class ChatbotService {
         workflowOutput.draft,
         settings.maxSuggestedActions,
       );
-      const response: ChatbotResponse = {
+      const response = cleanResponse({
         sessionId,
         ...workflowOutput,
         suggestedActions,
-      };
+      });
 
       await updateChatSession(
         sessionId,
@@ -800,11 +846,11 @@ class ChatbotService {
         faqOutput.draft,
         settings.maxSuggestedActions,
       );
-      const response: ChatbotResponse = {
+      const response = cleanResponse({
         sessionId,
         ...faqOutput,
         suggestedActions,
-      };
+      });
 
       await updateChatSession(
         sessionId,
@@ -885,7 +931,7 @@ class ChatbotService {
       mergedDraft,
       settings.maxSuggestedActions,
     );
-    const response: ChatbotResponse = {
+    const response = cleanResponse({
       sessionId,
       reply: repaired.output.reply,
       intent: repaired.output.intent,
@@ -895,7 +941,7 @@ class ChatbotService {
       draft: mergedDraft,
       results: repaired.output.results || [],
       suggestedActions,
-    };
+    });
 
     await updateChatSession(
       sessionId,

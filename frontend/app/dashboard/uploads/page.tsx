@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDateTime } from "@/lib/date";
 import type { ListResult, MediaAsset } from "@/lib/types";
 
 type CleanupResult = {
@@ -40,14 +41,7 @@ const formatBytes = (value: number | null) => {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 };
 
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+const formatDateTime = (value: string) => formatVietnamDateTime(value);
 
 export default function UploadsPage() {
   const { user } = useAuth();

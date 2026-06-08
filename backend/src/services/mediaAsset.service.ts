@@ -114,11 +114,11 @@ class MediaAssetService {
 
   async uploadImages(files: Express.Multer.File[], folder: string, uploadedById?: string) {
     if (!files.length) {
-      throw new AppError("Chua chon file upload", 400);
+      throw new AppError("Chưa chọn file upload", 400);
     }
 
     if (!isUploadFolder(folder)) {
-      throw new AppError("Folder upload khong hop le", 400);
+      throw new AppError("Folder upload không hợp lệ", 400);
     }
 
     const cloudinaryFolder = folderMap[folder];
@@ -156,11 +156,11 @@ class MediaAssetService {
     });
 
     if (!asset) {
-      throw new AppError("Khong tim thay anh da upload", 404);
+      throw new AppError("Không tìm thấy ảnh đã upload", 404);
     }
 
     if (asset.isUsed && (asset.ownerType !== ownerType || asset.ownerId !== ownerId)) {
-      throw new AppError("Anh nay da duoc su dung", 409);
+      throw new AppError("Ảnh này đã được sử dụng", 409);
     }
 
     return prisma.mediaAsset.update({
@@ -185,11 +185,11 @@ class MediaAssetService {
     });
 
     if (!asset) {
-      throw new AppError("Khong tim thay anh da upload", 404);
+      throw new AppError("Không tìm thấy ảnh đã upload", 404);
     }
 
     if (asset.isUsed) {
-      throw new AppError("Anh nay da duoc su dung", 409);
+      throw new AppError("Ảnh này đã được sử dụng", 409);
     }
 
     return asset;
@@ -244,11 +244,11 @@ class MediaAssetService {
     });
 
     if (!asset) {
-      throw new AppError("Khong tim thay anh", 404);
+      throw new AppError("Không tìm thấy ảnh", 404);
     }
 
     if (asset.isUsed) {
-      throw new AppError("Khong the xoa anh dang duoc su dung", 409);
+      throw new AppError("Không thể xóa ảnh đang được sử dụng", 409);
     }
 
     await cloudinary.uploader.destroy(asset.publicId, {
@@ -299,7 +299,7 @@ class MediaAssetService {
         failed.push({
           id: asset.id,
           publicId: asset.publicId,
-          message: error instanceof Error ? error.message : "Xoa anh that bai",
+          message: error instanceof Error ? error.message : "Xóa ảnh thất bại",
         });
       }
     }

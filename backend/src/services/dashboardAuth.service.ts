@@ -49,21 +49,21 @@ class DashboardAuthService {
     });
 
     if (!user || !user.password) {
-      throw new AppError("So dien thoai hoac mat khau khong chinh xac", 401);
+      throw new AppError("Số điện thoại hoặc mật khẩu không chính xác", 401);
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
-      throw new AppError("So dien thoai hoac mat khau khong chinh xac", 401);
+      throw new AppError("Số điện thoại hoặc mật khẩu không chính xác", 401);
     }
 
     if (!user.isActive) {
-      throw new AppError("Tai khoan da bi khoa", 403);
+      throw new AppError("Tài khoản đã bị khóa", 403);
     }
 
     if (!isDashboardRole(user.role)) {
-      throw new AppError("Khong co quyen truy cap dashboard", 403);
+      throw new AppError("Không có quyền truy cập dashboard", 403);
     }
 
     const purpose = dashboardPurposeByRole[user.role];
@@ -116,33 +116,33 @@ class DashboardAuthService {
     });
 
     if (!challenge) {
-      throw new AppError("Challenge khong hop le", 401);
+      throw new AppError("Challenge không hợp lệ", 401);
     }
 
     if (challenge.isUsed) {
-      throw new AppError("Challenge da duoc su dung", 401);
+      throw new AppError("Challenge đã được sử dụng", 401);
     }
 
     if (challenge.expiresAt <= new Date()) {
-      throw new AppError("Challenge da het han", 401);
+      throw new AppError("Challenge đã hết hạn", 401);
     }
 
     if (challenge.attempts >= MAX_CHALLENGE_ATTEMPTS) {
-      throw new AppError("Ban da nhap sai OTP qua nhieu lan", 429);
+      throw new AppError("Bạn đã nhập sai OTP quá nhiều lần", 429);
     }
 
     const { user } = challenge;
 
     if (!user.phone) {
-      throw new AppError("Tai khoan chua co so dien thoai", 400);
+      throw new AppError("Tài khoản chưa có số điện thoại", 400);
     }
 
     if (!user.isActive) {
-      throw new AppError("Tai khoan da bi khoa", 403);
+      throw new AppError("Tài khoản đã bị khóa", 403);
     }
 
     if (!isDashboardRole(user.role)) {
-      throw new AppError("Khong co quyen truy cap dashboard", 403);
+      throw new AppError("Không có quyền truy cập dashboard", 403);
     }
 
     try {
@@ -209,15 +209,15 @@ class DashboardAuthService {
     });
 
     if (!user) {
-      throw new AppError("Tai khoan khong ton tai", 401);
+      throw new AppError("Tài khoản không tồn tại", 401);
     }
 
     if (!user.isActive) {
-      throw new AppError("Tai khoan da bi khoa", 403);
+      throw new AppError("Tài khoản đã bị khóa", 403);
     }
 
     if (!isDashboardRole(user.role)) {
-      throw new AppError("Khong co quyen truy cap dashboard", 403);
+      throw new AppError("Không có quyền truy cập dashboard", 403);
     }
 
     return toSafeDashboardUser(user);

@@ -87,15 +87,15 @@ class PaymentService {
     });
 
     if (!invoice) {
-      throw new AppError("Khong tim thay hoa don", 404);
+      throw new AppError("Không tìm thấy hóa đơn", 404);
     }
 
     if (invoice.status !== "UNPAID") {
-      throw new AppError("Chi co the tao thanh toan online cho hoa don chua thanh toan", 400);
+      throw new AppError("Chỉ có thể tạo thanh toán online cho hóa đơn chưa thanh toán", 400);
     }
 
     if (invoice.finalAmount <= 0) {
-      throw new AppError("So tien thanh toan khong hop le", 400);
+      throw new AppError("Số tiền thanh toán không hợp lệ", 400);
     }
 
     const pendingTransaction = invoice.paymentTransactions[0];
@@ -114,7 +114,7 @@ class PaymentService {
         invoiceId: invoice.id,
         invoiceCode: invoice.invoiceCode,
         amount: invoice.finalAmount,
-        orderInfo: `Thanh toan hoa don ${invoice.invoiceCode}`,
+        orderInfo: `Thanh toán hóa đơn ${invoice.invoiceCode}`,
         expiredAt,
       });
 
@@ -151,7 +151,7 @@ class PaymentService {
     });
 
     if (!transaction) {
-      throw new AppError("Khong tim thay giao dich thanh toan", 404);
+      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
     return transaction;
@@ -164,7 +164,7 @@ class PaymentService {
     });
 
     if (!transaction) {
-      throw new AppError("Khong tim thay giao dich thanh toan", 404);
+      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
     return transaction;
@@ -190,17 +190,17 @@ class PaymentService {
     });
 
     if (!transaction) {
-      throw new AppError("Khong tim thay giao dich thanh toan", 404);
+      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
     this.ensurePendingTransaction(transaction.status, transaction.expiredAt);
 
     if (transaction.invoice.status !== "UNPAID") {
-      throw new AppError("Hoa don khong con o trang thai cho thanh toan", 400);
+      throw new AppError("Hóa đơn không còn ở trạng thái chờ thanh toán", 400);
     }
 
     if (transaction.amount !== transaction.invoice.finalAmount) {
-      throw new AppError("So tien giao dich khong khop voi hoa don", 400);
+      throw new AppError("Số tiền giao dịch không khớp với hóa đơn", 400);
     }
 
     const paidAt = new Date();
@@ -252,7 +252,7 @@ class PaymentService {
     });
 
     if (!transaction) {
-      throw new AppError("Khong tim thay giao dich thanh toan", 404);
+      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
     this.ensurePendingTransaction(transaction.status, transaction.expiredAt);
@@ -283,11 +283,11 @@ class PaymentService {
     });
 
     if (!transaction) {
-      throw new AppError("Khong tim thay giao dich thanh toan", 404);
+      throw new AppError("Không tìm thấy giao dịch thanh toán", 404);
     }
 
     if (transaction.status !== "PENDING") {
-      throw new AppError("Chi co the huy giao dich dang cho thanh toan", 400);
+      throw new AppError("Chỉ có thể hủy giao dịch đang chờ thanh toán", 400);
     }
 
     return prisma.paymentTransaction.update({
@@ -301,11 +301,11 @@ class PaymentService {
 
   private ensurePendingTransaction(status: string, expiredAt: Date) {
     if (status !== "PENDING") {
-      throw new AppError("Giao dich khong con o trang thai cho thanh toan", 400);
+      throw new AppError("Giao dịch không còn ở trạng thái chờ thanh toán", 400);
     }
 
     if (expiredAt.getTime() <= Date.now()) {
-      throw new AppError("Giao dich thanh toan da het han", 400);
+      throw new AppError("Giao dịch thanh toán đã hết hạn", 400);
     }
   }
 
@@ -322,7 +322,7 @@ class PaymentService {
       }
     }
 
-    throw new AppError("Khong the tao ma giao dich thanh toan", 500);
+    throw new AppError("Không thể tạo mã giao dịch thanh toán", 500);
   }
 }
 

@@ -27,7 +27,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -80,7 +80,7 @@ export const updateDashboardChatbotSettingsHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat cau hinh chatbot thanh cong",
+      message: "Cập nhật cấu hình chatbot thành công",
       data: settings,
     });
   } catch (error) {

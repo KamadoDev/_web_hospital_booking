@@ -37,11 +37,11 @@ const normalizeTarget = (target: string, channel: OtpChannel) => {
   const normalized = target.trim();
 
   if (!normalized) {
-    throw new AppError(channel === "EMAIL" ? "Thieu email" : "Thieu so dien thoai", 400);
+    throw new AppError(channel === "EMAIL" ? "Thiếu email" : "Thiếu số điện thoại", 400);
   }
 
   if (channel === "EMAIL" && !emailRegex.test(normalized)) {
-    throw new AppError("Email khong hop le", 400);
+    throw new AppError("Email không hợp lệ", 400);
   }
 
   return channel === "EMAIL" ? normalized.toLowerCase() : normalized;
@@ -105,7 +105,7 @@ class AuthOtpService {
     );
 
     throw new AppError(
-      `Yeu cau OTP dang bi tam khoa. Vui long thu lai sau ${retryAfterSeconds} giay`,
+      `Yêu cầu OTP đang bị tạm khóa. Vui lòng thử lại sau ${retryAfterSeconds} giây`,
       429,
     );
   }
@@ -174,7 +174,7 @@ class AuthOtpService {
         purpose,
         reason: "OTP_SEND_IP_LIMIT",
       });
-      throw new AppError("IP da gui OTP qua nhieu lan. Vui long thu lai sau.", 429);
+      throw new AppError("IP đã gửi OTP quá nhiều lần. Vui lòng thử lại sau.", 429);
     }
 
     if (phoneCount >= MAX_OTP_SENDS_PER_PHONE_WINDOW || pairCount >= MAX_OTP_SENDS_PER_WINDOW) {
@@ -184,7 +184,7 @@ class AuthOtpService {
         purpose,
         reason: "OTP_SEND_TARGET_LIMIT",
       });
-      throw new AppError("Tai khoan nhan OTP da gui qua nhieu lan. Vui long thu lai sau.", 429);
+      throw new AppError("Tài khoản nhận OTP đã gửi quá nhiều lần. Vui lòng thử lại sau.", 429);
     }
   }
 
@@ -248,7 +248,7 @@ class AuthOtpService {
         purpose,
         reason: "OTP_VERIFY_IP_LIMIT",
       });
-      throw new AppError("IP da nhap sai OTP qua nhieu lan. Vui long thu lai sau.", 429);
+      throw new AppError("IP đã nhập sai OTP quá nhiều lần. Vui lòng thử lại sau.", 429);
     }
 
     if (phoneFails >= MAX_VERIFY_FAILS_PER_PHONE_WINDOW) {
@@ -258,7 +258,7 @@ class AuthOtpService {
         purpose,
         reason: "OTP_VERIFY_TARGET_LIMIT",
       });
-      throw new AppError("Tai khoan nhan OTP da nhap sai qua nhieu lan. Vui long thu lai sau.", 429);
+      throw new AppError("Tài khoản nhận OTP đã nhập sai quá nhiều lần. Vui lòng thử lại sau.", 429);
     }
   }
 
@@ -269,7 +269,7 @@ class AuthOtpService {
     options: SendOtpOptions = {},
   ) {
     if (!purpose) {
-      throw new AppError("Thieu purpose khi gui OTP", 400);
+      throw new AppError("Thiếu purpose khi gửi OTP", 400);
     }
 
     const channel = options.channel || "SMS";
@@ -296,7 +296,7 @@ class AuthOtpService {
 
       if (seconds < RESEND_COOLDOWN_SECONDS) {
         throw new AppError(
-          `Vui long doi ${RESEND_COOLDOWN_SECONDS - seconds} giay de gui lai OTP`,
+          `Vui lòng đợi ${RESEND_COOLDOWN_SECONDS - seconds} giây để gửi lại OTP`,
           429,
         );
       }
@@ -361,15 +361,15 @@ class AuthOtpService {
     options?: string | VerifyOtpOptions,
   ) {
     if (!targetInput) {
-      throw new AppError("Thieu thong tin nhan OTP", 400);
+      throw new AppError("Thiếu thông tin nhận OTP", 400);
     }
 
     if (!otp) {
-      throw new AppError("Thieu ma OTP", 400);
+      throw new AppError("Thiếu mã OTP", 400);
     }
 
     if (!purpose) {
-      throw new AppError("Thieu purpose khi xac thuc OTP", 400);
+      throw new AppError("Thiếu purpose khi xác thực OTP", 400);
     }
 
     const verifyOptions =
@@ -411,7 +411,7 @@ class AuthOtpService {
         success: false,
       });
       await this.enforceVerifyFailLimits(target, channel, purpose, ipAddress);
-      throw new AppError("OTP khong chinh xac, da het han hoac da duoc su dung", 401);
+      throw new AppError("OTP không chính xác, đã hết hạn hoặc đã được sử dụng", 401);
     }
 
     await prisma.otpCode.update({

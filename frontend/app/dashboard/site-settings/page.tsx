@@ -5,6 +5,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDateTime, fromVietnamDateTimeInput, toVietnamDateTimeInput } from "@/lib/date";
 import type { Banner, MediaAsset, PublicFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
 
 type TabKey = "settings" | "banners" | "faqs";
@@ -100,16 +101,6 @@ const faqCategories = ["booking", "payment", "doctor", "insurance", "general"];
 
 const toNullable = (value: string) => value.trim() || null;
 
-const toDateTimeInput = (value: string | null) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-};
-
-const toIsoDateTime = (value: string) => (value ? new Date(value).toISOString() : null);
-
 const toSiteForm = (settings?: SiteSettingsValue): SiteForm => {
   const socialLinks = settings?.socialLinks || {};
   return {
@@ -146,8 +137,8 @@ const toBannerForm = (banner: Banner): BannerForm => ({
   position: banner.position,
   order: String(banner.order),
   isActive: banner.isActive,
-  startAt: toDateTimeInput(banner.startAt),
-  endAt: toDateTimeInput(banner.endAt),
+  startAt: toVietnamDateTimeInput(banner.startAt),
+  endAt: toVietnamDateTimeInput(banner.endAt),
 });
 
 const toFAQForm = (faq: PublicFAQ): FAQForm => ({
@@ -357,8 +348,8 @@ export default function SiteSettingsPage() {
         position: bannerForm.position.trim() || "HOME_HERO",
         order: Number(bannerForm.order || 0),
         isActive: bannerForm.isActive,
-        startAt: toIsoDateTime(bannerForm.startAt),
-        endAt: toIsoDateTime(bannerForm.endAt),
+        startAt: fromVietnamDateTimeInput(bannerForm.startAt),
+        endAt: fromVietnamDateTimeInput(bannerForm.endAt),
       };
       if (editingBanner) {
         await apiRequest<Banner>(`/dashboard/banners/${editingBanner.id}`, {
@@ -564,7 +555,7 @@ export default function SiteSettingsPage() {
               <h3 className="text-lg font-semibold">Thông tin website</h3>
               <p className="mt-1 text-sm text-[#667892]">STAFF được xem, chỉ ADMIN được cập nhật cấu hình hiển thị công khai.</p>
             </div>
-            <p className="text-xs text-[#8a98aa]">Cập nhật {siteRecord?.updatedAt ? new Date(siteRecord.updatedAt).toLocaleString("vi-VN") : "-"}</p>
+            <p className="text-xs text-[#8a98aa]">Cập nhật {siteRecord?.updatedAt ? formatVietnamDateTime(siteRecord.updatedAt) : "-"}</p>
           </div>
           <form className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]" onSubmit={saveSiteSettings}>
             <div className="space-y-5">
@@ -590,7 +581,7 @@ export default function SiteSettingsPage() {
               {(["logo", "favicon"] as const).map((key) => (
                 <div key={key} className="rounded-md border border-[#e5ebf3] p-3">
                   <label className="block"><span className="text-sm font-medium text-[#334155]">{key === "logo" ? "Logo" : "Favicon"}</span><input disabled={!canWrite} value={siteForm[key] || ""} onChange={(e) => setSiteForm((current) => ({ ...current, [key]: e.target.value, [`${key}AssetId`]: "" }))} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f8fafc]" /></label>
-                  <input disabled={!canWrite || uploading === key} type="file" accept="image/jpeg,image/png,image/webp,image/x-icon" onChange={(e) => void uploadToForm(e.target.files?.[0], "site-settings", key, (asset) => setSiteForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
+                  <input disabled={!canWrite || uploading === key} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,.ico" onChange={(e) => void uploadToForm(e.target.files?.[0], "site-settings", key, (asset) => setSiteForm((current) => ({ ...current, [key]: asset.url, [`${key}AssetId`]: asset.id })))} className="mt-2 w-full rounded-md border border-dashed border-[#cfd8e6] bg-[#f8fafc] px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#0d4f8b] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white disabled:opacity-60" />
                   {uploading === key ? <p role="status" className="mt-2 text-xs font-medium text-[#0d4f8b]">Đang upload ảnh...</p> : null}
                   {siteForm[key] ? <div className="mt-3 rounded-md border border-[#e5ebf3] p-2"><img src={siteForm[key] || ""} alt={`Preview ${key}`} className="h-28 w-full rounded-md object-contain" /><p className="mt-2 truncate text-xs text-[#667892]">{siteForm[key]}</p></div> : null}
                 </div>

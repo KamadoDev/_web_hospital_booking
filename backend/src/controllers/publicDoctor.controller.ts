@@ -6,7 +6,7 @@ const getParam = (value: string | string[] | undefined, name: string) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;

@@ -14,7 +14,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -22,7 +22,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
-    throw new AppError("Chua dang nhap", 401);
+    throw new AppError("Chưa đăng nhập", 401);
   }
 
   return {
@@ -93,7 +93,7 @@ export const updateMedicalRecordHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat ho so kham thanh cong",
+      message: "Cập nhật hồ sơ khám thành công",
       data: record,
     });
   } catch (error) {
@@ -114,7 +114,7 @@ export const publishMedicalRecordHandler = async (
 
     return res.json({
       success: true,
-      message: "Publish ket qua kham thanh cong",
+      message: "Phát hành kết quả khám thành công",
       data: record,
     });
   } catch (error) {
@@ -135,7 +135,7 @@ export const archiveMedicalRecordHandler = async (
 
     return res.json({
       success: true,
-      message: "Luu tru ho so kham thanh cong",
+      message: "Lưu trữ hồ sơ khám thành công",
       data: record,
     });
   } catch (error) {
@@ -157,7 +157,7 @@ export const createLabResultHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao ket qua can lam sang thanh cong",
+      message: "Tạo kết quả cận lâm sàng thành công",
       data: labResult,
     });
   } catch (error) {
@@ -180,7 +180,7 @@ export const updateLabResultHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat ket qua can lam sang thanh cong",
+      message: "Cập nhật kết quả cận lâm sàng thành công",
       data: labResult,
     });
   } catch (error) {
@@ -202,7 +202,7 @@ export const deleteLabResultHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa ket qua can lam sang thanh cong",
+      message: "Xóa kết quả cận lâm sàng thành công",
       data: labResult,
     });
   } catch (error) {

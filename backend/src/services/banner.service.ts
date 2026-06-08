@@ -72,7 +72,7 @@ class BannerService {
     });
 
     if (!banner) {
-      throw new AppError("Khong tim thay banner", 404);
+      throw new AppError("Không tìm thấy banner", 404);
     }
 
     return banner;

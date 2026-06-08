@@ -160,7 +160,7 @@ class PrescriptionService {
     });
 
     if (!prescription) {
-      throw new AppError("Khong tim thay don thuoc", 404);
+      throw new AppError("Không tìm thấy đơn thuốc", 404);
     }
 
     return prescription;
@@ -170,7 +170,7 @@ class PrescriptionService {
     const record = await this.getRecordForWrite(recordIdOrCode, actor);
 
     if (record.prescriptionRecord) {
-      throw new AppError("Ho so kham nay da co don thuoc", 409);
+      throw new AppError("Hồ sơ khám này đã có đơn thuốc", 409);
     }
 
     return prisma.$transaction(async (tx) => {
@@ -225,7 +225,7 @@ class PrescriptionService {
     const prescription = await this.ensureDraft(id, actor);
 
     if (prescription.items.length === 0) {
-      throw new AppError("Don thuoc can co it nhat 1 thuoc truoc khi phat hanh", 400);
+      throw new AppError("Đơn thuốc cần có ít nhất 1 thuốc trước khi phát hành", 400);
     }
 
     return prisma.prescription.update({
@@ -243,7 +243,7 @@ class PrescriptionService {
     const prescription = await this.getById(id, actor);
 
     if (prescription.status === "CANCELLED") {
-      throw new AppError("Don thuoc da bi huy", 400);
+      throw new AppError("Đơn thuốc đã bị hủy", 400);
     }
 
     return prisma.prescription.update({
@@ -364,15 +364,15 @@ class PrescriptionService {
     });
 
     if (!record) {
-      throw new AppError("Khong tim thay ho so kham", 404);
+      throw new AppError("Không tìm thấy hồ sơ khám", 404);
     }
 
     if (record.status === "ARCHIVED") {
-      throw new AppError("Ho so kham da luu tru, khong the ke don", 400);
+      throw new AppError("Hồ sơ khám đã lưu trữ, không thể kê đơn", 400);
     }
 
     if (!["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)) {
-      throw new AppError("Chi co the ke don sau khi bat dau kham", 400);
+      throw new AppError("Chỉ có thể kê đơn sau khi bắt đầu khám", 400);
     }
 
     return record;
@@ -382,11 +382,11 @@ class PrescriptionService {
     const prescription = await this.getById(id, actor);
 
     if (prescription.status !== "DRAFT") {
-      throw new AppError("Chi co the chinh sua don thuoc dang DRAFT", 400);
+      throw new AppError("Chỉ có thể chỉnh sửa đơn thuốc đang DRAFT", 400);
     }
 
     if (prescription.medicalRecord.status === "ARCHIVED") {
-      throw new AppError("Ho so kham da luu tru, khong the chinh sua don thuoc", 400);
+      throw new AppError("Hồ sơ khám đã lưu trữ, không thể chỉnh sửa đơn thuốc", 400);
     }
 
     return prescription;
@@ -401,7 +401,7 @@ class PrescriptionService {
     });
 
     if (!item) {
-      throw new AppError("Khong tim thay thuoc trong don", 404);
+      throw new AppError("Không tìm thấy thuốc trong đơn", 404);
     }
 
     return item;
@@ -420,7 +420,7 @@ class PrescriptionService {
       }
     }
 
-    throw new AppError("Khong the tao ma don thuoc", 500);
+    throw new AppError("Không thể tạo mã đơn thuốc", 500);
   }
 }
 

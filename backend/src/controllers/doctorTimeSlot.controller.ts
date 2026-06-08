@@ -20,7 +20,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -28,7 +28,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
-    throw new AppError("Chua dang nhap", 401);
+    throw new AppError("Chưa đăng nhập", 401);
   }
 
   return {
@@ -88,7 +88,7 @@ export const generateDoctorTimeSlotsHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao slot kham thanh cong",
+      message: "Tạo slot khám thành công",
       data: result,
     });
   } catch (error) {
@@ -110,7 +110,7 @@ export const updateDoctorTimeSlotStatusHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat trang thai slot thanh cong",
+      message: "Cập nhật trạng thái slot thành công",
       data: slot,
     });
   } catch (error) {
@@ -131,7 +131,7 @@ export const lockDoctorTimeSlotHandler = async (
 
     return res.json({
       success: true,
-      message: "Khoa slot thanh cong",
+      message: "Khóa slot thành công",
       data: slot,
     });
   } catch (error) {
@@ -149,7 +149,7 @@ export const unlockDoctorTimeSlotHandler = async (
 
     return res.json({
       success: true,
-      message: "Mo khoa slot thanh cong",
+      message: "Mở khóa slot thành công",
       data: slot,
     });
   } catch (error) {
@@ -167,7 +167,7 @@ export const deleteDoctorTimeSlotHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa slot thanh cong",
+      message: "Xóa slot thành công",
       data: slot,
     });
   } catch (error) {

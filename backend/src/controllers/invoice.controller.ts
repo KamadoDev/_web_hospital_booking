@@ -14,7 +14,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -83,7 +83,7 @@ export const createInvoiceForAppointmentHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao hoa don thanh cong",
+      message: "Tạo hóa đơn thành công",
       data: invoice,
     });
   } catch (error) {
@@ -101,7 +101,7 @@ export const updateInvoiceHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat hoa don thanh cong",
+      message: "Cập nhật hóa đơn thành công",
       data: invoice,
     });
   } catch (error) {
@@ -119,7 +119,7 @@ export const payInvoiceHandler = async (
 
     return res.json({
       success: true,
-      message: "Thanh toan hoa don thanh cong",
+      message: "Thanh toán hóa đơn thành công",
       data: invoice,
     });
   } catch (error) {
@@ -137,7 +137,7 @@ export const cancelInvoiceHandler = async (
 
     return res.json({
       success: true,
-      message: "Huy hoa don thanh cong",
+      message: "Hủy hóa đơn thành công",
       data: invoice,
     });
   } catch (error) {
@@ -155,7 +155,7 @@ export const refundInvoiceHandler = async (
 
     return res.json({
       success: true,
-      message: "Hoan tien hoa don thanh cong",
+      message: "Hoàn tiền hóa đơn thành công",
       data: invoice,
     });
   } catch (error) {

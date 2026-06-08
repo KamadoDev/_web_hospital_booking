@@ -130,7 +130,7 @@ class MedicalRecordService {
     });
 
     if (!appointment) {
-      throw new AppError("Khong tim thay lich hen", 404);
+      throw new AppError("Không tìm thấy lịch hẹn", 404);
     }
 
     if (appointment.medicalRecord) {
@@ -213,7 +213,7 @@ class MedicalRecordService {
     });
 
     if (!record) {
-      throw new AppError("Khong tim thay ho so kham", 404);
+      throw new AppError("Không tìm thấy hồ sơ khám", 404);
     }
 
     return record;
@@ -240,7 +240,7 @@ class MedicalRecordService {
     const record = await this.getById(id, actor);
 
     if (!["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)) {
-      throw new AppError("Chi co the publish ket qua sau khi bat dau kham", 400);
+      throw new AppError("Chỉ có thể phát hành kết quả sau khi bắt đầu khám", 400);
     }
 
     return prisma.medicalRecord.update({
@@ -331,7 +331,7 @@ class MedicalRecordService {
     });
 
     if (!labResult) {
-      throw new AppError("Khong tim thay ket qua can lam sang", 404);
+      throw new AppError("Không tìm thấy kết quả cận lâm sàng", 404);
     }
 
     return labResult;
@@ -350,7 +350,7 @@ class MedicalRecordService {
       }
     }
 
-    throw new AppError("Khong the tao ma ho so kham", 500);
+    throw new AppError("Không thể tạo mã hồ sơ khám", 500);
   }
 }
 

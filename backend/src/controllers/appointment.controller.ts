@@ -14,7 +14,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -27,7 +27,7 @@ const getIpAddress = (req: Request) =>
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
-    throw new AppError("Chua dang nhap", 401);
+    throw new AppError("Chưa đăng nhập", 401);
   }
 
   return {
@@ -46,7 +46,7 @@ export const createAppointmentHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "OTP da duoc gui de xac nhan lich hen",
+      message: "OTP đã được gửi để xác nhận lịch hẹn",
       data: result,
     });
   } catch (error) {
@@ -67,7 +67,7 @@ export const resendAppointmentOtpHandler = async (
 
     return res.json({
       success: true,
-      message: "OTP da duoc gui lai",
+      message: "OTP đã được gửi lại",
       data: result,
     });
   } catch (error) {
@@ -89,7 +89,7 @@ export const verifyAppointmentOtpHandler = async (
 
     return res.json({
       success: true,
-      message: "Xac thuc dat lich thanh cong",
+      message: "Xác thực đặt lịch thành công",
       data: appointment,
     });
   } catch (error) {
@@ -176,7 +176,7 @@ export const requestPublicAppointmentLookupOtpHandler = async (
 
     return res.json({
       success: true,
-      message: "OTP tra cuu lich hen da duoc gui",
+      message: "OTP tra cứu lịch hẹn đã được gửi",
       data: result,
     });
   } catch (error) {
@@ -198,7 +198,7 @@ export const verifyPublicAppointmentLookupOtpHandler = async (
 
     return res.json({
       success: true,
-      message: "Xac thuc OTP tra cuu lich hen thanh cong",
+      message: "Xác thực OTP tra cứu lịch hẹn thành công",
       data: result,
     });
   } catch (error) {
@@ -221,7 +221,7 @@ export const requestPublicAppointmentCancelOtpHandler = async (
 
     return res.json({
       success: true,
-      message: "OTP huy lich hen da duoc gui",
+      message: "OTP hủy lịch hẹn đã được gửi",
       data: result,
     });
   } catch (error) {
@@ -245,7 +245,7 @@ export const verifyPublicAppointmentCancelHandler = async (
 
     return res.json({
       success: true,
-      message: "Huy lich hen thanh cong",
+      message: "Hủy lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {
@@ -314,7 +314,7 @@ export const confirmDashboardAppointmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Xac nhan lich hen thanh cong",
+      message: "Xác nhận lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {
@@ -336,7 +336,7 @@ export const updateDashboardAppointmentStatusHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat trang thai lich hen thanh cong",
+      message: "Cập nhật trạng thái lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {
@@ -358,7 +358,7 @@ export const updateDashboardAppointmentPatientInfoHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat thong tin tiep nhan thanh cong",
+      message: "Cập nhật thông tin tiếp nhận thành công",
       data: appointment,
     });
   } catch (error) {
@@ -380,7 +380,7 @@ export const cancelDashboardAppointmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Huy lich hen thanh cong",
+      message: "Hủy lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {
@@ -402,7 +402,7 @@ export const cleanupExpiredPendingOtpAppointmentsHandler = async (
 
     return res.json({
       success: true,
-      message: "Cleanup lich hen qua han OTP thanh cong",
+      message: "Dọn lịch hẹn quá hạn OTP thành công",
       data: result,
     });
   } catch (error) {
@@ -423,7 +423,7 @@ export const checkInDashboardAppointmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Check-in lich hen thanh cong",
+      message: "Check-in lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {
@@ -444,7 +444,7 @@ export const startDashboardAppointmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Bat dau kham thanh cong",
+      message: "Bắt đầu khám thành công",
       data: appointment,
     });
   } catch (error) {
@@ -465,7 +465,7 @@ export const completeDashboardAppointmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Hoan thanh lich hen thanh cong",
+      message: "Hoàn thành lịch hẹn thành công",
       data: appointment,
     });
   } catch (error) {
@@ -486,7 +486,7 @@ export const noShowDashboardAppointmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Danh dau no-show thanh cong",
+      message: "Đánh dấu no-show thành công",
       data: appointment,
     });
   } catch (error) {

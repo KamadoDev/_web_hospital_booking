@@ -6,7 +6,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -25,7 +25,7 @@ export const createPaymentTransactionHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao giao dich thanh toan thanh cong",
+      message: "Tạo giao dịch thanh toán thành công",
       data: transaction,
     });
   } catch (error) {
@@ -57,7 +57,7 @@ export const cancelPaymentTransactionHandler = async (
 
     return res.json({
       success: true,
-      message: "Huy giao dich thanh toan thanh cong",
+      message: "Hủy giao dịch thanh toán thành công",
       data: transaction,
     });
   } catch (error) {
@@ -77,7 +77,7 @@ export const getMockCheckoutHandler = async (
 
     return res.json({
       success: true,
-      message: "Mock checkout. Goi endpoint success hoac fail de gia lap ket qua thanh toan.",
+      message: "Mock checkout. Gọi endpoint success hoặc fail để giả lập kết quả thanh toán.",
       data: {
         transaction,
         successUrl: `/api/payments/mock/${transaction.transactionCode}/success`,
@@ -101,7 +101,7 @@ export const mockPaymentSuccessHandler = async (
 
     return res.json({
       success: true,
-      message: "Gia lap thanh toan thanh cong",
+      message: "Giả lập thanh toán thành công",
       data: transaction,
     });
   } catch (error) {
@@ -121,7 +121,7 @@ export const mockPaymentFailHandler = async (
 
     return res.json({
       success: true,
-      message: "Gia lap thanh toan that bai",
+      message: "Giả lập thanh toán thất bại",
       data: transaction,
     });
   } catch (error) {
@@ -135,7 +135,7 @@ export const paymentProviderWebhookHandler = async (
 ) => {
   return res.status(501).json({
     success: false,
-    message: "Webhook provider chua duoc tich hop. Can them adapter va verify signature truoc khi cap nhat thanh toan.",
+    message: "Webhook provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
   });
 };
 
@@ -145,6 +145,6 @@ export const paymentProviderReturnHandler = async (
 ) => {
   return res.status(501).json({
     success: false,
-    message: "Return URL provider chua duoc tich hop. Can them adapter va verify signature truoc khi cap nhat thanh toan.",
+    message: "Return URL provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
   });
 };

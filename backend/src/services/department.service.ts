@@ -95,7 +95,7 @@ class DepartmentService {
     });
 
     if (!department) {
-      throw new AppError("Khong tim thay chuyen khoa", 404);
+      throw new AppError("Không tìm thấy chuyên khoa", 404);
     }
 
     return department;
@@ -115,7 +115,7 @@ class DepartmentService {
     });
 
     if (existingDepartment) {
-      throw new AppError("Ten hoac slug chuyen khoa da ton tai", 409);
+      throw new AppError("Tên hoặc slug chuyên khoa đã tồn tại", 409);
     }
 
     const department = await prisma.department.create({
@@ -161,7 +161,7 @@ class DepartmentService {
       });
 
       if (existingDepartment) {
-        throw new AppError("Ten hoac slug chuyen khoa da ton tai", 409);
+        throw new AppError("Tên hoặc slug chuyên khoa đã tồn tại", 409);
       }
     }
 
@@ -204,7 +204,7 @@ class DepartmentService {
     const department = await this.getById(id);
 
     if (department._count.doctors > 0 || department._count.appointments > 0) {
-      throw new AppError("Khong the xoa chuyen khoa da co bac si hoac lich hen", 409);
+      throw new AppError("Không thể xóa chuyên khoa đã có bác sĩ hoặc lịch hẹn", 409);
     }
 
     await prisma.department.delete({
