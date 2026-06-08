@@ -10,6 +10,7 @@ type SendMailInput = {
 };
 
 const getBooleanEnv = (value?: string) => value === "true";
+const isProductionLike = () => process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
 
 class EmailService {
   private getResendClient() {
@@ -26,7 +27,7 @@ class EmailService {
     const pass = process.env.MAIL_PASS;
 
     if (!host || !user || !pass) {
-      if (process.env.NODE_ENV !== "production") {
+      if (!isProductionLike()) {
         return null;
       }
 
