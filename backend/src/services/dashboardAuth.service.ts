@@ -67,6 +67,8 @@ class DashboardAuthService {
     }
 
     const purpose = dashboardPurposeByRole[user.role];
+    const otpChannel = user.email ? "EMAIL" : "SMS";
+    const otpTarget = user.email || phone;
     const expiresAt = new Date(Date.now() + CHALLENGE_EXPIRES_SECONDS * 1000);
 
     const challenge = await prisma.dashboardLoginChallenge.create({
@@ -81,7 +83,8 @@ class DashboardAuthService {
     let otp: Awaited<ReturnType<typeof AuthOtpService.sendOtp>>;
 
     try {
-      otp = await AuthOtpService.sendOtp(phone, purpose, ipAddress, {
+      otp = await AuthOtpService.sendOtp(otpTarget, purpose, ipAddress, {
+        channel: otpChannel,
         challengeId: challenge.id,
         userId: user.id,
       });
@@ -98,6 +101,9 @@ class DashboardAuthService {
     return {
       challengeId: challenge.id,
       phone,
+      email: user.email,
+      otpTarget: otp.target,
+      otpChannel: otp.channel,
       expiresAt: challenge.expiresAt,
       expiresIn: CHALLENGE_EXPIRES_SECONDS,
       otpExpiresAt: otp.expiresAt,
@@ -112,6 +118,12 @@ class DashboardAuthService {
       },
       include: {
         user: true,
+        otpCodes: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+        },
       },
     });
 
@@ -132,9 +144,12 @@ class DashboardAuthService {
     }
 
     const { user } = challenge;
+    const latestOtp = challenge.otpCodes[0];
+    const otpTarget = latestOtp?.target || user.phone;
+    const otpChannel = latestOtp?.channel || "SMS";
 
-    if (!user.phone) {
-      throw new AppError("Tài khoản chưa có số điện thoại", 400);
+    if (!otpTarget) {
+      throw new AppError("Tài khoản chưa có thông tin nhận OTP", 400);
     }
 
     if (!user.isActive) {
@@ -147,10 +162,11 @@ class DashboardAuthService {
 
     try {
       await AuthOtpService.verifyOtp(
-        user.phone,
+        otpTarget,
         otp,
         challenge.purpose,
         {
+          channel: otpChannel,
           challengeId: challenge.id,
           ipAddress: challenge.ipAddress || undefined,
         },
