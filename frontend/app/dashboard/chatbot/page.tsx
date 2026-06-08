@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDateTime } from "@/lib/date";
 import type {
   ChatbotFAQ,
   ChatbotLog,
@@ -64,9 +65,7 @@ const statusOptions = [
 ];
 
 const formatDateTime = (value?: string | null) =>
-  value
-    ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value))
-    : "-";
+  value ? formatVietnamDateTime(value) : "-";
 
 const parseKeywords = (value: string) =>
   Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)));

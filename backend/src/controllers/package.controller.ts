@@ -19,7 +19,7 @@ const getParam = (value: string | string[] | undefined, name = "id") => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError(`Thieu ${name}`, 400);
+    throw new AppError(`Thiếu ${name}`, 400);
   }
 
   return param;
@@ -69,7 +69,7 @@ export const createPackageHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao goi kham thanh cong",
+      message: "Tạo gói khám thành công",
       data: packageItem,
     });
   } catch (error) {
@@ -90,7 +90,7 @@ export const updatePackageHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat goi kham thanh cong",
+      message: "Cập nhật gói khám thành công",
       data: packageItem,
     });
   } catch (error) {
@@ -108,7 +108,7 @@ export const deletePackageHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa goi kham thanh cong",
+      message: "Xóa gói khám thành công",
       data: packageItem,
     });
   } catch (error) {
@@ -129,7 +129,7 @@ export const createPackageItemHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao hang muc goi kham thanh cong",
+      message: "Tạo hạng mục gói khám thành công",
       data: item,
     });
   } catch (error) {
@@ -151,7 +151,7 @@ export const updatePackageItemHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat hang muc goi kham thanh cong",
+      message: "Cập nhật hạng mục gói khám thành công",
       data: item,
     });
   } catch (error) {
@@ -172,7 +172,7 @@ export const deletePackageItemHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa hang muc goi kham thanh cong",
+      message: "Xóa hạng mục gói khám thành công",
       data: item,
     });
   } catch (error) {

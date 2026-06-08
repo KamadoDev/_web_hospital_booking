@@ -197,11 +197,13 @@ POST /api/uploads/images
 Request `multipart/form-data`:
 
 ```txt
-folder = departments | users | doctors | packages | medical-results
+folder = departments | users | doctors | packages | medical-results | site-settings | banners
 files  = image file
 ```
 
 Backend upload anh len Cloudinary, tao `MediaAsset` voi `isUsed=false`, va tra ve `id` de gan vao entity.
+
+Upload hien cho phep JPG/JPEG, PNG, WEBP, GIF, SVG va ICO. Gioi han toi da 5MB moi file va 10 file moi request.
 
 Response mau:
 

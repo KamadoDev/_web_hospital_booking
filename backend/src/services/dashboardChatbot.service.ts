@@ -202,7 +202,7 @@ class DashboardChatbotService {
     });
 
     if (!session) {
-      throw new AppError("Khong tim thay phien chatbot", 404);
+      throw new AppError("Không tìm thấy phiên chatbot", 404);
     }
 
     return session;

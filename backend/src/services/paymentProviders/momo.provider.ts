@@ -18,7 +18,7 @@ const requiredEnv = (key: string) => {
   const value = process.env[key];
 
   if (!value) {
-    throw new AppError(`Chua cau hinh bien moi truong ${key}`, 500);
+    throw new AppError(`Chưa cấu hình biến môi trường ${key}`, 500);
   }
 
   return value;
@@ -90,7 +90,7 @@ export const momoPaymentProvider: PaymentProviderAdapter = {
 
     if (!response.ok || responseBody.resultCode !== 0 || !responseBody.payUrl) {
       throw new AppError(
-        responseBody.message || "MoMo khong tao duoc duong dan thanh toan",
+        responseBody.message || "MoMo không tạo được đường dẫn thanh toán",
         502,
       );
     }

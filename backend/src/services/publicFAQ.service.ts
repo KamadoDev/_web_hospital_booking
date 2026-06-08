@@ -51,7 +51,7 @@ class PublicFAQService {
     });
 
     if (!faq) {
-      throw new AppError("Khong tim thay FAQ", 404);
+      throw new AppError("Không tìm thấy FAQ", 404);
     }
 
     return faq;

@@ -16,7 +16,7 @@ export const authDashboard = async (
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Chua dang nhap",
+        message: "Chưa đăng nhập",
       });
     }
 
@@ -36,7 +36,7 @@ export const authDashboard = async (
     if (!user || !user.isActive || !DASHBOARD_ROLES.includes(user.role)) {
       return res.status(401).json({
         success: false,
-        message: "Phien dang nhap khong hop le",
+        message: "Phiên đăng nhập không hợp lệ",
       });
     }
 
@@ -50,7 +50,7 @@ export const authDashboard = async (
   } catch {
     return res.status(401).json({
       success: false,
-      message: "Token khong hop le",
+      message: "Token không hợp lệ",
     });
   }
 };
@@ -63,7 +63,7 @@ export const requireRole =
     if (!userRole || !roles.includes(userRole as Role)) {
       return res.status(403).json({
         success: false,
-        message: "Khong co quyen truy cap",
+        message: "Không có quyền truy cập",
       });
     }
 

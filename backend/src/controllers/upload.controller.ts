@@ -16,7 +16,7 @@ export const uploadImagesHandler = async (
 ) => {
   try {
     if (!req.is("multipart/form-data")) {
-      throw new AppError("Request upload phai la multipart/form-data", 400);
+      throw new AppError("Request upload phải là multipart/form-data", 400);
     }
 
     const files = getUploadedFiles(req.files);
@@ -25,7 +25,7 @@ export const uploadImagesHandler = async (
     if (!files.length) {
       return res.status(400).json({
         success: false,
-        message: "Chua chon file upload",
+        message: "Chưa chọn file upload",
         debug:
           process.env.NODE_ENV === "production"
             ? undefined
@@ -46,7 +46,7 @@ export const uploadImagesHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Upload anh thanh cong",
+      message: "Upload ảnh thành công",
       data: {
         items,
       },
@@ -73,7 +73,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -111,7 +111,7 @@ export const deleteUnusedMediaAssetHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa anh chua su dung thanh cong",
+      message: "Xóa ảnh chưa sử dụng thành công",
       data: asset,
     });
   } catch (error) {
@@ -129,7 +129,7 @@ export const cleanupUnusedMediaAssetsHandler = async (
 
     return res.json({
       success: true,
-      message: "Don anh chua su dung thanh cong",
+      message: "Dọn ảnh chưa sử dụng thành công",
       data: result,
     });
   } catch (error) {

@@ -124,7 +124,7 @@ class DoctorScheduleService {
     });
 
     if (!schedule) {
-      throw new AppError("Khong tim thay lich lam viec", 404);
+      throw new AppError("Không tìm thấy lịch làm việc", 404);
     }
 
     return schedule;
@@ -139,7 +139,7 @@ class DoctorScheduleService {
     });
 
     if (!doctor) {
-      throw new AppError("Khong tim thay bac si", 404);
+      throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
     await this.ensureNoOverlap({
@@ -169,7 +169,7 @@ class DoctorScheduleService {
     });
 
     if (!current) {
-      throw new AppError("Khong tim thay lich lam viec", 404);
+      throw new AppError("Không tìm thấy lịch làm việc", 404);
     }
 
     const next = {
@@ -228,7 +228,7 @@ class DoctorScheduleService {
     );
 
     if (hasOverlap) {
-      throw new AppError("Lich lam viec bi trung thoi gian", 409);
+      throw new AppError("Lịch làm việc bị trùng thời gian", 409);
     }
   }
 }

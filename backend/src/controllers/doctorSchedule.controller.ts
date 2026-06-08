@@ -20,7 +20,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -28,7 +28,7 @@ const getParam = (value: string | string[] | undefined) => {
 
 const getActor = (req: Request) => {
   if (!req.user?.userId || !req.user.role) {
-    throw new AppError("Chua dang nhap", 401);
+    throw new AppError("Chưa đăng nhập", 401);
   }
 
   return {
@@ -87,7 +87,7 @@ export const createDoctorScheduleHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao lich lam viec thanh cong",
+      message: "Tạo lịch làm việc thành công",
       data: schedule,
     });
   } catch (error) {
@@ -108,7 +108,7 @@ export const updateDoctorScheduleHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat lich lam viec thanh cong",
+      message: "Cập nhật lịch làm việc thành công",
       data: schedule,
     });
   } catch (error) {
@@ -126,7 +126,7 @@ export const deleteDoctorScheduleHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa lich lam viec thanh cong",
+      message: "Xóa lịch làm việc thành công",
       data: schedule,
     });
   } catch (error) {

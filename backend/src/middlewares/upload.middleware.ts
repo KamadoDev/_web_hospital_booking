@@ -1,7 +1,15 @@
 import multer from "multer";
 import { AppError } from "../utils/appError.js";
 
-const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+const allowedMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+]);
 
 export const uploadImages = multer({
   storage: multer.memoryStorage(),
@@ -10,8 +18,8 @@ export const uploadImages = multer({
     files: 10,
   },
   fileFilter(req, file, callback) {
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      callback(new AppError("Chi ho tro anh JPG, PNG hoac WEBP", 400));
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      callback(new AppError("Chỉ hỗ trợ ảnh JPG, PNG, WEBP, GIF, SVG hoặc ICO", 400));
       return;
     }
 

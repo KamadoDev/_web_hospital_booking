@@ -17,9 +17,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
+import { formatVietnamDate, formatVietnamDateTime, getVietnamDateInput } from "@/lib/date";
 import type {
   Appointment,
   DashboardAppointmentStatistics,
@@ -83,7 +84,7 @@ const getMonthRange = () => {
 const formatDate = (value?: string | null) => value ? formatVietnamDate(value) : "-";
 
 const formatDateTime = (value?: string | null) =>
-  value ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "-";
+  value ? formatVietnamDateTime(value) : "-";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value || 0);
@@ -532,11 +533,11 @@ function DashboardPage() {
           <form onSubmit={applyFilter} className="grid gap-2 sm:grid-cols-[150px_150px_auto_auto]">
             <label className="block">
               <span className="text-xs font-medium text-[#667892]">Từ ngày</span>
-              <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              <VietnamDateInput value={from} onChange={setFrom} ariaLabel="Từ ngày thống kê" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             </label>
             <label className="block">
               <span className="text-xs font-medium text-[#667892]">Đến ngày</span>
-              <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+              <VietnamDateInput value={to} onChange={setTo} ariaLabel="Đến ngày thống kê" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             </label>
             <button className="self-end rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Áp dụng</button>
             <button type="button" onClick={resetMonth} className="self-end rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">Tháng này</button>

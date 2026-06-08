@@ -19,7 +19,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -78,7 +78,7 @@ export const createDoctorHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao ho so bac si thanh cong",
+      message: "Tạo hồ sơ bác sĩ thành công",
       data: doctor,
     });
   } catch (error) {
@@ -96,7 +96,7 @@ export const updateDoctorHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat ho so bac si thanh cong",
+      message: "Cập nhật hồ sơ bác sĩ thành công",
       data: doctor,
     });
   } catch (error) {
@@ -117,7 +117,7 @@ export const updateDoctorAvailabilityHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat trang thai bac si thanh cong",
+      message: "Cập nhật trạng thái bác sĩ thành công",
       data: doctor,
     });
   } catch (error) {
@@ -135,7 +135,7 @@ export const deleteDoctorHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa ho so bac si thanh cong",
+      message: "Xóa hồ sơ bác sĩ thành công",
       data: doctor,
     });
   } catch (error) {

@@ -6,12 +6,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "test-db": "tsx src/test.ts",
     "seed:demo": "tsx src/scripts/seedDemoFlow.ts",
+    "seed:demo-full": "tsx src/scripts/seedDemoData.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "render:build": "npm run prisma:migrate:deploy && npm run build"
   },
   "keywords": [],
   "author": "",

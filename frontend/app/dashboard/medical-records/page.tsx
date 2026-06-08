@@ -2,8 +2,10 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
 import type {
   DoctorProfile,
   LabResult,
@@ -67,10 +69,9 @@ const statusClass: Record<MedicalResultStatus, string> = {
   ARCHIVED: "bg-[#eef2f7] text-[#667892]",
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => getVietnamDateInput();
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN").format(new Date(value));
+const formatDate = (value: string) => formatVietnamDate(value);
 
 const doctorName = (doctor: DoctorProfile | MedicalRecord["doctor"]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
@@ -453,7 +454,7 @@ export default function MedicalRecordsPage() {
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
           <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_170px_1fr]" : "lg:grid-cols-[170px_1fr_170px_170px]"}`}>
-            <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc hồ sơ khám" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
                 <option value="">Tất cả bác sĩ</option>

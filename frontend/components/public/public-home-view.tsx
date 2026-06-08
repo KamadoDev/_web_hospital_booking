@@ -254,12 +254,12 @@ function HeroSection({
   }, [emblaApi, heroSlides.length]);
 
   return (
-    <section className="bg-white">
-      <div className="mx-auto grid min-h-[calc(100vh-76px)] max-w-7xl items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)] lg:px-8">
+    <section className="overflow-hidden bg-[linear-gradient(180deg,#f4f9ff_0%,#ffffff_72%,#f6f8fb_100%)]">
+      <div className="mx-auto grid min-h-[calc(100vh-76px)] max-w-7xl items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(440px,1fr)] lg:px-8">
         <ScrollReveal className="max-w-2xl">
-          <div className="ui-soft-glow inline-flex items-center gap-2 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] px-3 py-2 text-sm font-semibold text-[#0d4f8b]">
+          <div className="ui-soft-glow inline-flex items-center gap-2 rounded-md border border-[#cfe4fa] bg-white px-3 py-2 text-sm font-semibold text-[#0d4f8b] shadow-sm">
             <Sparkles className="h-4 w-4" />
-            Tư vấn, chọn bác sĩ và đặt lịch trong một luồng
+            Tư vấn, chọn bác sĩ và giữ lịch khám trong một luồng
           </div>
           {loading ? (
             <div className="mt-5 space-y-3">
@@ -270,14 +270,24 @@ function HeroSection({
               <Skeleton className="h-4 w-2/3 max-w-md" />
             </div>
           ) : (
-            <h1 className="mt-5 text-4xl font-semibold leading-tight text-[#172033] sm:text-5xl"><span className="ui-accent-text">{heroTitle}</span></h1>
+            <h1 className="mt-5 text-4xl font-semibold leading-tight text-[#172033] sm:text-5xl">
+              <span className="ui-accent-text">{heroTitle}</span>
+            </h1>
           )}
-          <p className={`mt-5 max-w-xl text-base leading-7 text-[#667892] ${loading ? "hidden" : ""}`}>
-            {heroSubtitle || `Kết nối bệnh nhân với chuyên khoa, bác sĩ và khung giờ khám phù hợp tại ${hospitalName}. Quy trình rõ ràng, thông tin minh bạch, dễ theo dõi trạng thái lịch hẹn.`}
+          <p className={`mt-5 max-w-xl text-base leading-7 text-[#42526b] ${loading ? "hidden" : ""}`}>
+            {heroSubtitle || `Đặt lịch khám tại ${hospitalName} với quy trình rõ ràng: chọn chuyên khoa, bác sĩ, khung giờ còn trống và xác thực OTP để giữ lịch. Thông tin chi phí, trạng thái lịch hẹn và kết quả sau khám được theo dõi tập trung.`}
           </p>
+          <div className={`mt-5 flex flex-wrap gap-2 text-xs font-semibold text-[#42526b] ${loading ? "hidden" : ""}`}>
+            {["Xác thực OTP", "Theo dõi trạng thái", "Tra cứu hóa đơn", "Hỗ trợ tư vấn"].map((item) => (
+              <span key={item} className="inline-flex items-center gap-1 rounded-full border border-[#d8e9ff] bg-white px-3 py-1.5 shadow-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#1f7a3a]" aria-hidden="true" />
+                {item}
+              </span>
+            ))}
+          </div>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <a href="#booking" className="ui-soft-glow inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#083d6d]">
-              Bắt đầu đặt lịch
+            <a href="#booking" className="ui-soft-glow inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(13,79,139,0.22)] transition hover:-translate-y-0.5 hover:bg-[#083d6d]">
+              Đặt lịch ngay
               <ArrowRight className="h-4 w-4" />
             </a>
             <a href={`tel:${hotline}`} className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-5 py-3 text-sm font-semibold text-[#42526b] transition hover:-translate-y-0.5 hover:bg-[#f8fafc]">
@@ -291,7 +301,7 @@ function HeroSection({
               ["Bác sĩ", counts.doctors],
               ["Gói khám", counts.packages],
             ].map(([label, value]) => (
-              <div key={label} className="ui-lift-card rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-4">
+              <div key={label} className="ui-lift-card rounded-md border border-[#d8e9ff] bg-white p-4 shadow-sm">
                 {loading ? <Skeleton className="h-8 w-14" /> : <p className="text-2xl font-semibold text-[#0d4f8b]">{value}</p>}
                 <p className="mt-1 text-sm text-[#667892]">{label}</p>
               </div>
@@ -300,7 +310,7 @@ function HeroSection({
         </ScrollReveal>
 
         <ScrollReveal delay={120}>
-          <div className="ui-soft-glow relative min-h-[460px] overflow-hidden rounded-md bg-[#e7f0fb]">
+          <div className="ui-soft-glow relative min-h-[500px] overflow-hidden rounded-md border border-[#cfe0f3] bg-[#e7f0fb] shadow-[0_24px_60px_rgba(13,79,139,0.16)]">
             {loading ? (
               <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
             ) : heroSlides.length ? (
@@ -324,40 +334,35 @@ function HeroSection({
             ) : (
               <div className="absolute inset-0 bg-[linear-gradient(135deg,#e7f0fb_0%,#f0fff4_55%,#fff8eb_100%)]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0b2440]/75 via-[#0b2440]/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#061827]/82 via-[#0b2440]/22 to-[#ffffff]/5" />
+            <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/35 to-transparent" />
             {!loading && hasMultipleSlides ? (
               <>
-                <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
+                <div className="pointer-events-none absolute inset-y-0 left-3 right-3 z-10 flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={() => emblaApi?.scrollPrev()}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-white/90 text-[#172033] shadow-lg backdrop-blur transition hover:bg-white"
+                    className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[#172033] shadow-lg ring-1 ring-white/70 backdrop-blur transition hover:scale-105 hover:bg-white"
                     aria-label="Banner trước"
+                    title="Banner trước"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => emblaApi?.scrollNext()}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-white/90 text-[#172033] shadow-lg backdrop-blur transition hover:bg-white"
+                    className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-[#172033] shadow-lg ring-1 ring-white/70 backdrop-blur transition hover:scale-105 hover:bg-white"
                     aria-label="Banner tiếp theo"
+                    title="Banner tiếp theo"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="absolute bottom-[118px] left-5 right-5 z-10 flex justify-center gap-2 sm:bottom-[128px]">
-                  {heroSlides.map((item, index) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      onClick={() => emblaApi?.scrollTo(index)}
-                      className={`h-2.5 rounded-full transition-all ${index === selectedIndex ? "w-8 bg-white" : "w-2.5 bg-white/55 hover:bg-white/80"}`}
-                      aria-label={`Chọn banner ${index + 1}`}
-                    />
-                  ))}
-                </div>
               </>
             ) : null}
+            <div className="absolute left-5 top-5 max-w-[78%] rounded-full border border-white/30 bg-white/18 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur">
+              {hasMultipleSlides ? `${selectedIndex + 1}/${heroSlides.length}` : "Dịch vụ đặt lịch"}
+            </div>
             <div className="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-6">
               <div className="grid gap-3 sm:grid-cols-2">
                 <HeroInfo icon={<CalendarDays className="h-4 w-4" />} title="Lịch hẹn" text="Chọn ngày, bác sĩ và slot khám phù hợp." />
@@ -838,7 +843,7 @@ function PublicFooter({ settings, hospitalName, logo, hotline, loading }: { sett
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs leading-5 text-white/60 sm:px-6">
-        Xây dựng website quàn lí đặt lịch khám bệnh có tích hợp chatbot hỗ trợ - Môn Tiểu Luận Chuyên Ngành - Ngô Quang Lợi - 248100336 - Đại Học Công Nghệ Kỹ Thuật TP HCM
+        Xây dựng website quàn lí đặt lịch khám bệnh có tích hợp chatbot hỗ trợ - Môn Tiểu Luận Chuyên Ngành - Ngô Quang Lợi - 24810036 - Đại Học Công Nghệ Kỹ Thuật TP HCM
       </div>
     </footer>
   );

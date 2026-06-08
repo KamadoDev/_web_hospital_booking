@@ -19,7 +19,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -74,7 +74,7 @@ export const createDashboardChatbotFAQHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao FAQ chatbot thanh cong",
+      message: "Tạo FAQ chatbot thành công",
       data: faq,
     });
   } catch (error) {
@@ -95,7 +95,7 @@ export const updateDashboardChatbotFAQHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat FAQ chatbot thanh cong",
+      message: "Cập nhật FAQ chatbot thành công",
       data: faq,
     });
   } catch (error) {
@@ -116,7 +116,7 @@ export const updateDashboardChatbotFAQStatusHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat trang thai FAQ chatbot thanh cong",
+      message: "Cập nhật trạng thái FAQ chatbot thành công",
       data: faq,
     });
   } catch (error) {
@@ -134,7 +134,7 @@ export const deleteDashboardChatbotFAQHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa FAQ chatbot thanh cong",
+      message: "Xóa FAQ chatbot thành công",
       data: faq,
     });
   } catch (error) {

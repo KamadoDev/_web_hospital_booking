@@ -45,7 +45,7 @@ export const updateDashboardSiteSettingsHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat cau hinh website thanh cong",
+      message: "Cập nhật cấu hình website thành công",
       data: settings,
     });
   } catch (error) {

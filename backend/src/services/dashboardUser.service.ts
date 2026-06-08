@@ -46,7 +46,7 @@ const dashboardUserSelect = {
 
 const ensureDashboardRole = (role: Role) => {
   if (!DASHBOARD_ROLES.includes(role)) {
-    throw new AppError("Role khong hop le cho dashboard", 400);
+    throw new AppError("Vai trò không hợp lệ cho dashboard", 400);
   }
 };
 
@@ -118,7 +118,7 @@ class DashboardUserService {
     });
 
     if (!user) {
-      throw new AppError("Khong tim thay tai khoan dashboard", 404);
+      throw new AppError("Không tìm thấy tài khoản dashboard", 404);
     }
 
     return user;
@@ -143,7 +143,7 @@ class DashboardUserService {
     });
 
     if (existingUser) {
-      throw new AppError("So dien thoai hoac email da ton tai", 409);
+      throw new AppError("Số điện thoại hoặc email đã tồn tại", 409);
     }
 
     const user = await prisma.user.create({
@@ -191,7 +191,7 @@ class DashboardUserService {
       });
 
       if (existingUser) {
-        throw new AppError("So dien thoai hoac email da ton tai", 409);
+        throw new AppError("Số điện thoại hoặc email đã tồn tại", 409);
       }
     }
 

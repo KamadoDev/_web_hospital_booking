@@ -31,7 +31,7 @@ export const sendOtpHandler = async (
 
     return res.status(200).json({
       success: true,
-      message: "Gui OTP thanh cong",
+      message: "Gửi OTP thành công",
       data: result,
     });
   } catch (error) {
@@ -61,7 +61,7 @@ export const verifyOtpHandler = async (
 
     return res.status(200).json({
       success: true,
-      message: "Xac thuc OTP thanh cong",
+      message: "Xác thực OTP thành công",
       data: result,
     });
   } catch (error) {

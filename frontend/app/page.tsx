@@ -1,107 +1,103 @@
-"use client";
+import { PublicHomeClient } from "@/components/public/public-home-client";
+import { emptyHomeData, type PublicHomeData } from "@/components/public/public-home-types";
+import { serverApiRequest } from "@/lib/server-api";
+import { absoluteUrl, jsonLdString } from "@/lib/seo";
+import type { Banner, DoctorProfile, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 
-import { useEffect, useState } from "react";
-import { PublicHomeView } from "@/components/public/public-home-view";
-import {
-  emptyHomeData,
-  type HomeSelection,
-  type PublicDepartment,
-  type PublicHomeData,
-} from "@/components/public/public-home-types";
-import { apiRequest } from "@/lib/api";
-import type {
-  Banner,
-  DoctorProfile,
-  MedicalPackage,
-  PublicFAQ,
-  SiteSettingsValue,
-} from "@/lib/types";
+export const dynamic = "force-dynamic";
 
-const initialSelection: HomeSelection = {
-  departmentId: "",
-  doctorId: "",
-  packageId: "",
-};
+async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
+  try {
+    const [settings, banners, departments, doctors, packages, faqs] = await Promise.all([
+      serverApiRequest<SiteSettingsValue>("/site-settings"),
+      serverApiRequest<{ items: Banner[] }>("/banners"),
+      serverApiRequest<PublicHomeData["departments"]>("/departments"),
+      serverApiRequest<DoctorProfile[]>("/doctors"),
+      serverApiRequest<MedicalPackage[]>("/packages"),
+      serverApiRequest<{ items: PublicFAQ[] }>("/faqs"),
+    ]);
+    const publicBanners = banners.items || [];
+    const heroPositions = new Set(["HOME_HERO", "HOME_PROMO", "HOME_DEPARTMENT"]);
+    const heroBanners = publicBanners.filter((banner) => heroPositions.has(banner.position));
+    const promoBanners = publicBanners.filter((banner) => banner.position === "HOME_PROMO");
 
-const getInitialSelectionFromUrl = (): HomeSelection => {
-  if (typeof window === "undefined") return initialSelection;
+    return {
+      data: {
+        settings,
+        heroBanners: heroBanners.length ? heroBanners : publicBanners,
+        promoBanners,
+        departments,
+        doctors,
+        packages,
+        faqs: faqs.items || [],
+      },
+      error: "",
+    };
+  } catch (err) {
+    return {
+      data: emptyHomeData,
+      error: err instanceof Error ? err.message : "Không tải được dữ liệu website",
+    };
+  }
+}
 
-  const params = new URLSearchParams(window.location.search);
+function buildMedicalOrganizationJsonLd(data: PublicHomeData) {
+  const settings = data.settings;
+  const hospitalName = settings?.hospitalName || "Hospital Booking";
+  const socialLinks = settings?.socialLinks ? Object.values(settings.socialLinks).filter(Boolean) : [];
 
   return {
-    departmentId: params.get("departmentId") || "",
-    doctorId: params.get("doctorId") || "",
-    packageId: params.get("packageId") || "",
-  };
-};
-
-export default function PublicHomePage() {
-  const [data, setData] = useState<PublicHomeData>(emptyHomeData);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selection, setSelection] = useState<HomeSelection>(initialSelection);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadHome = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const [
-          settings,
-          heroBanners,
-          promoBanners,
-          departments,
-          doctors,
-          packages,
-          faqs,
-        ] = await Promise.all([
-          apiRequest<SiteSettingsValue>("/site-settings"),
-          apiRequest<{ items: Banner[] }>("/banners", { query: { position: "HOME_HERO" } }),
-          apiRequest<{ items: Banner[] }>("/banners", { query: { position: "HOME_PROMO" } }),
-          apiRequest<PublicDepartment[]>("/departments"),
-          apiRequest<DoctorProfile[]>("/doctors"),
-          apiRequest<MedicalPackage[]>("/packages"),
-          apiRequest<{ items: PublicFAQ[] }>("/faqs"),
-        ]);
-
-        if (!active) return;
-
-        setData({
-          settings,
-          heroBanners: heroBanners.items || [],
-          promoBanners: promoBanners.items || [],
-          departments,
-          doctors,
-          packages,
-          faqs: faqs.items || [],
-        });
-        setSelection((current) => ({ ...current, ...getInitialSelectionFromUrl() }));
-      } catch (err) {
-        if (active) {
-          setError(err instanceof Error ? err.message : "Không tải được dữ liệu website");
+    "@context": "https://schema.org",
+    "@type": "MedicalOrganization",
+    name: hospitalName,
+    url: absoluteUrl("/"),
+    logo: absoluteUrl(settings?.logo),
+    telephone: settings?.hotline || settings?.emergencyHotline || undefined,
+    email: settings?.email || undefined,
+    address: settings?.address
+      ? {
+          "@type": "PostalAddress",
+          streetAddress: settings.address,
+          addressCountry: "VN",
         }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
+      : undefined,
+    sameAs: socialLinks.length ? socialLinks : undefined,
+    medicalSpecialty: data.departments.slice(0, 12).map((item) => item.name),
+  };
+}
 
-    void loadHome();
+function buildHomeFAQJsonLd(data: PublicHomeData) {
+  const faqs = data.faqs.slice(0, 10);
+  if (!faqs.length) return null;
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
+export default async function PublicHomePage() {
+  const { data, error } = await getHomeData();
+  const faqJsonLd = buildHomeFAQJsonLd(data);
 
   return (
-    <PublicHomeView
-      data={data}
-      loading={loading}
-      error={error}
-      selection={selection}
-      setSelection={setSelection}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(buildMedicalOrganizationJsonLd(data)) }}
+      />
+      {faqJsonLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(faqJsonLd) }} />
+      ) : null}
+      <PublicHomeClient data={data} error={error} />
+    </>
   );
 }

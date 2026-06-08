@@ -19,7 +19,7 @@ const getParam = (value: string | string[] | undefined) => {
   const param = Array.isArray(value) ? value[0] : value;
 
   if (!param) {
-    throw new AppError("Thieu id", 400);
+    throw new AppError("Thiếu id", 400);
   }
 
   return param;
@@ -74,7 +74,7 @@ export const createDepartmentHandler = async (
 
     return res.status(201).json({
       success: true,
-      message: "Tao chuyen khoa thanh cong",
+      message: "Tạo chuyên khoa thành công",
       data: department,
     });
   } catch (error) {
@@ -95,7 +95,7 @@ export const updateDepartmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Cap nhat chuyen khoa thanh cong",
+      message: "Cập nhật chuyên khoa thành công",
       data: department,
     });
   } catch (error) {
@@ -113,7 +113,7 @@ export const deleteDepartmentHandler = async (
 
     return res.json({
       success: true,
-      message: "Xoa chuyen khoa thanh cong",
+      message: "Xóa chuyên khoa thành công",
       data: department,
     });
   } catch (error) {

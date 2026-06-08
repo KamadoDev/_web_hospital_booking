@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, Copy, Cred
 import Link from "next/link";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
 import type { AppointmentStatus, LabResult, PaymentProvider, PaymentTransaction, Prescription, PublicAppointmentInvoice } from "@/lib/types";
 
 type DisplayAppointment = {
@@ -156,21 +157,9 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value || 0);
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
+const formatDate = (value: string) => formatVietnamDate(value);
 
-const formatDateTime = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+const formatDateTime = (value: string) => formatVietnamDateTime(value);
 
 const formatTime = (value: string) => value.slice(0, 5);
 

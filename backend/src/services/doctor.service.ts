@@ -120,7 +120,7 @@ class DoctorService {
     });
 
     if (!doctor) {
-      throw new AppError("Khong tim thay ho so bac si", 404);
+      throw new AppError("Không tìm thấy hồ sơ bác sĩ", 404);
     }
 
     return doctor;
@@ -139,15 +139,15 @@ class DoctorService {
     });
 
     if (!user) {
-      throw new AppError("Khong tim thay tai khoan bac si", 404);
+      throw new AppError("Không tìm thấy tài khoản bác sĩ", 404);
     }
 
     if (user.role !== "DOCTOR") {
-      throw new AppError("Tai khoan phai co role DOCTOR", 400);
+      throw new AppError("Tài khoản phải có vai trò DOCTOR", 400);
     }
 
     if (user.doctorProfile) {
-      throw new AppError("Tai khoan nay da co ho so bac si", 409);
+      throw new AppError("Tài khoản này đã có hồ sơ bác sĩ", 409);
     }
 
     const department = await prisma.department.findUnique({
@@ -156,7 +156,7 @@ class DoctorService {
     });
 
     if (!department) {
-      throw new AppError("Khong tim thay chuyen khoa", 404);
+      throw new AppError("Không tìm thấy chuyên khoa", 404);
     }
 
     return prisma.doctorProfile.create({
@@ -184,7 +184,7 @@ class DoctorService {
       });
 
       if (!department) {
-        throw new AppError("Khong tim thay chuyen khoa", 404);
+        throw new AppError("Không tìm thấy chuyên khoa", 404);
       }
     }
 
@@ -219,7 +219,7 @@ class DoctorService {
     const doctor = await this.getById(id);
 
     if (doctor._count.appointments > 0 || doctor._count.schedules > 0 || doctor._count.timeSlots > 0) {
-      throw new AppError("Khong the xoa bac si da co lich hen hoac lich lam viec", 409);
+      throw new AppError("Không thể xóa bác sĩ đã có lịch hẹn hoặc lịch làm việc", 409);
     }
 
     await prisma.doctorProfile.delete({

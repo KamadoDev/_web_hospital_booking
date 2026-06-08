@@ -94,7 +94,7 @@ class ConsultationRequestService {
     });
 
     if (!request) {
-      throw new AppError("Khong tim thay yeu cau tu van", 404);
+      throw new AppError("Không tìm thấy yêu cầu tư vấn", 404);
     }
 
     return request;

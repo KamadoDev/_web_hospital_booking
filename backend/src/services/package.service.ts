@@ -182,7 +182,7 @@ class PackageService {
     });
 
     if (!packageItem) {
-      throw new AppError("Khong tim thay goi kham", 404);
+      throw new AppError("Không tìm thấy gói khám", 404);
     }
 
     return withFinalPrice(packageItem);
@@ -272,7 +272,7 @@ class PackageService {
     const packageItem = await this.getById(id);
 
     if (packageItem._count.appointments > 0) {
-      throw new AppError("Khong the xoa goi kham da co lich hen", 409);
+      throw new AppError("Không thể xóa gói khám đã có lịch hẹn", 409);
     }
 
     await prisma.package.delete({
@@ -357,7 +357,7 @@ class PackageService {
     });
 
     if (!packageItem) {
-      throw new AppError("Khong tim thay goi kham", 404);
+      throw new AppError("Không tìm thấy gói khám", 404);
     }
 
     return withFinalPrice(packageItem);
@@ -372,7 +372,7 @@ class PackageService {
     });
 
     if (!item) {
-      throw new AppError("Khong tim thay hang muc goi kham", 404);
+      throw new AppError("Không tìm thấy hạng mục gói khám", 404);
     }
 
     return item;
@@ -395,7 +395,7 @@ class PackageService {
     });
 
     if (existingPackage) {
-      throw new AppError("Ten hoac slug goi kham da ton tai", 409);
+      throw new AppError("Tên hoặc slug gói khám đã tồn tại", 409);
     }
   }
 
@@ -408,7 +408,7 @@ class PackageService {
     });
 
     if (!department) {
-      throw new AppError("Khong tim thay chuyen khoa", 404);
+      throw new AppError("Không tìm thấy chuyên khoa", 404);
     }
   }
 }

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDate } from "@/lib/date";
 import type { InsuranceRouteType, Invoice, InvoiceStatus, ListResult, PaymentMethod } from "@/lib/types";
 
 type InvoiceAction = "pay" | "cancel" | "refund" | "adjust";
@@ -91,8 +92,7 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN").format(new Date(value));
+const formatDate = (value: string) => formatVietnamDate(value);
 
 const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
 

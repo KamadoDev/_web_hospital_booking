@@ -17,6 +17,22 @@ export const formatVietnamDate = (value?: string | null) => {
   }).format(date);
 };
 
+export const formatVietnamDateTime = (value?: string | null) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: vietnamTimeZone,
+  }).format(date);
+};
+
 export const getVietnamDateInput = (date = new Date()) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
@@ -30,6 +46,40 @@ export const getVietnamDateInput = (date = new Date()) => {
   const day = parts.find((part) => part.type === "day")?.value || "";
 
   return `${year}-${month}-${day}`;
+};
+
+export const toVietnamDateTimeInput = (value?: string | null) => {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: vietnamTimeZone,
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === "year")?.value || "";
+  const month = parts.find((part) => part.type === "month")?.value || "";
+  const day = parts.find((part) => part.type === "day")?.value || "";
+  const hour = parts.find((part) => part.type === "hour")?.value || "";
+  const minute = parts.find((part) => part.type === "minute")?.value || "";
+
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+};
+
+export const fromVietnamDateTimeInput = (value: string) => {
+  if (!value) return null;
+
+  const date = new Date(`${value}:00+07:00`);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toISOString();
 };
 
 export const getVietnamTimeInput = (date = new Date()) => {

@@ -114,7 +114,7 @@ class DoctorTimeSlotService {
     });
 
     if (!slot) {
-      throw new AppError("Khong tim thay slot", 404);
+      throw new AppError("Không tìm thấy slot", 404);
     }
 
     return slot;
@@ -134,7 +134,7 @@ class DoctorTimeSlotService {
     });
 
     if (!doctor) {
-      throw new AppError("Khong tim thay bac si", 404);
+      throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
     const schedules = await prisma.doctorSchedule.findMany({
@@ -149,7 +149,7 @@ class DoctorTimeSlotService {
     });
 
     if (!schedules.length) {
-      throw new AppError("Bac si chua co lich lam viec trong ngay nay", 404);
+      throw new AppError("Bác sĩ chưa có lịch làm việc trong ngày này", 404);
     }
 
     const slotData = schedules.flatMap((schedule) =>
@@ -190,11 +190,11 @@ class DoctorTimeSlotService {
     const slot = await this.getSlotForMutation(id);
 
     if (slot.status === "BOOKED" || slot.appointment) {
-      throw new AppError("Khong the cap nhat slot da duoc dat", 409);
+      throw new AppError("Không thể cập nhật slot đã được đặt", 409);
     }
 
     if (status === "BOOKED") {
-      throw new AppError("Khong the set BOOKED thu cong", 400);
+      throw new AppError("Không thể đặt trạng thái BOOKED thủ công", 400);
     }
 
     return prisma.doctorTimeSlot.update({
@@ -216,7 +216,7 @@ class DoctorTimeSlotService {
     const slot = await this.getSlotForMutation(id);
 
     if (slot.status === "BOOKED" || slot.appointment) {
-      throw new AppError("Khong the mo khoa slot da duoc dat", 409);
+      throw new AppError("Không thể mở khóa slot đã được đặt", 409);
     }
 
     return prisma.doctorTimeSlot.update({
@@ -234,7 +234,7 @@ class DoctorTimeSlotService {
     const slot = await this.getSlotForMutation(id);
 
     if (slot.status === "BOOKED" || slot.appointment) {
-      throw new AppError("Khong the xoa slot da duoc dat", 409);
+      throw new AppError("Không thể xóa slot đã được đặt", 409);
     }
 
     await prisma.doctorTimeSlot.delete({
@@ -293,7 +293,7 @@ class DoctorTimeSlotService {
     });
 
     if (!slot) {
-      throw new AppError("Khong tim thay slot", 404);
+      throw new AppError("Không tìm thấy slot", 404);
     }
 
     return slot;

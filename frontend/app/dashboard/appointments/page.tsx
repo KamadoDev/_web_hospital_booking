@@ -2,8 +2,10 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
 import type { Appointment, AppointmentStatus, DoctorProfile, ListResult } from "@/lib/types";
 
 const statusOptions: { value: "" | AppointmentStatus; label: string }[] = [
@@ -48,10 +50,9 @@ const statusClass: Record<AppointmentStatus, string> = {
   NO_SHOW: "bg-[#fff3f2] text-[#b3261e]",
 };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => getVietnamDateInput();
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("vi-VN").format(new Date(value));
+const formatDate = (value: string) => formatVietnamDate(value);
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -468,7 +469,7 @@ export default function AppointmentsPage() {
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
           <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_170px_1fr_1fr]" : "lg:grid-cols-[170px_1fr_150px_150px_150px]"}`}>
-            <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+            <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc lịch hẹn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
                 <option value="">Tất cả bác sĩ</option>
@@ -585,7 +586,7 @@ export default function AppointmentsPage() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-medium text-[#334155]">Ngày sinh</span>
-                    <input type="date" value={patientInfoForm.dateOfBirth} onChange={(event) => updatePatientInfoField("dateOfBirth", event.target.value)} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
+                    <VietnamDateInput value={patientInfoForm.dateOfBirth} max={getVietnamYesterdayDateInput()} onChange={(value) => updatePatientInfoField("dateOfBirth", value)} ariaLabel="Ngày sinh bệnh nhân" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
                   </label>
                   <label className="block">
                     <span className="text-xs font-medium text-[#334155]">CCCD</span>

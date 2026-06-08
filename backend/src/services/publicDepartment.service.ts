@@ -42,7 +42,7 @@ class PublicDepartmentService {
     });
 
     if (!department) {
-      throw new AppError("Khong tim thay chuyen khoa", 404);
+      throw new AppError("Không tìm thấy chuyên khoa", 404);
     }
 
     return department;
