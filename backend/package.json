@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
@@ -38,6 +41,7 @@
     "multer": "^2.1.1",
     "nodemailer": "^8.0.10",
     "pg": "^8.20.0",
+    "resend": "^6.12.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

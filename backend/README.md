@@ -222,6 +222,17 @@ Could not find a declaration file for module 'express'
 Namespace 'global.Express' has no exported member 'Multer'
 ```
 
+## Email OTP Provider
+
+Backend uu tien gui email qua Resend neu co cau hinh:
+
+```txt
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM=Hospital Booking <onboarding@resend.dev>
+```
+
+Khi chua co `RESEND_API_KEY`, backend se fallback sang SMTP Nodemailer bang cac bien `MAIL_HOST`, `MAIL_USER`, `MAIL_PASS`. Moi truong development neu khong co Resend/SMTP se in email mock ra console.
+
 Response mau:
 
 ```json
