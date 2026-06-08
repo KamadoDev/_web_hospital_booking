@@ -8,6 +8,9 @@ import type { DashboardUser } from "@/lib/types";
 type LoginResult = {
   challengeId: string;
   phone: string;
+  email?: string | null;
+  otpTarget: string;
+  otpChannel: "SMS" | "EMAIL";
   expiresAt: string;
   expiresIn: number;
   otpExpiresAt: string;

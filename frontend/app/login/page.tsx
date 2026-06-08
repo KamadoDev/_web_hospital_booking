@@ -11,6 +11,7 @@ import {
   Hospital,
   Loader2,
   LockKeyhole,
+  Mail,
   Phone,
   ShieldCheck,
   Smartphone,
@@ -31,14 +32,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
   const [challengeId, setChallengeId] = useState("");
+  const [otpTarget, setOtpTarget] = useState("");
+  const [otpChannel, setOtpChannel] = useState<"SMS" | "EMAIL">("SMS");
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
   const logo = siteSettings?.logo?.trim();
   const hotline = siteSettings?.hotline?.trim() || siteSettings?.emergencyHotline?.trim() || "1900 0000";
+  const otpTargetLabel = otpChannel === "EMAIL" ? "email" : "số điện thoại";
+  const otpTargetText = otpTarget || phone;
 
   useEffect(() => {
     let active = true;
@@ -68,7 +74,12 @@ export default function LoginPage() {
     try {
       const result = await login(phone.trim(), password);
       setChallengeId(result.challengeId);
+      setOtpTarget(result.otpTarget || result.email || result.phone);
+      setOtpChannel(result.otpChannel || "SMS");
       setExpiresIn(result.otpExpiresIn);
+      setSuccessMessage(
+        `Đã gửi mã OTP đến ${result.otpChannel === "EMAIL" ? "email" : "số điện thoại"} ${result.otpTarget || result.email || result.phone}.`,
+      );
       setStep("otp");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đăng nhập thất bại");
@@ -80,6 +91,7 @@ export default function LoginPage() {
   const handleVerify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setSuccessMessage("");
     setSubmitting(true);
 
     try {
@@ -98,9 +110,12 @@ export default function LoginPage() {
     setPassword("");
     setOtp("");
     setChallengeId("");
+    setOtpTarget("");
+    setOtpChannel("SMS");
     setExpiresIn(null);
     setSubmitting(false);
     setError("");
+    setSuccessMessage("");
     window.requestAnimationFrame(() => phoneInputRef.current?.focus());
   };
 
@@ -169,7 +184,7 @@ export default function LoginPage() {
             <div className="mx-auto flex min-h-[560px] max-w-md flex-col justify-center">
               <div className="mb-6">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
-                  {step === "credentials" ? <LockKeyhole className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
+                  {step === "credentials" ? <LockKeyhole className="h-6 w-6" /> : otpChannel === "EMAIL" ? <Mail className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
                 </div>
                 <p className="mt-5 text-sm font-semibold uppercase tracking-wide text-[#0d4f8b]">
                   {step === "credentials" ? "Đăng nhập dashboard" : "Xác thực bảo mật"}
@@ -180,13 +195,20 @@ export default function LoginPage() {
                 <p className="mt-2 text-sm leading-6 text-[#667892]">
                   {step === "credentials"
                     ? "Dùng tài khoản ADMIN, STAFF hoặc DOCTOR đã được cấp quyền trong hệ thống."
-                    : `Mã OTP đã gửi đến ${phone}. ${expiresIn ? `Hiệu lực trong ${expiresIn} giây.` : ""}`}
+                    : `Mã OTP đã gửi đến ${otpTargetLabel} ${otpTargetText}. ${expiresIn ? `Hiệu lực trong ${expiresIn} giây.` : ""}`}
                 </p>
               </div>
 
               {error ? (
                 <div className="mb-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">
                   {error}
+                </div>
+              ) : null}
+
+              {successMessage ? (
+                <div className="mb-4 flex items-start gap-2 rounded-md border border-[#b7e4c7] bg-[#effaf3] px-3 py-2 text-sm font-medium text-[#166534]">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{successMessage}</span>
                 </div>
               ) : null}
 

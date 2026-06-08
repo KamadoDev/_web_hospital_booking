@@ -429,7 +429,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                   )) : (
                     <span className="rounded-md border border-dashed border-[#dce3ee] px-3 py-2 text-sm text-[#667892]">
                       {draft.date === getVietnamDateInput()
-                        ? `Không còn khung giờ khả dụng hôm nay sau ${getVietnamTimeInput()}. Các slot đã qua giờ sẽ không hiển thị cho người bệnh.`
+                        ? `Không còn khung giờ khả dụng hôm nay sau ${getVietnamTimeInput()}. Các slot đã qua giờ sẽ không hiển thị.`
                         : `Chưa có khung giờ trống trong ngày ${formatVietnamDate(draft.date)}.`}
                     </span>
                   )}
