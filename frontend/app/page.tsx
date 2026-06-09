@@ -4,7 +4,7 @@ import { serverApiRequest } from "@/lib/server-api";
 import { absoluteUrl, jsonLdString } from "@/lib/seo";
 import type { Banner, DoctorProfile, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
   try {
