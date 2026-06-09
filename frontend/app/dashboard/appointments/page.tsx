@@ -468,7 +468,7 @@ export default function AppointmentsPage() {
         ) : null}
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_170px_1fr_1fr]" : "lg:grid-cols-[170px_1fr_150px_150px_150px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_150px_150px_150px]"}`}>
             <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc lịch hẹn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">

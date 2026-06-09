@@ -423,7 +423,7 @@ export default function PackagesPage() {
         </div>
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[1fr_170px_150px]">
+          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_170px_150px]">
             <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm theo tên, slug hoặc tóm tắt" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
