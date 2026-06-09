@@ -2,6 +2,7 @@ import { createHmac, randomInt, timingSafeEqual } from "crypto";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
+import { enqueueOtpDeliveryJob } from "../queues/otp.queue.js";
 import OtpSenderService from "./otpSender.service.js";
 
 type SendOtpOptions = {
@@ -322,13 +323,61 @@ class AuthOtpService {
       },
     });
 
-    await OtpSenderService.send({
+    const deliveryJob = {
+      otpCodeId: otpRecord.id,
       target,
       channel,
       purpose,
       otp,
       expiresInSeconds: OTP_EXPIRES_SECONDS,
-    });
+    };
+    let deliveryStatus: "PENDING" | "SENT" = "PENDING";
+
+    let queued = false;
+
+    try {
+      queued = await enqueueOtpDeliveryJob(deliveryJob);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không đưa được OTP vào hàng đợi";
+      console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", error);
+
+      await prisma.otpCode.update({
+        where: { id: otpRecord.id },
+        data: {
+          deliveryStatus: "FAILED",
+          deliveryError: message.slice(0, 1000),
+        },
+      });
+
+      throw new AppError(`Không thể đưa OTP vào hàng đợi gửi mã: ${message}`, 502);
+    }
+
+    if (!queued) {
+      try {
+        await OtpSenderService.send(deliveryJob);
+        await prisma.otpCode.update({
+          where: { id: otpRecord.id },
+          data: {
+            deliveryStatus: "SENT",
+            deliveryError: null,
+            deliveredAt: new Date(),
+          },
+        });
+        deliveryStatus = "SENT";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Không gửi được OTP";
+
+        await prisma.otpCode.update({
+          where: { id: otpRecord.id },
+          data: {
+            deliveryStatus: "FAILED",
+            deliveryError: message.slice(0, 1000),
+          },
+        });
+
+        throw error;
+      }
+    }
 
     if (process.env.NODE_ENV !== "production") {
       console.log("=================================");
@@ -349,6 +398,7 @@ class AuthOtpService {
       target: otpRecord.target || otpRecord.phone,
       channel: otpRecord.channel,
       purpose: otpRecord.purpose,
+      deliveryStatus,
       expiresAt: otpRecord.expiresAt,
       expiresIn: OTP_EXPIRES_SECONDS,
     };

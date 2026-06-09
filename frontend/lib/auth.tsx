@@ -11,6 +11,7 @@ type LoginResult = {
   email?: string | null;
   otpTarget: string;
   otpChannel: "SMS" | "EMAIL";
+  otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
   expiresAt: string;
   expiresIn: number;
   otpExpiresAt: string;

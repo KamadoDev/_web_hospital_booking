@@ -61,6 +61,12 @@ enum OtpChannel {
   EMAIL
 }
 
+enum OtpDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 enum InvoiceStatus {
   UNPAID
   PAID
@@ -244,6 +250,9 @@ model OtpCode {
   channel OtpChannel @default(SMS)
   code    String
   purpose OtpPurpose
+  deliveryStatus OtpDeliveryStatus @default(PENDING)
+  deliveryError  String?
+  deliveredAt    DateTime?
 
   ipAddress String?
   challengeId String?
@@ -262,6 +271,7 @@ model OtpCode {
   @@index([email])
   @@index([target])
   @@index([channel])
+  @@index([deliveryStatus])
   @@index([purpose])
   @@index([expiresAt])
   @@index([ipAddress])

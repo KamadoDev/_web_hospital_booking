@@ -609,6 +609,7 @@ class AppointmentService {
         appointmentId,
         bookingCode,
         patientPhone: input.patientPhone,
+        otpDeliveryStatus: otp.deliveryStatus,
         expiresIn: otp.expiresIn,
       };
     } catch (error) {
@@ -656,6 +657,7 @@ class AppointmentService {
     });
 
     return {
+      otpDeliveryStatus: otp.deliveryStatus,
       expiresIn: otp.expiresIn,
     };
   }
@@ -936,7 +938,7 @@ class AppointmentService {
     const appointment = await this.getPublicCancellableAppointment(input);
 
     const otp = await AuthOtpService.sendOtp(
-      appointment.patientPhone,
+      appointment.otpChannel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
       "CANCEL_APPOINTMENT",
       input.ipAddress,
       { channel: appointment.otpChannel || "SMS" },
@@ -953,6 +955,7 @@ class AppointmentService {
     return {
       bookingCode: appointment.bookingCode,
       patientPhone: appointment.patientPhone,
+      otpDeliveryStatus: otp.deliveryStatus,
       expiresIn: otp.expiresIn,
     };
   }
@@ -1496,6 +1499,7 @@ class AppointmentService {
         bookingCode: true,
         patientId: true,
         patientPhone: true,
+        patientEmail: true,
         otpChannel: true,
         status: true,
         timeSlotId: true,

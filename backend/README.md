@@ -233,6 +233,33 @@ RESEND_FROM=Hospital Booking <onboarding@resend.dev>
 
 Khi chua co `RESEND_API_KEY`, backend se fallback sang SMTP Nodemailer bang cac bien `MAIL_HOST`, `MAIL_USER`, `MAIL_PASS`. Moi truong development neu khong co Resend/SMTP se in email mock ra console.
 
+## OTP Queue Worker
+
+Backend ho tro gui OTP nen bang BullMQ + Redis. Khi co `REDIS_URL`, API tao OTP se dua job vao queue va tra ve nhanh voi `deliveryStatus=PENDING`; worker se gui email/SMS va cap nhat trang thai `SENT` hoac `FAILED`.
+
+Bien moi truong:
+
+```txt
+REDIS_URL=rediss://default:password@host:6379
+OTP_WORKER_CONCURRENCY=5
+```
+
+Chay worker sau khi build:
+
+```txt
+npm run worker:otp
+```
+
+Tren Render nen tao them Background Worker:
+
+```txt
+Root Directory: backend
+Build Command: npm install && npm run build
+Start Command: npm run worker:otp
+```
+
+Worker can dung chung `DATABASE_URL`, `REDIS_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `OTP_SECRET`, `JWT_SECRET` va `NODE_ENV=production` voi backend web service.
+
 Response mau:
 
 ```json

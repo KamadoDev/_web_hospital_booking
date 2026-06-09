@@ -21,6 +21,21 @@ import { useAuth } from "@/lib/auth";
 import type { SiteSettingsValue } from "@/lib/types";
 
 type LoginStep = "credentials" | "otp";
+type OtpDeliveryStatus = "PENDING" | "SENT" | "FAILED";
+
+const buildOtpNotice = (channel: "SMS" | "EMAIL", target: string, status?: OtpDeliveryStatus) => {
+  const targetLabel = channel === "EMAIL" ? "email" : "số điện thoại";
+
+  if (status === "SENT") {
+    return `Đã gửi mã OTP đến ${targetLabel} ${target}.`;
+  }
+
+  if (status === "FAILED") {
+    return `Chưa gửi được mã OTP đến ${targetLabel} ${target}. Vui lòng thử gửi lại.`;
+  }
+
+  return `Yêu cầu gửi OTP đã được tiếp nhận. Vui lòng kiểm tra ${targetLabel} ${target} trong giây lát.`;
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,6 +49,7 @@ export default function LoginPage() {
   const [challengeId, setChallengeId] = useState("");
   const [otpTarget, setOtpTarget] = useState("");
   const [otpChannel, setOtpChannel] = useState<"SMS" | "EMAIL">("SMS");
+  const [otpDeliveryStatus, setOtpDeliveryStatus] = useState<OtpDeliveryStatus>("PENDING");
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -45,6 +61,12 @@ export default function LoginPage() {
   const hotline = siteSettings?.hotline?.trim() || siteSettings?.emergencyHotline?.trim() || "1900 0000";
   const otpTargetLabel = otpChannel === "EMAIL" ? "email" : "số điện thoại";
   const otpTargetText = otpTarget || phone;
+  const otpDescription =
+    otpDeliveryStatus === "SENT"
+      ? `Mã OTP đã gửi đến ${otpTargetLabel} ${otpTargetText}.`
+      : otpDeliveryStatus === "FAILED"
+        ? `Chưa gửi được mã OTP đến ${otpTargetLabel} ${otpTargetText}.`
+        : `Mã OTP đang được gửi đến ${otpTargetLabel} ${otpTargetText}.`;
 
   useEffect(() => {
     let active = true;
@@ -76,9 +98,14 @@ export default function LoginPage() {
       setChallengeId(result.challengeId);
       setOtpTarget(result.otpTarget || result.email || result.phone);
       setOtpChannel(result.otpChannel || "SMS");
+      setOtpDeliveryStatus(result.otpDeliveryStatus || "PENDING");
       setExpiresIn(result.otpExpiresIn);
       setSuccessMessage(
-        `Đã gửi mã OTP đến ${result.otpChannel === "EMAIL" ? "email" : "số điện thoại"} ${result.otpTarget || result.email || result.phone}.`,
+        buildOtpNotice(
+          result.otpChannel || "SMS",
+          result.otpTarget || result.email || result.phone,
+          result.otpDeliveryStatus,
+        ),
       );
       setStep("otp");
     } catch (err) {
@@ -112,6 +139,7 @@ export default function LoginPage() {
     setChallengeId("");
     setOtpTarget("");
     setOtpChannel("SMS");
+    setOtpDeliveryStatus("PENDING");
     setExpiresIn(null);
     setSubmitting(false);
     setError("");
@@ -195,7 +223,7 @@ export default function LoginPage() {
                 <p className="mt-2 text-sm leading-6 text-[#667892]">
                   {step === "credentials"
                     ? "Dùng tài khoản ADMIN, STAFF hoặc DOCTOR đã được cấp quyền trong hệ thống."
-                    : `Mã OTP đã gửi đến ${otpTargetLabel} ${otpTargetText}. ${expiresIn ? `Hiệu lực trong ${expiresIn} giây.` : ""}`}
+                    : `${otpDescription} ${expiresIn ? `Hiệu lực trong ${expiresIn} giây.` : ""}`}
                 </p>
               </div>
 
