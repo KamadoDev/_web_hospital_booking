@@ -41,6 +41,7 @@ type PendingAppointment = {
   appointmentId: string;
   bookingCode: string;
   patientPhone: string;
+  otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
   expiresIn: number;
 };
 
@@ -85,6 +86,13 @@ const doctorName = (doctor: PublicHomeData["doctors"][number]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
 const formatTime = (value: string) => value.slice(0, 5);
+
+const buildBookingOtpMessage = (bookingCode: string, status?: PendingAppointment["otpDeliveryStatus"]) => {
+  if (status === "SENT") return `Đã gửi OTP xác nhận cho lịch ${bookingCode}.`;
+  if (status === "FAILED") return `Chưa gửi được OTP xác nhận cho lịch ${bookingCode}. Vui lòng gửi lại OTP.`;
+
+  return `Yêu cầu gửi OTP cho lịch ${bookingCode} đã được tiếp nhận. Vui lòng kiểm tra mã trong giây lát.`;
+};
 
 export function PublicBookingWidget({ data, loading, selection, setSelection }: PublicBookingWidgetProps) {
   const [draft, setDraft] = useState<BookingDraft>(initialDraft);
@@ -261,7 +269,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
       });
 
       setPending(result);
-      setMessage(`Đã gửi OTP xác nhận cho lịch ${result.bookingCode}.`);
+      setMessage(buildBookingOtpMessage(result.bookingCode, result.otpDeliveryStatus));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được lịch hẹn");
     } finally {
@@ -304,12 +312,12 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
     setSubmitting(true);
 
     try {
-      const result = await apiRequest<{ expiresIn: number }>(`/appointments/${pending.appointmentId}/resend-otp`, {
+      const result = await apiRequest<{ expiresIn: number; otpDeliveryStatus?: PendingAppointment["otpDeliveryStatus"] }>(`/appointments/${pending.appointmentId}/resend-otp`, {
         method: "POST",
       });
 
-      setPending((current) => (current ? { ...current, expiresIn: result.expiresIn } : current));
-      setMessage("OTP đã được gửi lại.");
+      setPending((current) => (current ? { ...current, expiresIn: result.expiresIn, otpDeliveryStatus: result.otpDeliveryStatus } : current));
+      setMessage(buildBookingOtpMessage(pending.bookingCode, result.otpDeliveryStatus));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi lại được OTP");
     } finally {

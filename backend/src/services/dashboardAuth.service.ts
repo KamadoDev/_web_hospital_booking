@@ -104,6 +104,7 @@ class DashboardAuthService {
       email: user.email,
       otpTarget: otp.target,
       otpChannel: otp.channel,
+      otpDeliveryStatus: otp.deliveryStatus,
       expiresAt: challenge.expiresAt,
       expiresIn: CHALLENGE_EXPIRES_SECONDS,
       otpExpiresAt: otp.expiresAt,
