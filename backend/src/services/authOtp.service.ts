@@ -29,6 +29,9 @@ const VERIFY_WINDOW_MINUTES = 15;
 const MAX_VERIFY_FAILS_PER_PHONE_WINDOW = 5;
 const MAX_VERIFY_FAILS_PER_IP_WINDOW = 20;
 
+const isOtpDebugEnabled = () =>
+  ["true", "1", "yes", "on"].includes((process.env.OTP_DEBUG_ENABLED || "").toLowerCase());
+
 const hashOtp = (otp: string) =>
   createHmac("sha256", OTP_SECRET).update(otp).digest("hex");
 
@@ -401,6 +404,7 @@ class AuthOtpService {
       deliveryStatus,
       expiresAt: otpRecord.expiresAt,
       expiresIn: OTP_EXPIRES_SECONDS,
+      debugOtp: isOtpDebugEnabled() ? otp : undefined,
     };
   }
 

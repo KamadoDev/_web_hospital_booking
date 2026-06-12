@@ -1,4 +1,6 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
+import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
 import { generateToken } from "../utils/jwt.js";
@@ -8,6 +10,15 @@ import type { OtpPurpose, Role } from "../../generated/prisma/enums.js";
 const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
 const MAX_CHALLENGE_ATTEMPTS = 5;
 const CHALLENGE_EXPIRES_SECONDS = 5 * 60;
+const ACCESS_TOKEN_EXPIRES_IN = (process.env.DASHBOARD_ACCESS_TOKEN_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
+const readRefreshTokenDays = () => {
+  const value = process.env.DASHBOARD_REFRESH_TOKEN_DAYS || "7";
+  const match = value.match(/^(\d+)\s*d?$/i);
+
+  return match ? Number(match[1]) : 7;
+};
+
+const REFRESH_TOKEN_DAYS = readRefreshTokenDays();
 
 const dashboardPurposeByRole: Record<Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">, OtpPurpose> = {
   ADMIN: "ADMIN_LOGIN",
@@ -41,6 +52,23 @@ const toSafeDashboardUser = (user: {
   role: user.role,
   avatar: user.avatar,
 });
+
+const createRefreshToken = () => crypto.randomBytes(48).toString("base64url");
+
+const hashRefreshToken = (token: string) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const getRefreshExpiresAt = () =>
+  new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+
+const createAccessToken = (user: { id: string; role: Role }) =>
+  generateToken(
+    {
+      userId: user.id,
+      role: user.role,
+    },
+    ACCESS_TOKEN_EXPIRES_IN,
+  );
 
 class DashboardAuthService {
   async login(phone: string, password: string, ipAddress: string) {
@@ -105,6 +133,7 @@ class DashboardAuthService {
       otpTarget: otp.target,
       otpChannel: otp.channel,
       otpDeliveryStatus: otp.deliveryStatus,
+      debugOtp: otp.debugOtp,
       expiresAt: challenge.expiresAt,
       expiresIn: CHALLENGE_EXPIRES_SECONDS,
       otpExpiresAt: otp.expiresAt,
@@ -112,7 +141,7 @@ class DashboardAuthService {
     };
   }
 
-  async verifyOtp(challengeId: string, otp: string) {
+  async verifyOtp(challengeId: string, otp: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const challenge = await prisma.dashboardLoginChallenge.findUnique({
       where: {
         id: challengeId,
@@ -197,16 +226,90 @@ class DashboardAuthService {
       },
     });
 
-    const token = generateToken({
-      userId: user.id,
-      role: user.role,
+    const refreshToken = createRefreshToken();
+    const refreshExpiresAt = getRefreshExpiresAt();
+
+    await prisma.dashboardSession.create({
+      data: {
+        userId: user.id,
+        refreshTokenHash: hashRefreshToken(refreshToken),
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        expiresAt: refreshExpiresAt,
+        lastUsedAt: new Date(),
+      },
     });
 
     return {
-      token,
+      accessToken: createAccessToken(user),
+      refreshToken,
+      refreshExpiresAt,
       user: toSafeDashboardUser(user),
       redirectPath: redirectPathByRole[user.role],
     };
+  }
+
+  async refreshSession(refreshToken: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
+    const session = await prisma.dashboardSession.findUnique({
+      where: {
+        refreshTokenHash: hashRefreshToken(refreshToken),
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
+      throw new AppError("Phiên đăng nhập đã hết hạn", 401);
+    }
+
+    const { user } = session;
+
+    if (!user.isActive) {
+      throw new AppError("Tài khoản đã bị khóa", 403);
+    }
+
+    if (!isDashboardRole(user.role)) {
+      throw new AppError("Không có quyền truy cập dashboard", 403);
+    }
+
+    const nextRefreshToken = createRefreshToken();
+    const refreshExpiresAt = getRefreshExpiresAt();
+
+    await prisma.dashboardSession.update({
+      where: {
+        id: session.id,
+      },
+      data: {
+        refreshTokenHash: hashRefreshToken(nextRefreshToken),
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        expiresAt: refreshExpiresAt,
+        lastUsedAt: new Date(),
+      },
+    });
+
+    return {
+      accessToken: createAccessToken(user),
+      refreshToken: nextRefreshToken,
+      refreshExpiresAt,
+      user: toSafeDashboardUser(user),
+      redirectPath: redirectPathByRole[user.role],
+    };
+  }
+
+  async revokeSession(refreshToken?: string) {
+    if (!refreshToken) return;
+
+    await prisma.dashboardSession.updateMany({
+      where: {
+        refreshTokenHash: hashRefreshToken(refreshToken),
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
   }
 
   async getCurrentUser(userId: string) {

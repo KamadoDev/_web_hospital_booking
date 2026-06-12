@@ -6,10 +6,9 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
 } from "react";
 
-type ThemeMode = "light" | "dark";
+type ThemeMode = "light";
 
 type ThemeContextValue = {
   theme: ThemeMode;
@@ -20,39 +19,25 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const storageKey = "hospital-dashboard-theme";
 
-const getInitialTheme = (): ThemeMode => {
-  if (typeof window === "undefined") return "light";
-  const saved = window.localStorage.getItem(storageKey);
-  if (saved === "light" || saved === "dark") return saved;
-  return "light";
-};
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>(getInitialTheme);
-
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.classList.toggle("theme-dark", theme === "dark");
-    document.documentElement.classList.toggle("theme-light", theme === "light");
-    document.documentElement.style.colorScheme = theme;
-    window.localStorage.setItem(storageKey, theme);
-  }, [theme]);
-
-  const setTheme = useCallback((nextTheme: ThemeMode) => {
-    setThemeState(nextTheme);
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.classList.remove("theme-dark");
+    document.documentElement.classList.add("theme-light");
+    document.documentElement.style.colorScheme = "light";
+    window.localStorage.setItem(storageKey, "light");
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    setThemeState((current) => (current === "dark" ? "light" : "dark"));
-  }, []);
+  const setTheme = useCallback(() => undefined, []);
+  const toggleTheme = useCallback(() => undefined, []);
 
   const value = useMemo(
     () => ({
-      theme,
+      theme: "light" as const,
       toggleTheme,
       setTheme,
     }),
-    [setTheme, theme, toggleTheme],
+    [setTheme, toggleTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

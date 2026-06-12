@@ -1,10 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useDashboardInvoice, useDashboardInvoices } from "@/lib/dashboard-invoices-query";
 import { formatVietnamDate } from "@/lib/date";
-import type { InsuranceRouteType, Invoice, InvoiceStatus, ListResult, PaymentMethod } from "@/lib/types";
+import { queryKeys } from "@/lib/query-keys";
+import type { InsuranceRouteType, Invoice, InvoiceStatus, PaymentMethod } from "@/lib/types";
 
 type InvoiceAction = "pay" | "cancel" | "refund" | "adjust";
 type InsuranceForm = {
@@ -131,6 +134,7 @@ const doctorName = (invoice: Invoice) =>
 
 export default function InvoicesPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [status, setStatus] = useState("");
@@ -139,7 +143,6 @@ export default function InvoicesPage() {
   const [invoiceCode, setInvoiceCode] = useState("");
   const [barcode, setBarcode] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -174,29 +177,46 @@ export default function InvoicesPage() {
     }),
     [barcode, invoiceCode, page, paymentMethod, phone, status],
   );
+  const invoicesQuery = useDashboardInvoices(query);
+  const selectedInvoiceQuery = useDashboardInvoice(selected?.id);
+  const loading = invoicesQuery.isLoading;
 
-  const loadInvoices = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await apiRequest<ListResult<Invoice>>("/dashboard/invoices", { query });
-      setInvoices(result.items);
-      setPagination(result.pagination);
-      setSelected((current) =>
-        current ? result.items.find((item) => item.id === current.id) || current : current,
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được hóa đơn");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
+  const invalidateInvoices = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardInvoices }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "appointments"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadInvoices(), 0);
+    const timeoutId = window.setTimeout(() => {
+      if (!invoicesQuery.data) return;
+      setInvoices(invoicesQuery.data.items);
+      setPagination(invoicesQuery.data.pagination);
+      setSelected((current) =>
+        current ? invoicesQuery.data.items.find((item) => item.id === current.id) || current : current,
+      );
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadInvoices]);
+  }, [invoicesQuery.data]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!selectedInvoiceQuery.data) return;
+      setSelected(selectedInvoiceQuery.data);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedInvoiceQuery.data]);
+
+  useEffect(() => {
+    const queryError = invoicesQuery.error || selectedInvoiceQuery.error;
+    if (!queryError) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hóa đơn");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [invoicesQuery.error, selectedInvoiceQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -248,7 +268,7 @@ export default function InvoicesPage() {
       setAppointmentId("");
       setInsuranceForm(defaultInsuranceForm);
       setNotice("Đã tạo hóa đơn");
-      await loadInvoices();
+      await invalidateInvoices();
       scrollTo(detailRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được hóa đơn");
@@ -283,7 +303,7 @@ export default function InvoicesPage() {
     setRefundReason("");
     setAdjustInsuranceForm(defaultInsuranceForm);
     setNotice(message);
-    await loadInvoices();
+    await invalidateInvoices();
     scrollTo(detailRef);
   };
 

@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, PackageCheck, Search, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { apiRequest } from "@/lib/api";
+import { usePublicPackages } from "@/lib/public-lists-query";
 import type { MedicalPackage } from "@/lib/types";
 
 const formatCurrency = (value: number) =>
@@ -23,46 +23,25 @@ const getBookingUrl = (item: MedicalPackage) => {
 };
 
 export default function PublicPackagesPage() {
-  const [packages, setPackages] = useState<MedicalPackage[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filter, setFilter] = useState<"ALL" | "POPULAR" | "BHYT">("ALL");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    let active = true;
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-    const loadPackages = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const result = await apiRequest<MedicalPackage[]>("/packages", {
-          query: {
-            search: search.trim() || undefined,
-            isPopular: filter === "POPULAR" ? true : undefined,
-          },
-        });
-
-        const visible = filter === "BHYT" ? result.filter((item) => item.isBHYTSupport) : result;
-        if (active) setPackages(visible);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được danh sách gói khám");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    const timer = window.setTimeout(() => {
-      void loadPackages();
-    }, 250);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [filter, search]);
-
+  const packagesQuery = usePublicPackages({
+    search: debouncedSearch.trim() || undefined,
+    isPopular: filter === "POPULAR" ? true : undefined,
+  });
+  const packages = useMemo(
+    () => (filter === "BHYT" ? (packagesQuery.data || []).filter((item) => item.isBHYTSupport) : packagesQuery.data || []),
+    [filter, packagesQuery.data],
+  );
+  const loading = packagesQuery.isLoading || (packagesQuery.isFetching && !packages.length);
+  const error = packagesQuery.error instanceof Error ? packagesQuery.error.message : "";
   const totalLabel = useMemo(() => {
     if (loading) return "Đang tải gói khám...";
 

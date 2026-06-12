@@ -78,6 +78,10 @@ export const normalizeRuntimeSettings = (value: unknown): ChatbotRuntimeSettings
 const toPrismaJson = (value: unknown) =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 
+type UpdateRuntimeSettingsInput = Partial<ChatbotRuntimeSettings> & {
+  isActive?: boolean;
+};
+
 class ChatbotSettingsService {
   async getRuntimeSettings() {
     const setting = await prisma.chatbotSetting.upsert({
@@ -106,18 +110,19 @@ class ChatbotSettingsService {
     };
   }
 
-  async updateRuntimeSettings(input: Partial<ChatbotRuntimeSettings>) {
+  async updateRuntimeSettings(input: UpdateRuntimeSettingsInput) {
     const current = await this.getRuntimeSettings();
+    const { isActive, ...runtimeInput } = input;
     const nextValue = normalizeRuntimeSettings({
       ...current.value,
-      ...input,
+      ...runtimeInput,
     });
 
     const setting = await prisma.chatbotSetting.update({
       where: { key: CHATBOT_RUNTIME_SETTING_KEY },
       data: {
         value: toPrismaJson(nextValue),
-        isActive: true,
+        isActive: typeof isActive === "boolean" ? isActive : current.isActive,
       },
       select: {
         id: true,

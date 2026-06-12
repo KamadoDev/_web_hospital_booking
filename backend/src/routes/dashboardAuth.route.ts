@@ -6,6 +6,7 @@ import {
   loginHandler,
   verifyOtpHandler,
   meHandler,
+  refreshHandler,
   logoutHandler,
 } from "../controllers/dashboardAuth.controller.js";
 
@@ -26,8 +27,10 @@ router.post(
   verifyOtpHandler,
 );
 
+router.post("/refresh", refreshHandler);
+
 router.get("/me", authDashboard, meHandler);
 
-router.post("/logout", authDashboard, logoutHandler);
+router.post("/logout", logoutHandler);
 
 export default router;

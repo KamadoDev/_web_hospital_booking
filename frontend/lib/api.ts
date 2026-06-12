@@ -13,6 +13,7 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
   suppressAuthExpired?: boolean;
+  skipAuthRefresh?: boolean;
 };
 
 const buildUrl = (path: string, query?: RequestOptions["query"]) => {
@@ -42,8 +43,35 @@ const notifyAuthExpired = () => {
   }
 };
 
+const isDashboardRoute = () =>
+  typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard");
+
+let refreshPromise: Promise<boolean> | null = null;
+
+const refreshDashboardSession = async () => {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = fetch(buildUrl("/auth/dashboard/refresh"), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  })
+    .then(async (response) => {
+      const payload = (await response.json().catch(() => null)) as ApiEnvelope<unknown> | null;
+      return response.ok && payload?.success !== false;
+    })
+    .catch(() => false)
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+};
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}) {
-  const { body, query, headers, suppressAuthExpired, ...init } = options;
+  const { body, query, headers, suppressAuthExpired, skipAuthRefresh, ...init } = options;
 
   const response = await fetch(buildUrl(path, query), {
     ...init,
@@ -59,7 +87,18 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
   const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
 
   if (!response.ok || payload?.success === false) {
-    if (response.status === 401 && !suppressAuthExpired) {
+    if (response.status === 401 && !skipAuthRefresh && path !== "/auth/dashboard/refresh") {
+      const refreshed = await refreshDashboardSession();
+
+      if (refreshed) {
+        return apiRequest<T>(path, {
+          ...options,
+          skipAuthRefresh: true,
+        });
+      }
+    }
+
+    if (response.status === 401 && !suppressAuthExpired && isDashboardRoute()) {
       notifyAuthExpired();
     }
 
@@ -91,7 +130,7 @@ export async function uploadImages(files: File[], folder: string) {
   }> | null;
 
   if (!response.ok || payload?.success === false) {
-    if (response.status === 401) {
+    if (response.status === 401 && isDashboardRoute()) {
       notifyAuthExpired();
     }
 

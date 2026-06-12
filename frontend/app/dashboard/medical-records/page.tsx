@@ -1,15 +1,22 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import {
+  fetchDashboardMedicalRecord,
+  useDashboardMedicalRecord,
+  useDashboardMedicalRecordDoctors,
+  useDashboardMedicalRecords,
+} from "@/lib/dashboard-medical-records-query";
 import { formatVietnamDate, getVietnamDateInput } from "@/lib/date";
+import { queryKeys } from "@/lib/query-keys";
 import type {
   DoctorProfile,
   LabResult,
-  ListResult,
   MedicalRecord,
   MedicalResultStatus,
 } from "@/lib/types";
@@ -114,6 +121,7 @@ const buildLabPayload = (form: LabForm) => ({
 
 export default function MedicalRecordsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
@@ -122,7 +130,6 @@ export default function MedicalRecordsPage() {
   const [date, setDate] = useState(today());
   const [recordCode, setRecordCode] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [uploadingRecordFile, setUploadingRecordFile] = useState(false);
   const [uploadingLabFile, setUploadingLabFile] = useState(false);
@@ -151,56 +158,65 @@ export default function MedicalRecordsPage() {
     }),
     [date, doctorId, isDoctor, page, recordCode, status],
   );
+  const doctorQuery = useMemo(() => ({ limit: 100 }), []);
+  const recordsQuery = useDashboardMedicalRecords(query);
+  const doctorsQuery = useDashboardMedicalRecordDoctors(doctorQuery, !isDoctor);
+  const selectedRecordQuery = useDashboardMedicalRecord(selected?.id);
+  const loading = recordsQuery.isLoading;
 
-  const loadRecords = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await apiRequest<ListResult<MedicalRecord>>("/dashboard/medical-records", {
-        query,
-      });
-      setRecords(result.items);
-      setPagination(result.pagination);
+  const invalidateMedicalRecords = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "medical-records"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardPrescriptions }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardAppointments() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
+    ]);
+  };
+
+  const refreshSelectedRecord = async (id: string) => {
+    const refreshed = await queryClient.fetchQuery({
+      queryKey: queryKeys.dashboardMedicalRecord(id),
+      queryFn: () => fetchDashboardMedicalRecord(id),
+    });
+    setSelected(refreshed);
+    setRecordForm(toRecordForm(refreshed));
+    return refreshed;
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!recordsQuery.data) return;
+      setRecords(recordsQuery.data.items);
+      setPagination(recordsQuery.data.pagination);
       setSelected((current) =>
-        current ? result.items.find((item) => item.id === current.id) || current : current,
+        current ? recordsQuery.data.items.find((item) => item.id === current.id) || current : current,
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được hồ sơ khám");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [recordsQuery.data]);
 
-  const loadDoctors = useCallback(async () => {
-    if (isDoctor) {
-      setDoctors([]);
-      return;
-    }
-
-    try {
-      const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
-        query: { limit: 100 },
-      });
-      setDoctors(result.items);
-    } catch {
-      setDoctors([]);
-    }
-  }, [isDoctor]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorsQuery.data]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadRecords();
+      if (!selectedRecordQuery.data) return;
+      setSelected(selectedRecordQuery.data);
+      setRecordForm(toRecordForm(selectedRecordQuery.data));
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadRecords]);
+  }, [selectedRecordQuery.data]);
 
   useEffect(() => {
+    const queryError = recordsQuery.error || doctorsQuery.error || selectedRecordQuery.error;
+    if (!queryError) return;
     const timeoutId = window.setTimeout(() => {
-      void loadDoctors();
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu hồ sơ khám");
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDoctors]);
-
+  }, [doctorsQuery.error, recordsQuery.error, selectedRecordQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -258,7 +274,7 @@ export default function MedicalRecordsPage() {
       setSelected(updated);
       setRecordForm(toRecordForm(updated));
       setNotice("Đã cập nhật hồ sơ khám");
-      await loadRecords();
+      await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được hồ sơ khám");
     } finally {
@@ -315,7 +331,7 @@ export default function MedicalRecordsPage() {
       setSelected(updated);
       setRecordForm(toRecordForm(updated));
       setNotice(message);
-      await loadRecords();
+      await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thực hiện được thao tác");
     } finally {
@@ -338,11 +354,9 @@ export default function MedicalRecordsPage() {
           items: [],
         },
       });
-      const refreshed = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${record.id}`);
-      setSelected(refreshed);
-      setRecordForm(toRecordForm(refreshed));
+      await refreshSelectedRecord(record.id);
       setNotice("Đã tạo đơn thuốc nháp từ hồ sơ");
-      await loadRecords();
+      await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc từ hồ sơ");
     } finally {
@@ -373,10 +387,8 @@ export default function MedicalRecordsPage() {
       setEditingLab(null);
       setDeleteLabTarget(null);
       setLabForm(emptyLabForm);
-      const refreshed = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${selected.id}`);
-      setSelected(refreshed);
-      setRecordForm(toRecordForm(refreshed));
-      await loadRecords();
+      await refreshSelectedRecord(selected.id);
+      await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được kết quả cận lâm sàng");
     } finally {
@@ -395,9 +407,8 @@ export default function MedicalRecordsPage() {
       });
       setNotice("Đã xoá kết quả cận lâm sàng");
       setDeleteLabTarget(null);
-      const refreshed = await apiRequest<MedicalRecord>(`/dashboard/medical-records/${selected.id}`);
-      setSelected(refreshed);
-      await loadRecords();
+      await refreshSelectedRecord(selected.id);
+      await invalidateMedicalRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được kết quả cận lâm sàng");
     } finally {

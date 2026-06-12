@@ -5,45 +5,21 @@
 import { ArrowLeft, ArrowRight, HeartPulse, Search, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { apiRequest } from "@/lib/api";
-import type { PublicDepartment } from "@/components/public/public-home-types";
+import { usePublicDepartments } from "@/lib/public-lists-query";
 
 export default function PublicDepartmentsPage() {
-  const [departments, setDepartments] = useState<PublicDepartment[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    let active = true;
-
-    const loadDepartments = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const result = await apiRequest<PublicDepartment[]>("/departments", {
-          query: { search: search.trim() || undefined },
-        });
-
-        if (active) setDepartments(result);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được danh sách chuyên khoa");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    const timer = window.setTimeout(() => {
-      void loadDepartments();
-    }, 250);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
+    return () => window.clearTimeout(timer);
   }, [search]);
 
+  const departmentsQuery = usePublicDepartments({ search: debouncedSearch.trim() || undefined });
+  const departments = departmentsQuery.data || [];
+  const loading = departmentsQuery.isLoading || (departmentsQuery.isFetching && !departments.length);
+  const error = departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "";
   const totalLabel = useMemo(() => {
     if (loading) return "Đang tải chuyên khoa...";
 

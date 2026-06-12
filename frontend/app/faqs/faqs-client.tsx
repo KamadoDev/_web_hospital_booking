@@ -2,8 +2,8 @@
 
 import { ArrowLeft, ArrowRight, HelpCircle, Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { apiRequest } from "@/lib/api";
+import { useMemo, useState } from "react";
+import { usePublicFAQs } from "@/lib/public-faq-query";
 import type { PublicFAQ } from "@/lib/types";
 
 const categories = [
@@ -18,36 +18,10 @@ const categories = [
 export function FAQsClient({ initialFAQs, initialCategory = "" }: { initialFAQs: PublicFAQ[]; initialCategory?: string }) {
   const [category, setCategory] = useState(initialCategory);
   const [search, setSearch] = useState("");
-  const [faqs, setFaqs] = useState<PublicFAQ[]>(initialFAQs);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-
-    const loadFAQs = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const result = await apiRequest<{ items: PublicFAQ[] }>("/faqs", {
-          query: { category: category || undefined },
-        });
-
-        if (active) setFaqs(result.items || []);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được câu hỏi thường gặp");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    if (category !== initialCategory) void loadFAQs();
-
-    return () => {
-      active = false;
-    };
-  }, [category, initialCategory]);
+  const faqsQuery = usePublicFAQs(category, initialFAQs, initialCategory);
+  const faqs = useMemo(() => faqsQuery.data || [], [faqsQuery.data]);
+  const loading = faqsQuery.isLoading;
+  const error = faqsQuery.error instanceof Error ? faqsQuery.error.message : "";
 
   const visibleFAQs = useMemo(() => {
     const keyword = search.trim().toLowerCase();

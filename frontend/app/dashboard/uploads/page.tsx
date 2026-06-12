@@ -2,20 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { type CleanupUnusedMediaAssetsResult, useDashboardUploads } from "@/lib/dashboard-uploads-query";
 import { formatVietnamDateTime } from "@/lib/date";
-import type { ListResult, MediaAsset } from "@/lib/types";
-
-type CleanupResult = {
-  olderThan: string;
-  scanned: number;
-  deletedCount: number;
-  failedCount: number;
-  deleted: MediaAsset[];
-  failed: { id: string; publicId: string; message: string }[];
-};
+import { queryKeys } from "@/lib/query-keys";
+import type { MediaAsset } from "@/lib/types";
 
 const statusOptions = [
   { label: "Tất cả trạng thái", value: "" },
@@ -45,6 +39,7 @@ const formatDateTime = (value: string) => formatVietnamDateTime(value);
 
 export default function UploadsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
   const canDelete = user?.role === "ADMIN";
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -52,14 +47,13 @@ export default function UploadsPage() {
   const [isUsed, setIsUsed] = useState("false");
   const [folder, setFolder] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<MediaAsset | null>(null);
   const [olderThanHours, setOlderThanHours] = useState("24");
   const [cleanupLimit, setCleanupLimit] = useState("50");
-  const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null);
+  const [cleanupResult, setCleanupResult] = useState<CleanupUnusedMediaAssetsResult | null>(null);
 
   const query = useMemo(
     () => ({
@@ -71,27 +65,29 @@ export default function UploadsPage() {
     [folder, isUsed, page],
   );
 
-  const loadAssets = useCallback(async () => {
-    if (!canManage) return;
-    setLoading(true);
-    setError("");
+  const uploadsQuery = useDashboardUploads(query, canManage);
+  const loading = uploadsQuery.isLoading || (uploadsQuery.isFetching && !assets.length);
 
-    try {
-      const result = await apiRequest<ListResult<MediaAsset>>("/uploads/images", { query });
-      setAssets(result.items);
-      setPagination(result.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách ảnh upload");
-    } finally {
-      setLoading(false);
-    }
-  }, [canManage, query]);
+  const invalidateUploads = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.dashboardUploads });
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadAssets(), 0);
+    if (!uploadsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setAssets(uploadsQuery.data.items);
+      setPagination(uploadsQuery.data.pagination);
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadAssets]);
+  }, [uploadsQuery.data]);
 
+  useEffect(() => {
+    if (!uploadsQuery.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(uploadsQuery.error instanceof Error ? uploadsQuery.error.message : "Không tải được danh sách ảnh upload");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [uploadsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -111,7 +107,7 @@ export default function UploadsPage() {
       await apiRequest<MediaAsset>(`/uploads/images/${deleteTarget.id}`, { method: "DELETE" });
       setNotice("Đã xoá ảnh chưa sử dụng");
       setDeleteTarget(null);
-      await loadAssets();
+      await invalidateUploads();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được ảnh");
     } finally {
@@ -127,7 +123,7 @@ export default function UploadsPage() {
     setCleanupResult(null);
 
     try {
-      const result = await apiRequest<CleanupResult>("/uploads/images/cleanup-unused", {
+      const result = await apiRequest<CleanupUnusedMediaAssetsResult>("/uploads/images/cleanup-unused", {
         method: "POST",
         body: {
           olderThanHours: Number(olderThanHours || 24),
@@ -136,7 +132,7 @@ export default function UploadsPage() {
       });
       setCleanupResult(result);
       setNotice(`Đã dọn ${result.deletedCount} ảnh chưa sử dụng`);
-      await loadAssets();
+      await invalidateUploads();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không dọn được ảnh chưa sử dụng");
     } finally {
@@ -195,7 +191,7 @@ export default function UploadsPage() {
             <select value={folder} onChange={(event) => { setFolder(event.target.value); setPage(1); }} className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary-soft)]">
               {folderOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-            <button type="button" onClick={() => void loadAssets()} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">Tải lại</button>
+            <button type="button" onClick={() => void invalidateUploads()} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">Tải lại</button>
           </div>
         </div>
       </section>

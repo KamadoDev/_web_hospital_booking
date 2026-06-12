@@ -1,9 +1,12 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { Department, ListResult } from "@/lib/types";
+import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
+import { queryKeys } from "@/lib/query-keys";
+import type { Department } from "@/lib/types";
 
 type DepartmentForm = {
   name: string;
@@ -60,12 +63,12 @@ const buildPayload = (form: DepartmentForm) => ({
 
 export default function DepartmentsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -89,6 +92,8 @@ export default function DepartmentsPage() {
     }),
     [page, search, status],
   );
+  const departmentsQuery = useDashboardDepartments(query);
+  const loading = departmentsQuery.isLoading;
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
     window.setTimeout(() => {
@@ -96,25 +101,30 @@ export default function DepartmentsPage() {
     }, 0);
   };
 
-  const loadDepartments = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await apiRequest<ListResult<Department>>("/dashboard/departments", { query });
-      setDepartments(result.items);
-      setPagination(result.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách chuyên khoa");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
+  const invalidateDepartments = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "departments"] }),
+      queryClient.invalidateQueries({ queryKey: ["public", "departments"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadDepartments(), 0);
+    const timeoutId = window.setTimeout(() => {
+      if (!departmentsQuery.data) return;
+      setDepartments(departmentsQuery.data.items);
+      setPagination(departmentsQuery.data.pagination);
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDepartments]);
+  }, [departmentsQuery.data]);
+
+  useEffect(() => {
+    if (!departmentsQuery.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(departmentsQuery.error instanceof Error ? departmentsQuery.error.message : "Không tải được danh sách chuyên khoa");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [departmentsQuery.error]);
 
   useEffect(() => {
     if (!notice && !error) return;
@@ -193,7 +203,7 @@ export default function DepartmentsPage() {
       setEditing(null);
       setForm(emptyForm);
       setSlugTouched(false);
-      await loadDepartments();
+      await invalidateDepartments();
       scrollTo(listPanelRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được chuyên khoa");
@@ -239,7 +249,7 @@ export default function DepartmentsPage() {
       });
       setDeleteTarget(null);
       setNotice("Đã xóa chuyên khoa");
-      await loadDepartments();
+      await invalidateDepartments();
       scrollTo(listPanelRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được chuyên khoa");

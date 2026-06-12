@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Area,
@@ -18,21 +18,20 @@ import {
   YAxis,
 } from "recharts";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import {
+  type DoctorDashboardData,
+  useDashboardStatistics,
+  useDoctorDashboardOverview,
+} from "@/lib/dashboard-overview-query";
 import { formatVietnamDate, formatVietnamDateTime, getVietnamDateInput } from "@/lib/date";
 import type {
-  Appointment,
   DashboardAppointmentStatistics,
   DashboardDepartmentStatistics,
   DashboardDoctorStatistics,
   DashboardRevenueStatistics,
   DashboardStatisticsOverview,
-  DoctorTimeSlot,
-  ListResult,
-  MedicalRecord,
   PaymentMethod,
-  Prescription,
 } from "@/lib/types";
 
 const statusLabel: Record<string, string> = {
@@ -117,15 +116,6 @@ type MetricCardProps = {
   caption?: string;
 };
 
-type DoctorDashboardData = {
-  todayAppointments: Appointment[];
-  checkedInAppointments: Appointment[];
-  inProgressAppointments: Appointment[];
-  draftRecords: MedicalRecord[];
-  draftPrescriptions: Prescription[];
-  todaySlots: DoctorTimeSlot[];
-};
-
 const metricTone = {
   blue: "border-[#cfe4fa] bg-[#f3f8ff] text-[#0d4f8b]",
   green: "border-[#c7ead0] bg-[#f0fff4] text-[#1f7a3a]",
@@ -194,10 +184,8 @@ function DashboardPage() {
   const [revenue, setRevenue] = useState<DashboardRevenueStatistics | null>(null);
   const [doctors, setDoctors] = useState<DashboardDoctorStatistics | null>(null);
   const [departments, setDepartments] = useState<DashboardDepartmentStatistics | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [doctorDashboard, setDoctorDashboard] = useState<DoctorDashboardData | null>(null);
-  const [doctorLoading, setDoctorLoading] = useState(true);
   const [doctorError, setDoctorError] = useState("");
 
   const statisticsQuery = useMemo(
@@ -207,79 +195,48 @@ function DashboardPage() {
     }),
     [appliedRange],
   );
-
-  const loadStatistics = useCallback(async () => {
-    if (!canViewStats) return;
-    setLoading(true);
-    setError("");
-    try {
-      const [overviewData, appointmentData, revenueData, doctorData, departmentData] = await Promise.all([
-        apiRequest<DashboardStatisticsOverview>("/dashboard/statistics/overview", { query: statisticsQuery }),
-        apiRequest<DashboardAppointmentStatistics>("/dashboard/statistics/appointments", { query: statisticsQuery }),
-        apiRequest<DashboardRevenueStatistics>("/dashboard/statistics/revenue", { query: statisticsQuery }),
-        apiRequest<DashboardDoctorStatistics>("/dashboard/statistics/doctors", { query: statisticsQuery }),
-        apiRequest<DashboardDepartmentStatistics>("/dashboard/statistics/departments", { query: statisticsQuery }),
-      ]);
-      setOverview(overviewData);
-      setAppointments(appointmentData);
-      setRevenue(revenueData);
-      setDoctors(doctorData);
-      setDepartments(departmentData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được thống kê tổng quan");
-    } finally {
-      setLoading(false);
-    }
-  }, [canViewStats, statisticsQuery]);
+  const statisticsResult = useDashboardStatistics(statisticsQuery, canViewStats);
+  const doctorDashboardResult = useDoctorDashboardOverview(todayDate, isDoctorDashboard);
+  const loading = statisticsResult.isLoading;
+  const doctorLoading = doctorDashboardResult.isLoading;
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadStatistics(), 0);
+    const timeoutId = window.setTimeout(() => {
+      if (!statisticsResult.data) return;
+      setOverview(statisticsResult.data.overview);
+      setAppointments(statisticsResult.data.appointments);
+      setRevenue(statisticsResult.data.revenue);
+      setDoctors(statisticsResult.data.doctors);
+      setDepartments(statisticsResult.data.departments);
+      setError("");
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadStatistics]);
-
-  const loadDoctorDashboard = useCallback(async () => {
-    if (!isDoctorDashboard) return;
-
-    setDoctorLoading(true);
-    setDoctorError("");
-
-    try {
-      const [
-        todayAppointments,
-        checkedInAppointments,
-        inProgressAppointments,
-        draftRecords,
-        draftPrescriptions,
-        todaySlots,
-      ] = await Promise.all([
-        apiRequest<ListResult<Appointment>>("/dashboard/appointments", { query: { date: todayDate, limit: 100 } }),
-        apiRequest<ListResult<Appointment>>("/dashboard/appointments", { query: { status: "CHECKED_IN", limit: 20 } }),
-        apiRequest<ListResult<Appointment>>("/dashboard/appointments", { query: { status: "IN_PROGRESS", limit: 20 } }),
-        apiRequest<ListResult<MedicalRecord>>("/dashboard/medical-records", { query: { status: "DRAFT", limit: 20 } }),
-        apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", { query: { status: "DRAFT", limit: 20 } }),
-        apiRequest<ListResult<DoctorTimeSlot>>("/dashboard/doctor-time-slots", { query: { date: todayDate, limit: 200 } }),
-      ]);
-
-      setDoctorDashboard({
-        todayAppointments: todayAppointments.items,
-        checkedInAppointments: checkedInAppointments.items,
-        inProgressAppointments: inProgressAppointments.items,
-        draftRecords: draftRecords.items,
-        draftPrescriptions: draftPrescriptions.items,
-        todaySlots: todaySlots.items,
-      });
-    } catch (err) {
-      setDoctorError(err instanceof Error ? err.message : "Không tải được tổng quan bác sĩ");
-    } finally {
-      setDoctorLoading(false);
-    }
-  }, [isDoctorDashboard, todayDate]);
+  }, [statisticsResult.data]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadDoctorDashboard(), 0);
+    if (!statisticsResult.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(statisticsResult.error instanceof Error ? statisticsResult.error.message : "Không tải được thống kê tổng quan");
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDoctorDashboard]);
+  }, [statisticsResult.error]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!doctorDashboardResult.data) return;
+      setDoctorDashboard(doctorDashboardResult.data);
+      setDoctorError("");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorDashboardResult.data]);
+
+  useEffect(() => {
+    if (!doctorDashboardResult.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setDoctorError(doctorDashboardResult.error instanceof Error ? doctorDashboardResult.error.message : "Không tải được tổng quan bác sĩ");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorDashboardResult.error]);
   const applyFilter = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAppliedRange({ from, to });
@@ -373,7 +330,7 @@ function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => void loadDoctorDashboard()}
+                onClick={() => void doctorDashboardResult.refetch()}
                 className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]"
               >
                 Làm mới

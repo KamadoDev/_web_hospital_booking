@@ -1,9 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { DashboardUser, Department, DoctorProfile, ListResult } from "@/lib/types";
+import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
+import { useDashboardDoctors, useDashboardDoctorUsers } from "@/lib/dashboard-doctors-query";
+import { queryKeys } from "@/lib/query-keys";
+import type { DashboardUser, Department, DoctorProfile } from "@/lib/types";
 
 type DoctorForm = {
   userId: string;
@@ -81,6 +85,7 @@ const parseMoneyInput = (value: string) => value.replace(/\D/g, "");
 
 export default function DoctorsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctorUsers, setDoctorUsers] = useState<DashboardUser[]>([]);
@@ -89,7 +94,6 @@ export default function DoctorsPage() {
   const [departmentId, setDepartmentId] = useState("");
   const [isAvailable, setIsAvailable] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -112,6 +116,12 @@ export default function DoctorsPage() {
     }),
     [departmentId, isAvailable, page, search],
   );
+  const departmentQuery = useMemo(() => ({ isActive: "true", limit: 100 }), []);
+  const doctorUsersQuery = useMemo(() => ({ role: "DOCTOR", isActive: "true", limit: 100 }), []);
+  const doctorsQuery = useDashboardDoctors(query);
+  const departmentsQuery = useDashboardDepartments(departmentQuery);
+  const doctorUsersResult = useDashboardDoctorUsers(doctorUsersQuery, user?.role === "ADMIN");
+  const loading = doctorsQuery.isLoading;
 
   const scrollToForm = () => {
     window.setTimeout(() => {
@@ -125,52 +135,42 @@ export default function DoctorsPage() {
     }, 0);
   };
 
-  const loadDoctors = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", { query });
-      setDoctors(result.items);
-      setPagination(result.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách bác sĩ");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
-
-  const loadDependencies = useCallback(async () => {
-    try {
-      const departmentResult = await apiRequest<ListResult<Department>>("/dashboard/departments", {
-        query: { isActive: true, limit: 100 },
-      });
-      setDepartments(departmentResult.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách chuyên khoa");
-    }
-
-    if (user?.role === "ADMIN") {
-      try {
-        const userResult = await apiRequest<ListResult<DashboardUser>>("/dashboard/users", {
-          query: { role: "DOCTOR", isActive: true, limit: 100 },
-        });
-        setDoctorUsers(userResult.items);
-      } catch {
-        setDoctorUsers([]);
-      }
-    }
-  }, [user?.role]);
+  const invalidateDoctors = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "doctors"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "users"] }),
+      queryClient.invalidateQueries({ queryKey: ["public", "doctors"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadDoctors(), 0);
+    const timeoutId = window.setTimeout(() => {
+      if (!doctorsQuery.data) return;
+      setDoctors(doctorsQuery.data.items);
+      setPagination(doctorsQuery.data.pagination);
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDoctors]);
+  }, [doctorsQuery.data]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadDependencies(), 0);
+    const timeoutId = window.setTimeout(() => setDepartments(departmentsQuery.data?.items || []), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDependencies]);
+  }, [departmentsQuery.data]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDoctorUsers(doctorUsersResult.data?.items || []), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorUsersResult.data]);
+
+  useEffect(() => {
+    const queryError = doctorsQuery.error || departmentsQuery.error || doctorUsersResult.error;
+    if (!queryError) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu bác sĩ");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [departmentsQuery.error, doctorUsersResult.error, doctorsQuery.error]);
 
   useEffect(() => {
     if (!notice && !error) return;
@@ -234,7 +234,7 @@ export default function DoctorsPage() {
 
       setEditing(null);
       setForm(emptyForm);
-      await loadDoctors();
+      await invalidateDoctors();
       scrollToList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được hồ sơ bác sĩ");
@@ -255,7 +255,7 @@ export default function DoctorsPage() {
         body: { isAvailable: !doctor.isAvailable },
       });
       setNotice(doctor.isAvailable ? "Đã tạm ngừng nhận lịch" : "Đã sẵn sàng nhận lịch");
-      await loadDoctors();
+      await invalidateDoctors();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được trạng thái");
     }
@@ -274,7 +274,7 @@ export default function DoctorsPage() {
       });
       setDeleteTarget(null);
       setNotice("Đã xóa hồ sơ bác sĩ");
-      await loadDoctors();
+      await invalidateDoctors();
       scrollToList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được hồ sơ bác sĩ");

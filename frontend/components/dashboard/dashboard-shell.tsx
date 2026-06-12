@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquareText,
-  Moon,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -21,18 +20,15 @@ import {
   Receipt,
   Settings,
   Stethoscope,
-  Sun,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { DashboardChatbotWidget } from "@/components/dashboard/dashboard-chatbot-widget";
-import { apiRequest } from "@/lib/api";
+import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { useTheme } from "@/lib/theme";
-import type { DashboardRole, SiteSettingsValue } from "@/lib/types";
+import { usePublicSiteSettings } from "@/lib/public-home-query";
+import type { DashboardRole } from "@/lib/types";
 
 type NavItem = {
   href: string;
@@ -67,30 +63,13 @@ const roleLabel: Record<DashboardRole, string> = {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [siteSettings, setSiteSettings] = useState<SiteSettingsValue | null>(null);
+  const siteSettingsQuery = usePublicSiteSettings();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const visibleItems = navItems.filter((item) => user && item.roles.includes(user.role));
-  const ThemeIcon = theme === "dark" ? Sun : Moon;
   const SidebarToggleIcon = sidebarCollapsed ? PanelLeftOpen : PanelLeftClose;
+  const siteSettings = siteSettingsQuery.data || null;
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
   const logo = siteSettings?.logo?.trim();
-
-  useEffect(() => {
-    let active = true;
-
-    void apiRequest<SiteSettingsValue>("/site-settings")
-      .then((settings) => {
-        if (active) setSiteSettings(settings);
-      })
-      .catch(() => {
-        if (active) setSiteSettings(null);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
@@ -171,16 +150,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 </p>
               </div>
               <button
-                type="button"
-                onClick={toggleTheme}
-                className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]"
-                aria-label={theme === "dark" ? "Chuyển sang nền sáng" : "Chuyển sang nền tối"}
-                title={theme === "dark" ? "Chuyển sang nền sáng" : "Chuyển sang nền tối"}
-              >
-                <ThemeIcon className="h-4 w-4" aria-hidden="true" />
-                <span>{theme === "dark" ? "Sáng" : "Tối"}</span>
-              </button>
-              <button
                 onClick={() => void logout()}
                 className="inline-flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]"
               >
@@ -214,7 +183,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
         </header>
         <main className="px-4 py-6 sm:px-6">{children}</main>
-        <DashboardChatbotWidget />
       </div>
     </div>
   );
