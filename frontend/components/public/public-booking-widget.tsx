@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock, Copy, CreditCard, Info, Loader2, Send, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
@@ -68,6 +68,15 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
   const [verifiedAppointment, setVerifiedAppointment] = useState<Appointment | null>(null);
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
+  const formErrorRef = useRef<HTMLDivElement | null>(null);
+  const pendingOtpRef = useRef<HTMLDivElement | null>(null);
+  const verifiedBoxRef = useRef<HTMLDivElement | null>(null);
+  const scrollToBox = useCallback((target: { current: HTMLElement | null } | HTMLElement | null) => {
+    window.setTimeout(() => {
+      const element = target && "current" in target ? target.current : target;
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  }, []);
 
   const selectedDepartment = data.departments.find((item) => item.id === selection.departmentId);
   const selectedDoctor = data.doctors.find((item) => item.id === selection.doctorId);
@@ -126,12 +135,6 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, [setDraftPatch, slotsQuery.error]);
-  useEffect(() => {
-    if (pending || verifiedAppointment) {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [pending, verifiedAppointment]);
-
   const updateSelection = (patch: Partial<PublicBookingSelection>) => {
     setPending(null);
     setVerifiedAppointment(null);
@@ -176,6 +179,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
     const validationError = validateDraft();
     if (validationError) {
       setError(validationError);
+      scrollToBox(formErrorRef);
       return;
     }
 
@@ -210,9 +214,11 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
       setLookupDraft({ bookingCode: result.bookingCode, phone: result.patientPhone });
       setPending(result);
       setMessage(buildBookingOtpMessage(result.bookingCode, result.otpDeliveryStatus));
+      scrollToBox(pendingOtpRef);
       await queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được lịch hẹn");
+      scrollToBox(formErrorRef);
     } finally {
       setSubmitting(false);
     }
@@ -240,9 +246,11 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
       setVerifiedAppointment(result);
       setPending(null);
       setMessage("Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận.");
+      scrollToBox(verifiedBoxRef);
       await queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
+      scrollToBox(pendingOtpRef);
     } finally {
       setSubmitting(false);
     }
@@ -261,8 +269,10 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
 
       setPending((current) => (current ? { ...current, expiresIn: result.expiresIn, otpDeliveryStatus: result.otpDeliveryStatus, debugOtp: result.debugOtp } : current));
       setMessage(buildBookingOtpMessage(pending.bookingCode, result.otpDeliveryStatus));
+      scrollToBox(pendingOtpRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi lại được OTP");
+      scrollToBox(pendingOtpRef);
     } finally {
       setSubmitting(false);
     }
@@ -492,7 +502,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
             </div>
 
             {error ? (
-              <div className="mt-5 flex items-start gap-2 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm font-medium text-[#b3261e] shadow-sm">
+              <div ref={formErrorRef} className="mt-5 scroll-mt-24 flex items-start gap-2 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-4 py-3 text-sm font-medium text-[#b3261e] shadow-sm">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
               </div>
@@ -575,7 +585,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
             ) : null}
 
             {pending ? (
-              <div className="mt-5 rounded-md border border-[#cfe4fa] bg-[#fbfdff] p-4 shadow-sm">
+              <div ref={pendingOtpRef} className="mt-5 scroll-mt-24 rounded-md border border-[#cfe4fa] bg-[#fbfdff] p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
                   <ShieldCheck className="h-4 w-4" />
                   Xác thực OTP
@@ -635,7 +645,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
             ) : null}
 
             {verifiedAppointment ? (
-              <div className="mt-5 rounded-md border border-[#bde5c8] bg-[#fbfffc] p-4 shadow-sm">
+              <div ref={verifiedBoxRef} className="mt-5 scroll-mt-24 rounded-md border border-[#bde5c8] bg-[#fbfffc] p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#1f7a3a]">
                   <CheckCircle2 className="h-4 w-4" />
                   Đặt lịch thành công

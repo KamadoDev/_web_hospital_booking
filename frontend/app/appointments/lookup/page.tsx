@@ -2,7 +2,7 @@
 
 import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, Copy, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Stethoscope } from "lucide-react";
 import Link from "next/link";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
@@ -191,6 +191,18 @@ const copyText = async (value: string) => {
   await navigator.clipboard.writeText(value).catch(() => undefined);
 };
 
+const scrollToElement = (element: HTMLElement | null, block: ScrollLogicalPosition = "center") => {
+  window.setTimeout(() => {
+    element?.scrollIntoView({ behavior: "smooth", block });
+  }, 50);
+};
+
+const scrollToRef = (ref: { current: HTMLElement | null }, block: ScrollLogicalPosition = "center") => {
+  window.setTimeout(() => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block });
+  }, 50);
+};
+
 export default function AppointmentLookupPage() {
   const [activeTab, setActiveTab] = useState<"CODE" | "FORGOT">("CODE");
   const [bookingCode, setBookingCode] = useState(() => getInitialLookupValue("bookingCode"));
@@ -204,6 +216,10 @@ export default function AppointmentLookupPage() {
   const [debugLookupOtp, setDebugLookupOtp] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const lookupOtpRef = useRef<HTMLDivElement | null>(null);
+  const lookupNoticeRef = useRef<HTMLDivElement | null>(null);
+  const recentListRef = useRef<HTMLDivElement | null>(null);
+  const resultPanelRef = useRef<HTMLDivElement | null>(null);
 
   const status = useMemo(() => appointment ? statusLabels[appointment.status] : null, [appointment]);
 
@@ -218,11 +234,13 @@ export default function AppointmentLookupPage() {
 
     if (!bookingCode.trim()) {
       setError("Vui lòng nhập mã lịch hẹn.");
+      scrollToRef(lookupNoticeRef);
       return;
     }
 
     if (!phone.trim()) {
       setError("Vui lòng nhập số điện thoại đã đặt lịch.");
+      scrollToRef(lookupNoticeRef);
       return;
     }
 
@@ -237,8 +255,10 @@ export default function AppointmentLookupPage() {
       });
 
       setAppointment(result);
+      scrollToElement(resultPanelRef.current);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tra cứu được lịch hẹn");
+      scrollToRef(lookupNoticeRef);
     } finally {
       setLoading(false);
     }
@@ -251,6 +271,7 @@ export default function AppointmentLookupPage() {
 
     if (!forgotPhone.trim()) {
       setError("Vui lòng nhập số điện thoại đã đặt lịch.");
+      scrollToRef(lookupNoticeRef);
       return;
     }
 
@@ -264,8 +285,10 @@ export default function AppointmentLookupPage() {
       setOtpSent(true);
       setDebugLookupOtp(result.debugOtp || "");
       setMessage("OTP tra cứu lịch hẹn đã được gửi.");
+      scrollToRef(lookupOtpRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi được OTP tra cứu");
+      scrollToRef(lookupNoticeRef);
     } finally {
       setLoading(false);
     }
@@ -278,6 +301,7 @@ export default function AppointmentLookupPage() {
 
     if (!/^[0-9]{6}$/.test(otp)) {
       setError("OTP phải gồm đúng 6 chữ số.");
+      scrollToRef(lookupNoticeRef);
       return;
     }
 
@@ -295,8 +319,10 @@ export default function AppointmentLookupPage() {
       setForgotItems(result.items);
       setAppointment(result.items[0] || null);
       setMessage(result.items.length ? "Đã xác thực OTP và tải danh sách lịch gần đây." : "Đã xác thực OTP nhưng chưa có lịch hẹn.");
+      scrollToRef(result.items.length ? recentListRef : lookupNoticeRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xác thực OTP tra cứu thất bại");
+      scrollToRef(lookupNoticeRef);
     } finally {
       setLoading(false);
     }
@@ -405,7 +431,7 @@ export default function AppointmentLookupPage() {
                   />
                 </label>
                 {otpSent ? (
-                  <>
+                  <div ref={lookupOtpRef} className="space-y-3">
                     <DebugOtpBox otp={debugLookupOtp} onFill={setOtp} />
                     <label className="block">
                       <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
@@ -417,7 +443,7 @@ export default function AppointmentLookupPage() {
                         className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
                       />
                     </label>
-                  </>
+                  </div>
                 ) : null}
               </div>
               <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -443,18 +469,21 @@ export default function AppointmentLookupPage() {
             </div>
           )}
 
-          {message ? <div className="mt-4 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{message}</div> : null}
-          {error ? <div className="mt-4 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{error}</div> : null}
+          {message ? <div ref={lookupNoticeRef} className="mt-4 scroll-mt-24 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{message}</div> : null}
+          {error ? <div ref={lookupNoticeRef} className="mt-4 scroll-mt-24 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{error}</div> : null}
 
           {forgotItems.length ? (
-            <div className="mt-5 border-t border-[#e5ebf3] pt-5">
+            <div ref={recentListRef} className="mt-5 scroll-mt-24 border-t border-[#e5ebf3] pt-5">
               <p className="text-sm font-semibold text-[#172033]">Lịch gần đây</p>
               <div className="mt-3 space-y-2">
                 {forgotItems.map((item) => (
                   <button
                     type="button"
                     key={item.id}
-                    onClick={() => setAppointment(item)}
+                    onClick={() => {
+                      setAppointment(item);
+                      scrollToElement(resultPanelRef.current);
+                    }}
                     className={`w-full rounded-md border px-3 py-3 text-left transition ${
                       appointment?.id === item.id
                         ? "border-[#0d4f8b] bg-[#f3f8ff]"
@@ -475,7 +504,9 @@ export default function AppointmentLookupPage() {
           </div>
         </div>
 
-        <AppointmentResult appointment={appointment} status={status} onAppointmentChange={setAppointment} />
+        <div ref={resultPanelRef} className="scroll-mt-24">
+          <AppointmentResult appointment={appointment} status={status} onAppointmentChange={setAppointment} />
+        </div>
       </section>
     </main>
   );
@@ -567,6 +598,8 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
   const [otpMessage, setOtpMessage] = useState("");
   const [otpError, setOtpError] = useState("");
   const [debugPendingOtp, setDebugPendingOtp] = useState("");
+  const pendingOtpRef = useRef<HTMLDivElement | null>(null);
+  const pendingOtpNoticeRef = useRef<HTMLDivElement | null>(null);
 
   const resetFeedback = () => {
     setOtpMessage("");
@@ -578,6 +611,7 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
 
     if (!/^[0-9]{6}$/.test(otp)) {
       setOtpError("OTP phải gồm đúng 6 chữ số.");
+      scrollToRef(pendingOtpNoticeRef);
       return;
     }
 
@@ -592,8 +626,10 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
       onVerified(result);
       setOtp("");
       setOtpMessage("Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận.");
+      scrollToRef(pendingOtpNoticeRef);
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
+      scrollToRef(pendingOtpNoticeRef);
     } finally {
       setLoading(false);
     }
@@ -610,15 +646,17 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
 
       setDebugPendingOtp(result.debugOtp || "");
       setOtpMessage("OTP đã được gửi lại. Vui lòng kiểm tra tin nhắn hoặc email.");
+      scrollToRef(pendingOtpNoticeRef);
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Không gửi lại được OTP");
+      scrollToRef(pendingOtpNoticeRef);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mt-5 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4">
+    <div ref={pendingOtpRef} className="mt-5 scroll-mt-24 rounded-md border border-[#cfe4fa] bg-[#f3f8ff] p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#0d4f8b]">
         <ShieldCheck className="h-4 w-4" />
         Xác thực lại OTP
@@ -653,9 +691,11 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
           Gửi lại OTP
         </button>
       </div>
-      <DebugOtpBox otp={debugPendingOtp} onFill={setOtp} className="mt-3" />
-      {otpMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{otpMessage}</div> : null}
-      {otpError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{otpError}</div> : null}
+      <div ref={pendingOtpNoticeRef} className="scroll-mt-24">
+        <DebugOtpBox otp={debugPendingOtp} onFill={setOtp} className="mt-3" />
+        {otpMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{otpMessage}</div> : null}
+        {otpError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{otpError}</div> : null}
+      </div>
     </div>
   );
 }
@@ -669,6 +709,9 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
   const [cancelMessage, setCancelMessage] = useState("");
   const [cancelError, setCancelError] = useState("");
   const [cancelled, setCancelled] = useState(appointment.status === "CANCELLED_BY_PATIENT");
+  const cancelPanelRef = useRef<HTMLDivElement | null>(null);
+  const cancelOtpRef = useRef<HTMLDivElement | null>(null);
+  const cancelNoticeRef = useRef<HTMLDivElement | null>(null);
 
   const canCancel = cancellableStatuses.includes(appointment.status) && !cancelled;
 
@@ -683,6 +726,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
 
     if (reason.trim().length < 2) {
       setCancelError("Vui lòng nhập lý do hủy tối thiểu 2 ký tự.");
+      scrollToRef(cancelNoticeRef);
       return;
     }
 
@@ -701,8 +745,10 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
       setOtpSent(true);
       setDebugCancelOtp(result.debugOtp || "");
       setCancelMessage("OTP xác nhận hủy lịch đã được gửi.");
+      scrollToRef(cancelOtpRef);
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Không gửi được OTP hủy lịch");
+      scrollToRef(cancelNoticeRef);
     } finally {
       setLoading(false);
     }
@@ -713,6 +759,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
 
     if (!/^[0-9]{6}$/.test(otp)) {
       setCancelError("OTP phải gồm đúng 6 chữ số.");
+      scrollToRef(cancelNoticeRef);
       return;
     }
 
@@ -732,8 +779,10 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
       setCancelled(true);
       setDebugCancelOtp("");
       setCancelMessage("Đã hủy lịch hẹn thành công. Khung giờ có thể được mở lại cho người khác.");
+      scrollToRef(cancelNoticeRef);
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Không xác thực được yêu cầu hủy lịch");
+      scrollToRef(cancelNoticeRef);
     } finally {
       setLoading(false);
     }
@@ -754,7 +803,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
   }
 
   return (
-    <div className="mt-5 rounded-md border border-[#f4d48b] bg-[#fff8eb] p-4">
+    <div ref={cancelPanelRef} className="mt-5 scroll-mt-24 rounded-md border border-[#f4d48b] bg-[#fff8eb] p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#8a5a00]">
         <ShieldCheck className="h-4 w-4" />
         Hủy lịch hẹn
@@ -776,7 +825,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
             className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
           />
           {otpSent ? (
-            <>
+            <div ref={cancelOtpRef} className="scroll-mt-24">
               <DebugOtpBox otp={debugCancelOtp} onFill={setOtp} className="mt-3" />
               <input
                 value={otp}
@@ -785,7 +834,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
                 placeholder="000000"
                 className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
               />
-            </>
+            </div>
           ) : null}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <button
@@ -809,8 +858,10 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
           </div>
         </>
       )}
-      {cancelMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{cancelMessage}</div> : null}
-      {cancelError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{cancelError}</div> : null}
+      <div ref={cancelNoticeRef} className="scroll-mt-24">
+        {cancelMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{cancelMessage}</div> : null}
+        {cancelError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{cancelError}</div> : null}
+      </div>
     </div>
   );
 }
