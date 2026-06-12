@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const updateDashboardChatbotSettingsSchema = z.object({
+  isActive: z.boolean().optional(),
   aiEnabled: z.boolean().optional(),
   fallbackEnabled: z.boolean().optional(),
   faqEnabled: z.boolean().optional(),

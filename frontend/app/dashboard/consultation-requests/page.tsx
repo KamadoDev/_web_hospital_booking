@@ -1,11 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, MessageSquareText, PhoneCall, RefreshCw, Search, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatVietnamDateTime } from "@/lib/date";
-import type { ConsultationRequest, ConsultationStatus, ListResult } from "@/lib/types";
+import {
+  useDashboardConsultationRequest,
+  useDashboardConsultationRequests,
+} from "@/lib/dashboard-consultation-requests-query";
+import { queryKeys } from "@/lib/query-keys";
+import type { ConsultationRequest, ConsultationStatus } from "@/lib/types";
 
 const statusOptions: { label: string; value: "" | ConsultationStatus }[] = [
   { label: "Tất cả trạng thái", value: "" },
@@ -26,6 +32,7 @@ const formatDateTime = (value: string) => formatVietnamDateTime(value);
 
 export default function DashboardConsultationRequestsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
   const canDelete = user?.role === "ADMIN";
   const detailRef = useRef<HTMLElement | null>(null);
@@ -38,7 +45,6 @@ export default function DashboardConsultationRequestsPage() {
   const [selected, setSelected] = useState<ConsultationRequest | null>(null);
   const [editStatus, setEditStatus] = useState<ConsultationStatus>("NEW");
   const [note, setNote] = useState("");
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -53,31 +59,48 @@ export default function DashboardConsultationRequestsPage() {
     [appliedKeyword, page, status],
   );
 
-  const loadRequests = useCallback(async () => {
-    if (!canManage) return;
-    setLoading(true);
-    setError("");
+  const requestsQuery = useDashboardConsultationRequests(query, canManage);
+  const selectedRequestQuery = useDashboardConsultationRequest(selected?.id);
+  const loading = requestsQuery.isLoading || (requestsQuery.isFetching && !items.length);
 
-    try {
-      const result = await apiRequest<ListResult<ConsultationRequest>>("/dashboard/consultation-requests", { query });
-      setItems(result.items);
-      setPagination(result.pagination);
-      setSelected((current) => {
-        if (!current) return null;
-        return result.items.find((item) => item.id === current.id) || null;
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách yêu cầu tư vấn");
-    } finally {
-      setLoading(false);
-    }
-  }, [canManage, query]);
+  const invalidateConsultationRequests = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardConsultationRequests }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "statistics"] }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadRequests(), 0);
+    if (!requestsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setItems(requestsQuery.data.items);
+      setPagination(requestsQuery.data.pagination);
+      setSelected((current) => {
+        if (!current) return null;
+        return requestsQuery.data.items.find((item) => item.id === current.id) || null;
+      });
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadRequests]);
+  }, [requestsQuery.data]);
 
+  useEffect(() => {
+    if (!selectedRequestQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setSelected(selectedRequestQuery.data);
+      setEditStatus(selectedRequestQuery.data.status);
+      setNote(selectedRequestQuery.data.note || "");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedRequestQuery.data]);
+
+  useEffect(() => {
+    if (!requestsQuery.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(requestsQuery.error instanceof Error ? requestsQuery.error.message : "Không tải được danh sách yêu cầu tư vấn");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [requestsQuery.error]);
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const statusParam = new URLSearchParams(window.location.search).get("status");
@@ -135,7 +158,9 @@ export default function DashboardConsultationRequestsPage() {
       setSelected(updated);
       setEditStatus(updated.status);
       setNote(updated.note || "");
+      queryClient.setQueryData(queryKeys.dashboardConsultationRequest(updated.id), updated);
       setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      await invalidateConsultationRequests();
       setNotice("Đã cập nhật yêu cầu tư vấn");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được yêu cầu tư vấn");
@@ -157,7 +182,7 @@ export default function DashboardConsultationRequestsPage() {
       await apiRequest<ConsultationRequest>(`/dashboard/consultation-requests/${selected.id}`, { method: "DELETE" });
       setNotice("Đã xóa yêu cầu tư vấn");
       setSelected(null);
-      await loadRequests();
+      await invalidateConsultationRequests();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được yêu cầu tư vấn");
     } finally {
@@ -217,7 +242,7 @@ export default function DashboardConsultationRequestsPage() {
               <Search className="h-4 w-4" aria-hidden="true" />
               Tìm
             </button>
-            <button type="button" onClick={() => void loadRequests()} className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">
+            <button type="button" onClick={() => void invalidateConsultationRequests()} className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-soft)] hover:bg-[var(--surface-soft)]">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Tải lại
             </button>

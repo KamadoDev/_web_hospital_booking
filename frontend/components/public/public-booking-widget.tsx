@@ -1,79 +1,36 @@
 "use client";
 
-import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock, Copy, CreditCard, Info, Loader2, Send, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, getVietnamDateInput, getVietnamTimeInput, getVietnamYesterdayDateInput } from "@/lib/date";
+import { type PublicBookingDraft, type PublicBookingSelection, usePublicBookingStore } from "@/lib/public-booking-store";
+import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-booking-query";
+import { queryKeys } from "@/lib/query-keys";
 import type { Appointment } from "@/lib/types";
+import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
-import type { HomeSelection, PublicHomeData } from "./public-home-types";
+import type { PublicHomeData } from "./public-home-types";
 import { ScrollReveal } from "./scroll-reveal";
-
-type PublicSlot = {
-  id: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-};
-
-type BookingDraft = {
-  date: string;
-  timeSlotId: string;
-  patientName: string;
-  patientPhone: string;
-  patientEmail: string;
-  otpChannel: "SMS" | "EMAIL";
-  reason: string;
-  gender: "" | "MALE" | "FEMALE" | "OTHER";
-  dateOfBirth: string;
-  address: string;
-  cccd: string;
-  hasBHYT: boolean;
-  healthInsuranceCode: string;
-  registeredHospital: string;
-  allergies: string;
-  medicalHistory: string;
-  familyHistory: string;
-};
 
 type PendingAppointment = {
   appointmentId: string;
   bookingCode: string;
   patientPhone: string;
   otpDeliveryStatus?: "PENDING" | "SENT" | "FAILED";
+  debugOtp?: string;
   expiresIn: number;
 };
 
 type PublicBookingWidgetProps = {
   data: PublicHomeData;
   loading: boolean;
-  selection: HomeSelection;
-  setSelection: Dispatch<SetStateAction<HomeSelection>>;
 };
 
 const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const initialDraft: BookingDraft = {
-  date: getVietnamDateInput(),
-  timeSlotId: "",
-  patientName: "",
-  patientPhone: "",
-  patientEmail: "",
-  otpChannel: "SMS",
-  reason: "",
-  gender: "",
-  dateOfBirth: "",
-  address: "",
-  cccd: "",
-  hasBHYT: false,
-  healthInsuranceCode: "",
-  registeredHospital: "",
-  allergies: "",
-  medicalHistory: "",
-  familyHistory: "",
-};
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -86,6 +43,7 @@ const doctorName = (doctor: PublicHomeData["doctors"][number]) =>
   [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
 const formatTime = (value: string) => value.slice(0, 5);
+const toDateInputValue = (value?: string | null) => value?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || "";
 
 const buildBookingOtpMessage = (bookingCode: string, status?: PendingAppointment["otpDeliveryStatus"]) => {
   if (status === "SENT") return `Đã gửi OTP xác nhận cho lịch ${bookingCode}.`;
@@ -94,10 +52,14 @@ const buildBookingOtpMessage = (bookingCode: string, status?: PendingAppointment
   return `Yêu cầu gửi OTP cho lịch ${bookingCode} đã được tiếp nhận. Vui lòng kiểm tra mã trong giây lát.`;
 };
 
-export function PublicBookingWidget({ data, loading, selection, setSelection }: PublicBookingWidgetProps) {
-  const [draft, setDraft] = useState<BookingDraft>(initialDraft);
+export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps) {
+  const queryClient = useQueryClient();
+  const selection = usePublicBookingStore((state) => state.selection);
+  const draft = usePublicBookingStore((state) => state.draft);
+  const setSelectionPatch = usePublicBookingStore((state) => state.setSelectionPatch);
+  const setDraftPatch = usePublicBookingStore((state) => state.setDraftPatch);
+  const setLookupDraft = usePublicBookingStore((state) => state.setLookupDraft);
   const [slots, setSlots] = useState<PublicSlot[]>([]);
-  const [slotLoading, setSlotLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -106,24 +68,6 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
   const [verifiedAppointment, setVerifiedAppointment] = useState<Appointment | null>(null);
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
-      const date = params.get("date");
-      const timeSlotId = params.get("timeSlotId");
-
-      if (!date && !timeSlotId) return;
-
-      setDraft((current) => ({
-        ...current,
-        date: date || current.date,
-        timeSlotId: timeSlotId || current.timeSlotId,
-      }));
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
 
   const selectedDepartment = data.departments.find((item) => item.id === selection.departmentId);
   const selectedDoctor = data.doctors.find((item) => item.id === selection.doctorId);
@@ -147,53 +91,48 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
     };
   }, [selectedDepartment, selectedDoctor, selectedPackage]);
 
+  const slotsQuery = usePublicAvailableSlots({
+    doctorId: selection.doctorId,
+    date: draft.date,
+  });
+  const slotLoading = slotsQuery.isLoading || (slotsQuery.isFetching && !slots.length);
+
   useEffect(() => {
     if (!selection.doctorId || !draft.date) {
-      return;
+      const timeoutId = window.setTimeout(() => {
+        setSlots([]);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
     }
 
-    let active = true;
+    if (!slotsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setSlots(slotsQuery.data);
+      const matchedSlot = slotsQuery.data.find((slot) => slot.id === draft.timeSlotId);
+      setDraftPatch({
+        date: toDateInputValue(matchedSlot?.date) || draft.date,
+        timeSlotId: slotsQuery.data.some((slot) => slot.id === draft.timeSlotId) ? draft.timeSlotId : "",
+      });
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [draft.date, draft.timeSlotId, selection.doctorId, setDraftPatch, slotsQuery.data]);
 
-    const loadSlots = async () => {
-      setSlotLoading(true);
-      setError("");
-
-      try {
-        const result = await apiRequest<PublicSlot[]>(`/doctors/${selection.doctorId}/available-slots`, {
-          query: { date: draft.date },
-        });
-
-        if (!active) return;
-        setSlots(result);
-        setDraft((current) => ({
-          ...current,
-          timeSlotId: result.some((slot) => slot.id === current.timeSlotId) ? current.timeSlotId : "",
-        }));
-      } catch (err) {
-        if (active) {
-          setSlots([]);
-          setDraft((current) => ({ ...current, timeSlotId: "" }));
-          setError(err instanceof Error ? err.message : "Không tải được khung giờ khám");
-        }
-      } finally {
-        if (active) setSlotLoading(false);
-      }
-    };
-
-    void loadSlots();
-
-    return () => {
-      active = false;
-    };
-  }, [draft.date, selection.doctorId]);
-
+  useEffect(() => {
+    if (!slotsQuery.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setSlots([]);
+      setDraftPatch({ timeSlotId: "" });
+      setError(slotsQuery.error instanceof Error ? slotsQuery.error.message : "Không tải được khung giờ khám");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [setDraftPatch, slotsQuery.error]);
   useEffect(() => {
     if (pending || verifiedAppointment) {
       resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [pending, verifiedAppointment]);
 
-  const updateSelection = (patch: Partial<HomeSelection>) => {
+  const updateSelection = (patch: Partial<PublicBookingSelection>) => {
     setPending(null);
     setVerifiedAppointment(null);
     setOtp("");
@@ -202,16 +141,16 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
     if (patch.doctorId === "") {
       setSlots([]);
     }
-    setSelection((current) => ({ ...current, ...patch }));
+    setSelectionPatch(patch);
   };
 
-  const updateDraft = (patch: Partial<BookingDraft>) => {
+  const updateDraft = (patch: Partial<PublicBookingDraft>) => {
     setPending(null);
     setVerifiedAppointment(null);
     setOtp("");
     setMessage("");
     setError("");
-    setDraft((current) => ({ ...current, ...patch }));
+    setDraftPatch(patch);
   };
 
   const validateDraft = () => {
@@ -268,8 +207,10 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
         },
       });
 
+      setLookupDraft({ bookingCode: result.bookingCode, phone: result.patientPhone });
       setPending(result);
       setMessage(buildBookingOtpMessage(result.bookingCode, result.otpDeliveryStatus));
+      await queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được lịch hẹn");
     } finally {
@@ -295,9 +236,11 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
         body: { otp },
       });
 
+      setLookupDraft({ bookingCode: result.bookingCode, phone: result.patientPhone });
       setVerifiedAppointment(result);
       setPending(null);
       setMessage("Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận.");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
     } finally {
@@ -312,11 +255,11 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
     setSubmitting(true);
 
     try {
-      const result = await apiRequest<{ expiresIn: number; otpDeliveryStatus?: PendingAppointment["otpDeliveryStatus"] }>(`/appointments/${pending.appointmentId}/resend-otp`, {
+      const result = await apiRequest<{ expiresIn: number; otpDeliveryStatus?: PendingAppointment["otpDeliveryStatus"]; debugOtp?: string }>(`/appointments/${pending.appointmentId}/resend-otp`, {
         method: "POST",
       });
 
-      setPending((current) => (current ? { ...current, expiresIn: result.expiresIn, otpDeliveryStatus: result.otpDeliveryStatus } : current));
+      setPending((current) => (current ? { ...current, expiresIn: result.expiresIn, otpDeliveryStatus: result.otpDeliveryStatus, debugOtp: result.debugOtp } : current));
       setMessage(buildBookingOtpMessage(pending.bookingCode, result.otpDeliveryStatus));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi lại được OTP");
@@ -468,7 +411,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Kênh OTP</span>
-                  <select value={draft.otpChannel} onChange={(event) => updateDraft({ otpChannel: event.target.value as BookingDraft["otpChannel"] })} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]">
+                  <select value={draft.otpChannel} onChange={(event) => updateDraft({ otpChannel: event.target.value as PublicBookingDraft["otpChannel"] })} className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]">
                     <option value="SMS">SMS</option>
                     <option value="EMAIL">Email</option>
                   </select>
@@ -503,7 +446,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                 <div className="grid gap-3 border-t border-[#e5ebf3] p-4 md:grid-cols-2">
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">Giới tính</span>
-                    <select value={draft.gender} onChange={(event) => updateDraft({ gender: event.target.value as BookingDraft["gender"] })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]">
+                    <select value={draft.gender} onChange={(event) => updateDraft({ gender: event.target.value as PublicBookingDraft["gender"] })} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]">
                       <option value="">Chưa chọn</option>
                       <option value="MALE">Nam</option>
                       <option value="FEMALE">Nữ</option>
@@ -663,6 +606,7 @@ export function PublicBookingWidget({ data, loading, selection, setSelection }: 
                     , nhập mã lịch và số điện thoại để xác thực OTP lại.
                   </p>
                 </div>
+                <DebugOtpBox otp={pending.debugOtp} onFill={setOtp} className="mt-3" />
                 <input
                   value={otp}
                   onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}

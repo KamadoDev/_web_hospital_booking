@@ -1,5 +1,23 @@
 import type { Request, Response, NextFunction } from "express";
 import ChatbotService from "../services/chatbot/chatbot.service.js";
+import ChatbotSettingsService from "../services/chatbot/chatbot.settings.js";
+
+export const getPublicChatbotSettingsHandler = async (
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const settings = await ChatbotSettingsService.getRuntimeSettings();
+
+    return res.json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const sendChatbotMessageHandler = async (
   req: Request,

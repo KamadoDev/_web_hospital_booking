@@ -20,20 +20,56 @@ const dashboardCookieOptions = {
   path: "/",
 };
 
+const readRefreshCookieDays = () => {
+  const value = process.env.DASHBOARD_REFRESH_TOKEN_DAYS || "7";
+  const match = value.match(/^(\d+)\s*d?$/i);
+
+  return match ? Number(match[1]) : 7;
+};
+
+const ACCESS_COOKIE_MAX_AGE = Number(process.env.DASHBOARD_ACCESS_COOKIE_MAX_AGE_SECONDS || 15 * 60) * 1000;
+const REFRESH_COOKIE_MAX_AGE = readRefreshCookieDays() * 24 * 60 * 60 * 1000;
+
+const getRequestMeta = (req: Request) => ({
+  ipAddress:
+    req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+    req.socket.remoteAddress ||
+    "unknown",
+  userAgent: req.headers["user-agent"],
+});
+
+const setDashboardAuthCookies = (
+  res: Response,
+  result: {
+    accessToken: string;
+    refreshToken: string;
+  },
+) => {
+  res.cookie("dashboard_token", result.accessToken, {
+    ...dashboardCookieOptions,
+    maxAge: ACCESS_COOKIE_MAX_AGE,
+  });
+
+  res.cookie("dashboard_refresh_token", result.refreshToken, {
+    ...dashboardCookieOptions,
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  });
+};
+
+const clearDashboardAuthCookies = (res: Response) => {
+  res.clearCookie("dashboard_token", dashboardCookieOptions);
+  res.clearCookie("dashboard_refresh_token", dashboardCookieOptions);
+};
+
 export const loginHandler = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const ipAddress =
-      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
-
     const { phone, password } = req.body;
 
-    const result = await DashboardAuthService.login(phone, password, ipAddress);
+    const result = await DashboardAuthService.login(phone, password, getRequestMeta(req).ipAddress);
 
     return res.json({
       success: true,
@@ -53,12 +89,9 @@ export const verifyOtpHandler = async (
   try {
     const { challengeId, otp } = req.body;
 
-    const result = await DashboardAuthService.verifyOtp(challengeId, otp);
+    const result = await DashboardAuthService.verifyOtp(challengeId, otp, getRequestMeta(req));
 
-    res.cookie("dashboard_token", result.token, {
-      ...dashboardCookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setDashboardAuthCookies(res, result);
 
     return res.json({
       success: true,
@@ -69,6 +102,39 @@ export const verifyOtpHandler = async (
       },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const refreshHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const refreshToken = req.cookies.dashboard_refresh_token;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Phiên đăng nhập đã hết hạn",
+      });
+    }
+
+    const result = await DashboardAuthService.refreshSession(refreshToken, getRequestMeta(req));
+
+    setDashboardAuthCookies(res, result);
+
+    return res.json({
+      success: true,
+      message: "Đã làm mới phiên đăng nhập",
+      data: {
+        user: result.user,
+        redirectPath: result.redirectPath,
+      },
+    });
+  } catch (error) {
+    clearDashboardAuthCookies(res);
     next(error);
   }
 };
@@ -99,8 +165,9 @@ export const meHandler = async (
   }
 };
 
-export const logoutHandler = (req: Request, res: Response) => {
-  res.clearCookie("dashboard_token", dashboardCookieOptions);
+export const logoutHandler = async (req: Request, res: Response) => {
+  await DashboardAuthService.revokeSession(req.cookies.dashboard_refresh_token);
+  clearDashboardAuthCookies(res);
 
   return res.json({
     success: true,

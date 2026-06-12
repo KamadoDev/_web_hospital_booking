@@ -4,6 +4,7 @@ import { Bot, Loader2, RotateCcw, Send, Sparkles, X } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { ChatbotResultCards } from "@/components/ui/chatbot-result-cards";
+import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import {
   buildBookingHref,
   getActionEventMessage,
@@ -55,6 +56,7 @@ const readStoredChat = (): StoredChat => {
 };
 
 export function PublicChatbotWidget() {
+  const settingsQuery = usePublicChatbotSettings();
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [draft, setDraft] = useState<ChatBookingDraft | undefined>();
@@ -71,6 +73,16 @@ export function PublicChatbotWidget() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sendingRef = useRef(false);
+  const runtimeSettings = settingsQuery.data?.value;
+  const chatbotOnline = Boolean(
+    settingsQuery.data?.isActive &&
+      (runtimeSettings?.aiEnabled || runtimeSettings?.faqEnabled || runtimeSettings?.fallbackEnabled),
+  );
+  const chatbotStatusText = settingsQuery.isLoading
+    ? "Đang kiểm tra trạng thái"
+    : chatbotOnline
+      ? "Đang sẵn sàng hỗ trợ"
+      : "Chatbot đang tạm tắt";
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -138,6 +150,11 @@ export function PublicChatbotWidget() {
   const sendMessage = async (content: string, action?: ChatbotSuggestedAction) => {
     const trimmed = content.trim();
     if (!trimmed || sending || sendingRef.current) return;
+
+    if (!chatbotOnline) {
+      setError("Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.");
+      return;
+    }
 
     sendingRef.current = true;
 
@@ -228,11 +245,11 @@ export function PublicChatbotWidget() {
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                 <Bot className="h-5 w-5" aria-hidden="true" />
-                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-white" aria-hidden="true" />
+                <span className={`absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-white ${chatbotOnline ? "bg-[#22c55e]" : "bg-[#94a3b8]"}`} aria-hidden="true" title={chatbotStatusText} />
               </div>
               <div className="min-w-0">
                 <h2 className="truncate text-sm font-semibold text-[#172033]">Trợ lý đặt lịch</h2>
-                <p className="truncate text-xs text-[#667892]">Hỗ trợ nhanh trước khi đặt khám</p>
+                <p className="truncate text-xs text-[#667892]">{chatbotStatusText}</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -309,7 +326,7 @@ export function PublicChatbotWidget() {
                   <button
                     key={getActionRenderKey(action, index)}
                     type="button"
-                    disabled={sending}
+                    disabled={!chatbotOnline || sending}
                     onClick={() => void sendMessage(action.label, action)}
                     className="shrink-0 rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
                   >
@@ -325,11 +342,12 @@ export function PublicChatbotWidget() {
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder={inputPlaceholder}
-                className="min-w-0 flex-1 rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm text-[#172033] outline-none focus:border-[#0d4f8b]"
+                disabled={!chatbotOnline}
+                className="min-w-0 flex-1 rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm text-[#172033] outline-none focus:border-[#0d4f8b] disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
               />
               <button
                 type="submit"
-                disabled={sending || !message.trim()}
+                disabled={!chatbotOnline || sending || !message.trim()}
                 className="inline-flex items-center gap-2 rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Send className="h-4 w-4" aria-hidden="true" />
@@ -351,11 +369,11 @@ export function PublicChatbotWidget() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="group relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#0d4f8b] text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-[#083d6d] focus:outline-none focus:ring-4 focus:ring-[#cfe4fa]"
+            className={`group relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[#cfe4fa] ${chatbotOnline ? "bg-[#0d4f8b] hover:bg-[#083d6d]" : "bg-[#64748b] hover:bg-[#475569]"}`}
             aria-label="Mở trợ lý"
-            title="Mở trợ lý"
+            title={chatbotStatusText}
           >
-            <span className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-25 motion-safe:animate-ping" aria-hidden="true" />
+            {chatbotOnline ? <span className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-25 motion-safe:animate-ping" aria-hidden="true" /> : null}
             <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#0d4f8b] shadow-md">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             </span>

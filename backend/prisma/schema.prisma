@@ -198,6 +198,7 @@ model User {
   chatbotSessions ChatbotSession[]
   otpCodes    OtpCode[]
   dashboardLoginChallenges DashboardLoginChallenge[]
+  dashboardSessions DashboardSession[]
   mediaAssets MediaAsset[]
 
   // Logs created by Admin/Staff/Doctor
@@ -334,6 +335,28 @@ model DashboardLoginChallenge {
   @@index([userId])
   @@index([expiresAt])
   @@index([isUsed])
+}
+
+model DashboardSession {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshTokenHash String @unique
+  ipAddress        String?
+  userAgent        String?
+
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
 
 model MediaAsset {

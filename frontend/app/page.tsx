@@ -3,8 +3,17 @@ import { emptyHomeData, type PublicHomeData } from "@/components/public/public-h
 import { serverApiRequest } from "@/lib/server-api";
 import { absoluteUrl, jsonLdString } from "@/lib/seo";
 import type { Banner, DoctorProfile, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
+import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: "Đặt lịch khám trực tuyến",
+  description: "Đặt lịch khám, chọn chuyên khoa, bác sĩ, gói khám và tra cứu lịch hẹn trực tuyến.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 async function getHomeData(): Promise<{ data: PublicHomeData; error: string }> {
   try {

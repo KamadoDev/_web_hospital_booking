@@ -2,17 +2,16 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useDashboardBanners, useDashboardFAQs, useDashboardSiteSettings } from "@/lib/dashboard-site-settings-query";
 import { formatVietnamDateTime, fromVietnamDateTimeInput, toVietnamDateTimeInput } from "@/lib/date";
+import { queryKeys } from "@/lib/query-keys";
 import type { Banner, MediaAsset, PublicFAQ, SiteSettingsRecord, SiteSettingsValue } from "@/lib/types";
 
 type TabKey = "settings" | "banners" | "faqs";
-
-type ListResponse<T> = {
-  items: T[];
-};
 
 type SiteForm = SiteSettingsValue & {
   logoAssetId: string;
@@ -151,6 +150,7 @@ const toFAQForm = (faq: PublicFAQ): FAQForm => ({
 
 export default function SiteSettingsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const canWrite = user?.role === "ADMIN";
   const canManage = user?.role === "ADMIN" || user?.role === "STAFF";
   const [activeTab, setActiveTab] = useState<TabKey>("settings");
@@ -168,7 +168,6 @@ export default function SiteSettingsPage() {
   const [deleteFAQ, setDeleteFAQ] = useState<PublicFAQ | null>(null);
   const [faqCategory, setFAQCategory] = useState("");
   const [faqActive, setFAQActive] = useState("");
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState("");
   const [notice, setNotice] = useState("");
@@ -193,50 +192,67 @@ export default function SiteSettingsPage() {
     }),
     [faqActive, faqCategory],
   );
+  const siteSettingsQuery = useDashboardSiteSettings(canManage);
+  const bannersQuery = useDashboardBanners(bannerQuery, canManage);
+  const faqsQuery = useDashboardFAQs(faqQuery, canManage);
+  const loading = siteSettingsQuery.isLoading || bannersQuery.isLoading || faqsQuery.isLoading;
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
     window.setTimeout(() => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
 
-  const loadSiteSettings = useCallback(async () => {
-    if (!canManage) return;
-    const result = await apiRequest<SiteSettingsRecord>("/dashboard/site-settings");
-    setSiteRecord(result);
-    setSiteForm(toSiteForm(result.value));
-  }, [canManage]);
+  const invalidateSiteSettings = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardSiteSettings }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicSiteSettings }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
-  const loadBanners = useCallback(async () => {
-    if (!canManage) return;
-    const result = await apiRequest<ListResponse<Banner>>("/dashboard/banners", {
-      query: bannerQuery,
-    });
-    setBanners(result.items);
-  }, [bannerQuery, canManage]);
+  const invalidateBanners = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "banners"] }),
+      queryClient.invalidateQueries({ queryKey: ["public", "banners"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
-  const loadFAQs = useCallback(async () => {
-    if (!canManage) return;
-    const result = await apiRequest<ListResponse<PublicFAQ>>("/dashboard/faqs", {
-      query: faqQuery,
-    });
-    setFaqs(result.items);
-  }, [canManage, faqQuery]);
-
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      await Promise.all([loadSiteSettings(), loadBanners(), loadFAQs()]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được cấu hình website");
-    } finally {
-      setLoading(false);
-    }
-  }, [loadBanners, loadFAQs, loadSiteSettings]);
+  const invalidateFAQs = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "faqs"] }),
+      queryClient.invalidateQueries({ queryKey: ["public", "faqs"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadAll(), 0);
+    if (!siteSettingsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      if (!siteSettingsQuery.data) return;
+      setSiteRecord(siteSettingsQuery.data);
+      setSiteForm(toSiteForm(siteSettingsQuery.data.value));
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadAll]);
+  }, [siteSettingsQuery.data]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setBanners(bannersQuery.data || []), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [bannersQuery.data]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setFaqs(faqsQuery.data || []), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [faqsQuery.data]);
+
+  useEffect(() => {
+    const queryError = siteSettingsQuery.error || bannersQuery.error || faqsQuery.error;
+    if (!queryError) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(queryError instanceof Error ? queryError.message : "Không tải được cấu hình website");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [bannersQuery.error, faqsQuery.error, siteSettingsQuery.error]);
 
   useEffect(() => {
     if (!notice && !error) return;
@@ -304,7 +320,9 @@ export default function SiteSettingsPage() {
         body: payload,
       });
       setSiteRecord(updated);
+      queryClient.setQueryData(queryKeys.dashboardSiteSettings, updated);
       setSiteForm(toSiteForm(updated.value));
+      await invalidateSiteSettings();
       setNotice("Đã cập nhật thông tin website");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được thông tin website");
@@ -366,7 +384,7 @@ export default function SiteSettingsPage() {
       }
       setEditingBanner(null);
       setBannerForm(emptyBannerForm);
-      await loadBanners();
+      await invalidateBanners();
       scrollTo(bannerListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được banner");
@@ -385,7 +403,7 @@ export default function SiteSettingsPage() {
         body: { isActive: !banner.isActive },
       });
       setNotice(banner.isActive ? "Đã tắt banner" : "Đã bật banner");
-      await loadBanners();
+      await invalidateBanners();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được banner");
     }
@@ -400,7 +418,7 @@ export default function SiteSettingsPage() {
       await apiRequest<Banner>(`/dashboard/banners/${deleteBanner.id}`, { method: "DELETE" });
       setDeleteBanner(null);
       setNotice("Đã xoá banner");
-      await loadBanners();
+      await invalidateBanners();
       scrollTo(bannerListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được banner");
@@ -454,7 +472,7 @@ export default function SiteSettingsPage() {
       }
       setEditingFAQ(null);
       setFAQForm(emptyFAQForm);
-      await loadFAQs();
+      await invalidateFAQs();
       scrollTo(faqListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được FAQ");
@@ -473,7 +491,7 @@ export default function SiteSettingsPage() {
         body: { isActive: !faq.isActive },
       });
       setNotice(faq.isActive ? "Đã tắt FAQ" : "Đã bật FAQ");
-      await loadFAQs();
+      await invalidateFAQs();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được FAQ");
     }
@@ -488,7 +506,7 @@ export default function SiteSettingsPage() {
       await apiRequest<PublicFAQ>(`/dashboard/faqs/${deleteFAQ.id}`, { method: "DELETE" });
       setDeleteFAQ(null);
       setNotice("Đã xoá FAQ");
-      await loadFAQs();
+      await invalidateFAQs();
       scrollTo(faqListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được FAQ");

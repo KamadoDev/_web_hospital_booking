@@ -610,6 +610,7 @@ class AppointmentService {
         bookingCode,
         patientPhone: input.patientPhone,
         otpDeliveryStatus: otp.deliveryStatus,
+        debugOtp: otp.debugOtp,
         expiresIn: otp.expiresIn,
       };
     } catch (error) {
@@ -658,6 +659,7 @@ class AppointmentService {
 
     return {
       otpDeliveryStatus: otp.deliveryStatus,
+      debugOtp: otp.debugOtp,
       expiresIn: otp.expiresIn,
     };
   }
@@ -956,6 +958,7 @@ class AppointmentService {
       bookingCode: appointment.bookingCode,
       patientPhone: appointment.patientPhone,
       otpDeliveryStatus: otp.deliveryStatus,
+      debugOtp: otp.debugOtp,
       expiresIn: otp.expiresIn,
     };
   }

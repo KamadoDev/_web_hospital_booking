@@ -5,9 +5,8 @@
 import { ArrowLeft, ArrowRight, Clock, Search, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { apiRequest } from "@/lib/api";
+import { usePublicDepartments, usePublicDoctors } from "@/lib/public-lists-query";
 import type { DoctorProfile } from "@/lib/types";
-import type { PublicDepartment } from "@/components/public/public-home-types";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -28,65 +27,29 @@ const getInitialDepartmentId = () => {
 };
 
 export default function PublicDoctorsPage() {
-  const [departments, setDepartments] = useState<PublicDepartment[]>([]);
-  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [departmentId, setDepartmentId] = useState(getInitialDepartmentId);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    let active = true;
+    const timer = window.setTimeout(() => setDebouncedSearch(search), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-    const loadDepartments = async () => {
-      try {
-        const result = await apiRequest<PublicDepartment[]>("/departments");
-        if (active) setDepartments(result);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được chuyên khoa");
-      }
-    };
-
-    void loadDepartments();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadDoctors = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const result = await apiRequest<DoctorProfile[]>("/doctors", {
-          query: {
-            search: search.trim() || undefined,
-            departmentId: departmentId || undefined,
-          },
-        });
-
-        if (active) setDoctors(result);
-      } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Không tải được danh sách bác sĩ");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    const timer = window.setTimeout(() => {
-      void loadDoctors();
-    }, 250);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [departmentId, search]);
-
+  const departmentsQuery = usePublicDepartments();
+  const doctorsQuery = usePublicDoctors({
+    search: debouncedSearch.trim() || undefined,
+    departmentId: departmentId || undefined,
+  });
+  const departments = useMemo(() => departmentsQuery.data || [], [departmentsQuery.data]);
+  const doctors = useMemo(() => doctorsQuery.data || [], [doctorsQuery.data]);
+  const loading = doctorsQuery.isLoading || (doctorsQuery.isFetching && !doctors.length);
+  const error =
+    departmentsQuery.error instanceof Error
+      ? departmentsQuery.error.message
+      : doctorsQuery.error instanceof Error
+        ? doctorsQuery.error.message
+        : "";
   const selectedDepartment = useMemo(
     () => departments.find((item) => item.id === departmentId),
     [departmentId, departments],

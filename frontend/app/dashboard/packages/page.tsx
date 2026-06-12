@@ -1,9 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { Department, ListResult, MedicalPackage, PackageItem } from "@/lib/types";
+import { useDashboardDepartments } from "@/lib/dashboard-departments-query";
+import { useDashboardPackages } from "@/lib/dashboard-packages-query";
+import { queryKeys } from "@/lib/query-keys";
+import type { Department, MedicalPackage, PackageItem } from "@/lib/types";
 
 type PackageForm = {
   name: string;
@@ -135,6 +139,7 @@ const buildItemPayload = (form: ItemForm) => ({
 
 export default function PackagesPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [packages, setPackages] = useState<MedicalPackage[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
@@ -142,7 +147,6 @@ export default function PackagesPage() {
   const [status, setStatus] = useState("");
   const [popular, setPopular] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -171,6 +175,10 @@ export default function PackagesPage() {
     }),
     [page, popular, search, status],
   );
+  const departmentQuery = useMemo(() => ({ isActive: "true", limit: 100 }), []);
+  const packagesQuery = useDashboardPackages(query);
+  const departmentsQuery = useDashboardDepartments(departmentQuery);
+  const loading = packagesQuery.isLoading;
 
   const scrollToList = () => {
     window.setTimeout(() => listPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
@@ -184,45 +192,39 @@ export default function PackagesPage() {
     window.setTimeout(() => itemPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
 
-  const loadPackages = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const invalidatePackages = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "packages"] }),
+      queryClient.invalidateQueries({ queryKey: ["public", "packages"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
-    try {
-      const result = await apiRequest<ListResult<MedicalPackage>>("/dashboard/packages", { query });
-      setPackages(result.items);
-      setPagination(result.pagination);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!packagesQuery.data) return;
+      setPackages(packagesQuery.data.items);
+      setPagination(packagesQuery.data.pagination);
       setSelectedPackage((current) =>
-        current ? result.items.find((item) => item.id === current.id) || current : current,
+        current ? packagesQuery.data.items.find((item) => item.id === current.id) || current : current,
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách gói khám");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
-
-  const loadDepartments = useCallback(async () => {
-    try {
-      const result = await apiRequest<ListResult<Department>>("/dashboard/departments", {
-        query: { isActive: true, limit: 100 },
-      });
-      setDepartments(result.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được chuyên khoa");
-    }
-  }, []);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [packagesQuery.data]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadPackages(), 0);
+    const timeoutId = window.setTimeout(() => setDepartments(departmentsQuery.data?.items || []), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadPackages]);
+  }, [departmentsQuery.data]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadDepartments(), 0);
+    const queryError = packagesQuery.error || departmentsQuery.error;
+    if (!queryError) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu gói khám");
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDepartments]);
-
+  }, [departmentsQuery.error, packagesQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -297,7 +299,7 @@ export default function PackagesPage() {
       setEditing(null);
       setForm(emptyPackageForm);
       setSlugTouched(false);
-      await loadPackages();
+      await invalidatePackages();
       scrollToList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được gói khám");
@@ -318,7 +320,7 @@ export default function PackagesPage() {
       setNotice("Đã xóa gói khám");
       if (selectedPackage?.id === deleteTarget.id) setSelectedPackage(null);
       setDeleteTarget(null);
-      await loadPackages();
+      await invalidatePackages();
       scrollToList();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được gói khám");
@@ -367,7 +369,7 @@ export default function PackagesPage() {
 
       setEditingItem(null);
       setItemForm({ ...emptyItemForm, order: String(selectedPackage.items.length + 1) });
-      await loadPackages();
+      await invalidatePackages();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được hạng mục");
     } finally {
@@ -388,7 +390,7 @@ export default function PackagesPage() {
       });
       setNotice("Đã xóa hạng mục");
       setDeleteItemTarget(null);
-      await loadPackages();
+      await invalidatePackages();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xóa được hạng mục");
     } finally {
@@ -423,7 +425,7 @@ export default function PackagesPage() {
         </div>
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-[1fr_170px_150px]">
+          <div className="grid gap-3 border-b border-[#e5ebf3] p-4 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_170px_150px]">
             <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm theo tên, slug hoặc tóm tắt" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

@@ -3,8 +3,10 @@
 import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, Copy, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { apiRequest } from "@/lib/api";
 import { formatVietnamDate, formatVietnamDateTime } from "@/lib/date";
+import { getPublicLookupDraft } from "@/lib/public-booking-store";
 import type { AppointmentStatus, LabResult, PaymentProvider, PaymentTransaction, Prescription, PublicAppointmentInvoice } from "@/lib/types";
 
 type DisplayAppointment = {
@@ -174,20 +176,32 @@ const getInitialQueryValue = (key: string) => {
   return new URLSearchParams(window.location.search).get(key) || "";
 };
 
+const getInitialLookupValue = (key: "bookingCode" | "phone") => {
+  const queryValue = getInitialQueryValue(key);
+  if (queryValue) return queryValue;
+
+  const lookupDraft = getPublicLookupDraft();
+  const oneDay = 24 * 60 * 60 * 1000;
+  if (!lookupDraft || Date.now() - lookupDraft.savedAt > oneDay) return "";
+
+  return key === "bookingCode" ? lookupDraft.bookingCode : lookupDraft.phone;
+};
+
 const copyText = async (value: string) => {
   await navigator.clipboard.writeText(value).catch(() => undefined);
 };
 
 export default function AppointmentLookupPage() {
   const [activeTab, setActiveTab] = useState<"CODE" | "FORGOT">("CODE");
-  const [bookingCode, setBookingCode] = useState(() => getInitialQueryValue("bookingCode"));
-  const [phone, setPhone] = useState(() => getInitialQueryValue("phone"));
-  const [forgotPhone, setForgotPhone] = useState(() => getInitialQueryValue("phone"));
+  const [bookingCode, setBookingCode] = useState(() => getInitialLookupValue("bookingCode"));
+  const [phone, setPhone] = useState(() => getInitialLookupValue("phone"));
+  const [forgotPhone, setForgotPhone] = useState(() => getInitialLookupValue("phone"));
   const [otp, setOtp] = useState("");
   const [appointment, setAppointment] = useState<DisplayAppointment | null>(null);
   const [forgotItems, setForgotItems] = useState<DisplayAppointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [debugLookupOtp, setDebugLookupOtp] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -243,11 +257,12 @@ export default function AppointmentLookupPage() {
     setLoading(true);
 
     try {
-      await apiRequest("/appointments/lookup/request-otp", {
+      const result = await apiRequest<{ debugOtp?: string }>("/appointments/lookup/request-otp", {
         method: "POST",
         body: { phone: forgotPhone.trim() },
       });
       setOtpSent(true);
+      setDebugLookupOtp(result.debugOtp || "");
       setMessage("OTP tra cứu lịch hẹn đã được gửi.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi được OTP tra cứu");
@@ -390,16 +405,19 @@ export default function AppointmentLookupPage() {
                   />
                 </label>
                 {otpSent ? (
-                  <label className="block">
-                    <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
-                    <input
-                      value={otp}
-                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                      inputMode="numeric"
-                      placeholder="000000"
-                      className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
-                    />
-                  </label>
+                  <>
+                    <DebugOtpBox otp={debugLookupOtp} onFill={setOtp} />
+                    <label className="block">
+                      <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
+                      <input
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                        inputMode="numeric"
+                        placeholder="000000"
+                        className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+                      />
+                    </label>
+                  </>
                 ) : null}
               </div>
               <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -548,6 +566,7 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
   const [loading, setLoading] = useState(false);
   const [otpMessage, setOtpMessage] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [debugPendingOtp, setDebugPendingOtp] = useState("");
 
   const resetFeedback = () => {
     setOtpMessage("");
@@ -585,10 +604,11 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
     setLoading(true);
 
     try {
-      await apiRequest(`/appointments/${appointment.id}/resend-otp`, {
+      const result = await apiRequest<{ debugOtp?: string }>(`/appointments/${appointment.id}/resend-otp`, {
         method: "POST",
       });
 
+      setDebugPendingOtp(result.debugOtp || "");
       setOtpMessage("OTP đã được gửi lại. Vui lòng kiểm tra tin nhắn hoặc email.");
     } catch (err) {
       setOtpError(err instanceof Error ? err.message : "Không gửi lại được OTP");
@@ -633,6 +653,7 @@ function PendingOtpPanel({ appointment, onVerified }: { appointment: DisplayAppo
           Gửi lại OTP
         </button>
       </div>
+      <DebugOtpBox otp={debugPendingOtp} onFill={setOtp} className="mt-3" />
       {otpMessage ? <div className="mt-3 rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm font-medium text-[#1f7a3a]">{otpMessage}</div> : null}
       {otpError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{otpError}</div> : null}
     </div>
@@ -643,6 +664,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
   const [reason, setReason] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [debugCancelOtp, setDebugCancelOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [cancelMessage, setCancelMessage] = useState("");
   const [cancelError, setCancelError] = useState("");
@@ -657,6 +679,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
 
   const requestCancelOtp = async () => {
     resetFeedback();
+    setDebugCancelOtp("");
 
     if (reason.trim().length < 2) {
       setCancelError("Vui lòng nhập lý do hủy tối thiểu 2 ký tự.");
@@ -666,7 +689,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
     setLoading(true);
 
     try {
-      await apiRequest("/appointments/lookup/cancel/request-otp", {
+      const result = await apiRequest<{ debugOtp?: string }>("/appointments/lookup/cancel/request-otp", {
         method: "POST",
         body: {
           bookingCode: appointment.bookingCode,
@@ -676,6 +699,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
       });
 
       setOtpSent(true);
+      setDebugCancelOtp(result.debugOtp || "");
       setCancelMessage("OTP xác nhận hủy lịch đã được gửi.");
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Không gửi được OTP hủy lịch");
@@ -706,6 +730,7 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
       });
 
       setCancelled(true);
+      setDebugCancelOtp("");
       setCancelMessage("Đã hủy lịch hẹn thành công. Khung giờ có thể được mở lại cho người khác.");
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Không xác thực được yêu cầu hủy lịch");
@@ -751,13 +776,16 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
             className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0d4f8b]"
           />
           {otpSent ? (
-            <input
-              value={otp}
-              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-              inputMode="numeric"
-              placeholder="000000"
-              className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
-            />
+            <>
+              <DebugOtpBox otp={debugCancelOtp} onFill={setOtp} className="mt-3" />
+              <input
+                value={otp}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                placeholder="000000"
+                className="mt-3 w-full rounded-md border border-[#f4d48b] bg-white px-3 py-2.5 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]"
+              />
+            </>
           ) : null}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <button

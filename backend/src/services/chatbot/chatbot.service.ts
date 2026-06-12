@@ -5,9 +5,7 @@ import ChatbotActionService from "./chatbot.actions.js";
 import ChatbotContextService from "./chatbot.context.js";
 import type { ChatbotContext } from "./chatbot.context.js";
 import ChatbotFAQService from "./chatbot.faq.js";
-import ChatbotSettingsService, {
-  DEFAULT_CHATBOT_RUNTIME_SETTINGS,
-} from "./chatbot.settings.js";
+import ChatbotSettingsService from "./chatbot.settings.js";
 import ChatbotWorkflowService from "./chatbot.workflow.js";
 import {
   detectIntent,
@@ -715,9 +713,11 @@ const fallbackOutput = (
 class ChatbotService {
   async handleMessage(input: ChatbotRequestInput): Promise<ChatbotResponse> {
     const runtimeSetting = await ChatbotSettingsService.getRuntimeSettings();
-    const settings = runtimeSetting.isActive
-      ? runtimeSetting.value
-      : DEFAULT_CHATBOT_RUNTIME_SETTINGS;
+    if (!runtimeSetting.isActive) {
+      throw new AppError("Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.", 503);
+    }
+
+    const settings = runtimeSetting.value;
     const session = await getOrCreateChatSession(
       input.sessionId,
       input.phone,

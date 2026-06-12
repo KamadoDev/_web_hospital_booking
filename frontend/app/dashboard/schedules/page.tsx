@@ -1,15 +1,21 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import {
+  useDashboardDoctorSchedules,
+  useDashboardDoctorTimeSlots,
+  useDashboardScheduleDoctors,
+} from "@/lib/dashboard-schedules-query";
 import { formatVietnamDate, getVietnamDateInput, isVietnamSlotStartInPast } from "@/lib/date";
+import { queryKeys } from "@/lib/query-keys";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import type {
   DoctorProfile,
   DoctorSchedule,
   DoctorTimeSlot,
-  ListResult,
   TimeSlotStatus,
 } from "@/lib/types";
 
@@ -119,6 +125,7 @@ const buildUpdateSchedulePayload = (form: ScheduleForm) => ({
 
 export default function SchedulesPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [slots, setSlots] = useState<DoctorTimeSlot[]>([]);
@@ -132,8 +139,6 @@ export default function SchedulesPage() {
   const [slotStatus, setSlotStatus] = useState("");
   const [schedulePage, setSchedulePage] = useState(1);
   const [slotPage, setSlotPage] = useState(1);
-  const [loadingSchedules, setLoadingSchedules] = useState(true);
-  const [loadingSlots, setLoadingSlots] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -173,74 +178,59 @@ export default function SchedulesPage() {
     }),
     [isDoctor, slotDate, slotDoctorId, slotPage, slotStatus],
   );
+  const doctorQuery = useMemo(() => ({ isAvailable: "true", limit: 100 }), []);
+  const doctorsQuery = useDashboardScheduleDoctors(doctorQuery, !isDoctor);
+  const schedulesQuery = useDashboardDoctorSchedules(scheduleQuery);
+  const slotsQuery = useDashboardDoctorTimeSlots(slotQuery);
+  const loadingSchedules = schedulesQuery.isLoading;
+  const loadingSlots = slotsQuery.isLoading;
 
-  const loadDoctors = useCallback(async () => {
-    if (isDoctor) {
-      setDoctors([]);
-      return;
-    }
+  const invalidateSchedules = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "doctor-schedules"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
-    try {
-      const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
-        query: { isAvailable: true, limit: 100 },
-      });
-      setDoctors(result.items);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách bác sĩ");
-    }
-  }, [isDoctor]);
+  const invalidateSlots = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "doctor-time-slots"] }),
+      queryClient.invalidateQueries({ queryKey: ["public", "available-slots"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
 
-  const loadSchedules = useCallback(async () => {
-    setLoadingSchedules(true);
-    try {
-      const result = await apiRequest<ListResult<DoctorSchedule>>("/dashboard/doctor-schedules", {
-        query: scheduleQuery,
-      });
-      setSchedules(result.items);
-      setSchedulePagination(result.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được lịch làm việc");
-    } finally {
-      setLoadingSchedules(false);
-    }
-  }, [scheduleQuery]);
-
-  const loadSlots = useCallback(async () => {
-    setLoadingSlots(true);
-    try {
-      const result = await apiRequest<ListResult<DoctorTimeSlot>>("/dashboard/doctor-time-slots", {
-        query: slotQuery,
-      });
-      setSlots(result.items);
-      setSlotPagination(result.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được slot khám");
-    } finally {
-      setLoadingSlots(false);
-    }
-  }, [slotQuery]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorsQuery.data]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadDoctors();
+      if (!schedulesQuery.data) return;
+      setSchedules(schedulesQuery.data.items);
+      setSchedulePagination(schedulesQuery.data.pagination);
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDoctors]);
+  }, [schedulesQuery.data]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadSchedules();
+      if (!slotsQuery.data) return;
+      setSlots(slotsQuery.data.items);
+      setSlotPagination(slotsQuery.data.pagination);
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadSchedules]);
+  }, [slotsQuery.data]);
 
   useEffect(() => {
+    const queryError = doctorsQuery.error || schedulesQuery.error || slotsQuery.error;
+    if (!queryError) return;
     const timeoutId = window.setTimeout(() => {
-      void loadSlots();
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch khám");
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadSlots]);
-
+  }, [doctorsQuery.error, schedulesQuery.error, slotsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -324,7 +314,7 @@ export default function SchedulesPage() {
       }
       setEditingSchedule(null);
       setScheduleForm(emptyScheduleForm);
-      await loadSchedules();
+      await invalidateSchedules();
       scrollTo(scheduleListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được lịch làm việc");
@@ -341,7 +331,7 @@ export default function SchedulesPage() {
       await apiRequest<DoctorSchedule>(`/dashboard/doctor-schedules/${deleteScheduleTarget.id}`, { method: "DELETE" });
       setNotice("Đã xoá lịch làm việc");
       setDeleteScheduleTarget(null);
-      await loadSchedules();
+      await invalidateSchedules();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được lịch làm việc");
     }
@@ -365,7 +355,7 @@ export default function SchedulesPage() {
       setSlotDate(generateDate);
       setSlotPage(1);
       setNotice(`Đã sinh ${result.generatedCount} slot, tổng hiện có ${result.total} slot`);
-      await loadSlots();
+      await invalidateSlots();
       scrollTo(slotListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không sinh được slot");
@@ -392,7 +382,7 @@ export default function SchedulesPage() {
       setNotice("Đã cập nhật slot");
       setLockSlotTarget(null);
       setLockReason("");
-      await loadSlots();
+      await invalidateSlots();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được slot");
     }
@@ -407,7 +397,7 @@ export default function SchedulesPage() {
         method: "PATCH",
       });
       setNotice("Đã mở khoá slot");
-      await loadSlots();
+      await invalidateSlots();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không mở khoá được slot");
     }
@@ -421,7 +411,7 @@ export default function SchedulesPage() {
       await apiRequest<DoctorTimeSlot>(`/dashboard/doctor-time-slots/${deleteSlotTarget.id}`, { method: "DELETE" });
       setNotice("Đã xoá slot");
       setDeleteSlotTarget(null);
-      await loadSlots();
+      await invalidateSlots();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được slot");
     }
@@ -455,7 +445,7 @@ export default function SchedulesPage() {
             </div>
             {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo lịch mẫu</button> : null}
           </div>
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_160px]" : "lg:grid-cols-[1fr_160px_160px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "sm:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_160px]"}`}>
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setSchedulePage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
                 <option value="">Tất cả bác sĩ</option>
@@ -557,7 +547,7 @@ export default function SchedulesPage() {
               <button type="button" onClick={() => setSlotQuickFilter("LOCKED", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Đã khóa</p><p className="mt-2 text-2xl font-semibold">{slotSummary.locked}</p><p className="mt-1 text-xs opacity-75">Không nhận đặt lịch</p></button>
             </div>
           ) : null}
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_190px]" : "lg:grid-cols-[1fr_160px_190px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "sm:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_190px]"}`}>
             {!isDoctor ? (
             <select value={slotDoctorId} onChange={(e) => { setSlotDoctorId(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               <option value="">Tất cả bác sĩ</option>

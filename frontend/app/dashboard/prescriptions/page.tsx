@@ -1,12 +1,19 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import {
+  fetchDashboardPrescription,
+  useDashboardPrescription,
+  useDashboardPrescriptionDoctors,
+  useDashboardPrescriptions,
+} from "@/lib/dashboard-prescriptions-query";
+import { queryKeys } from "@/lib/query-keys";
 import type {
   DoctorProfile,
-  ListResult,
   Prescription,
   PrescriptionItem,
   PrescriptionStatus,
@@ -80,6 +87,7 @@ const buildItemPayload = (form: ItemForm) => ({
 
 export default function PrescriptionsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
@@ -88,7 +96,6 @@ export default function PrescriptionsPage() {
   const [prescriptionCode, setPrescriptionCode] = useState("");
   const [medicalRecordId, setMedicalRecordId] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -116,52 +123,65 @@ export default function PrescriptionsPage() {
     }),
     [doctorId, isDoctor, medicalRecordId, page, prescriptionCode, status],
   );
+  const doctorQuery = useMemo(() => ({ limit: 100 }), []);
+  const prescriptionsQuery = useDashboardPrescriptions(query);
+  const doctorsQuery = useDashboardPrescriptionDoctors(doctorQuery, !isDoctor);
+  const selectedPrescriptionQuery = useDashboardPrescription(selected?.id);
+  const loading = prescriptionsQuery.isLoading;
 
-  const loadPrescriptions = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", {
-        query,
-      });
-      setPrescriptions(result.items);
-      setPagination(result.pagination);
+  const invalidatePrescriptions = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardPrescriptions }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "medical-records"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "appointments"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
+    ]);
+  };
+
+  const refreshSelectedPrescription = async (id: string) => {
+    const refreshed = await queryClient.fetchQuery({
+      queryKey: queryKeys.dashboardPrescription(id),
+      queryFn: () => fetchDashboardPrescription(id),
+    });
+    setSelected(refreshed);
+    setNote(refreshed.note || "");
+    return refreshed;
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!prescriptionsQuery.data) return;
+      setPrescriptions(prescriptionsQuery.data.items);
+      setPagination(prescriptionsQuery.data.pagination);
       setSelected((current) =>
-        current ? result.items.find((item) => item.id === current.id) || current : current,
+        current ? prescriptionsQuery.data.items.find((item) => item.id === current.id) || current : current,
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được đơn thuốc");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
-
-  const loadDoctors = useCallback(async () => {
-    if (isDoctor) {
-      setDoctors([]);
-      return;
-    }
-
-    try {
-      const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
-        query: { limit: 100 },
-      });
-      setDoctors(result.items);
-    } catch {
-      setDoctors([]);
-    }
-  }, [isDoctor]);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [prescriptionsQuery.data]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadPrescriptions(), 0);
+    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadPrescriptions]);
+  }, [doctorsQuery.data]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadDoctors(), 0);
+    const timeoutId = window.setTimeout(() => {
+      if (!selectedPrescriptionQuery.data) return;
+      setSelected(selectedPrescriptionQuery.data);
+      setNote(selectedPrescriptionQuery.data.note || "");
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDoctors]);
+  }, [selectedPrescriptionQuery.data]);
 
+  useEffect(() => {
+    const queryError = prescriptionsQuery.error || doctorsQuery.error || selectedPrescriptionQuery.error;
+    if (!queryError) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu đơn thuốc");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorsQuery.error, prescriptionsQuery.error, selectedPrescriptionQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -229,7 +249,7 @@ export default function PrescriptionsPage() {
       setCreateRecordId("");
       setCreateNote("");
       setNotice("Đã tạo đơn thuốc");
-      await loadPrescriptions();
+      await invalidatePrescriptions();
       scrollDetail();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được đơn thuốc");
@@ -252,7 +272,7 @@ export default function PrescriptionsPage() {
       setSelected(updated);
       setNote(updated.note || "");
       setNotice("Đã cập nhật ghi chú đơn");
-      await loadPrescriptions();
+      await invalidatePrescriptions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được đơn thuốc");
     } finally {
@@ -273,7 +293,7 @@ export default function PrescriptionsPage() {
       setEditingItem(null);
       setDeleteItemTarget(null);
       setNotice(message);
-      await loadPrescriptions();
+      await invalidatePrescriptions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thực hiện được thao tác");
     } finally {
@@ -302,7 +322,7 @@ export default function PrescriptionsPage() {
       setDeleteItemTarget(null);
       setItemForm({ ...emptyItemForm, sortOrder: String(updated.items.length) });
       setNotice(editingItem ? "Đã cập nhật thuốc" : "Đã thêm thuốc");
-      await loadPrescriptions();
+      await invalidatePrescriptions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được thuốc");
     } finally {
@@ -319,11 +339,10 @@ export default function PrescriptionsPage() {
       await apiRequest<PrescriptionItem>(`/dashboard/prescriptions/${selected.id}/items/${deleteItemTarget.id}`, {
         method: "DELETE",
       });
-      const refreshed = await apiRequest<Prescription>(`/dashboard/prescriptions/${selected.id}`);
-      setSelected(refreshed);
+      await refreshSelectedPrescription(selected.id);
       setDeleteItemTarget(null);
       setNotice("Đã xoá thuốc");
-      await loadPrescriptions();
+      await invalidatePrescriptions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được thuốc");
     } finally {
@@ -379,7 +398,7 @@ export default function PrescriptionsPage() {
         ) : null}
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_1fr_1fr]" : "lg:grid-cols-[170px_1fr_170px_170px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_170px_170px]"}`}>
             <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               {statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>

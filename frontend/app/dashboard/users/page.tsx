@@ -1,9 +1,12 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { DashboardRole, DashboardUser, ListResult } from "@/lib/types";
+import { useDashboardUsers } from "@/lib/dashboard-users-query";
+import { queryKeys } from "@/lib/query-keys";
+import type { DashboardRole, DashboardUser } from "@/lib/types";
 
 type UserForm = {
   fullName: string;
@@ -80,13 +83,13 @@ const buildUpdatePayload = (form: UserForm) => ({
 
 export default function UsersPage() {
   const { user, refreshUser, logout } = useAuth();
+  const queryClient = useQueryClient();
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
   const [isActive, setIsActive] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -112,28 +115,33 @@ export default function UsersPage() {
     [isActive, page, role, search],
   );
 
-  const loadUsers = useCallback(async () => {
-    if (!canUse) return;
-    setLoading(true);
-    setError("");
-    try {
-      const result = await apiRequest<ListResult<DashboardUser>>("/dashboard/users", {
-        query,
-      });
-      setUsers(result.items);
-      setPagination(result.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách nhân sự");
-    } finally {
-      setLoading(false);
-    }
-  }, [canUse, query]);
+  const usersQuery = useDashboardUsers(query, canUse);
+  const loading = usersQuery.isLoading || (usersQuery.isFetching && !users.length);
+
+  const invalidateUsers = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "users"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "statistics"] }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadUsers(), 0);
+    if (!usersQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setUsers(usersQuery.data.items);
+      setPagination(usersQuery.data.pagination);
+    }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadUsers]);
+  }, [usersQuery.data]);
 
+  useEffect(() => {
+    if (!usersQuery.error) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(usersQuery.error instanceof Error ? usersQuery.error.message : "Không tải được danh sách nhân sự");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [usersQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -218,7 +226,7 @@ export default function UsersPage() {
       }
       setEditing(null);
       setForm(emptyForm);
-      await loadUsers();
+      await invalidateUsers();
       scrollTo(listRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được nhân sự");
@@ -237,7 +245,7 @@ export default function UsersPage() {
         body: { isActive: !(item.isActive ?? true) },
       });
       setNotice("Đã cập nhật trạng thái tài khoản");
-      await loadUsers();
+      await invalidateUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được trạng thái");
     }
@@ -283,6 +291,7 @@ export default function UsersPage() {
         await logout();
         return;
       }
+      await invalidateUsers();
       setNotice("Đã cập nhật mật khẩu");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được mật khẩu");

@@ -16,9 +16,9 @@ import {
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
-import { apiRequest } from "@/lib/api";
+import { DebugOtpBox } from "@/components/ui/debug-otp-box";
 import { useAuth } from "@/lib/auth";
-import type { SiteSettingsValue } from "@/lib/types";
+import { usePublicSiteSettings } from "@/lib/public-home-query";
 
 type LoginStep = "credentials" | "otp";
 type OtpDeliveryStatus = "PENDING" | "SENT" | "FAILED";
@@ -40,7 +40,7 @@ const buildOtpNotice = (channel: "SMS" | "EMAIL", target: string, status?: OtpDe
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, login, verifyOtp } = useAuth();
-  const [siteSettings, setSiteSettings] = useState<SiteSettingsValue | null>(null);
+  const siteSettingsQuery = usePublicSiteSettings();
   const [step, setStep] = useState<LoginStep>("credentials");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -50,12 +50,14 @@ export default function LoginPage() {
   const [otpTarget, setOtpTarget] = useState("");
   const [otpChannel, setOtpChannel] = useState<"SMS" | "EMAIL">("SMS");
   const [otpDeliveryStatus, setOtpDeliveryStatus] = useState<OtpDeliveryStatus>("PENDING");
+  const [debugOtp, setDebugOtp] = useState("");
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
+  const siteSettings = siteSettingsQuery.data || null;
   const hospitalName = siteSettings?.hospitalName?.trim() || "Hospital Booking";
   const logo = siteSettings?.logo?.trim();
   const hotline = siteSettings?.hotline?.trim() || siteSettings?.emergencyHotline?.trim() || "1900 0000";
@@ -67,20 +69,6 @@ export default function LoginPage() {
       : otpDeliveryStatus === "FAILED"
         ? `Chưa gửi được mã OTP đến ${otpTargetLabel} ${otpTargetText}.`
         : `Mã OTP đang được gửi đến ${otpTargetLabel} ${otpTargetText}.`;
-
-  useEffect(() => {
-    let active = true;
-
-    apiRequest<SiteSettingsValue>("/site-settings")
-      .then((result) => {
-        if (active) setSiteSettings(result);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!loading && user) {
@@ -99,6 +87,7 @@ export default function LoginPage() {
       setOtpTarget(result.otpTarget || result.email || result.phone);
       setOtpChannel(result.otpChannel || "SMS");
       setOtpDeliveryStatus(result.otpDeliveryStatus || "PENDING");
+      setDebugOtp(result.debugOtp || "");
       setExpiresIn(result.otpExpiresIn);
       setSuccessMessage(
         buildOtpNotice(
@@ -140,6 +129,7 @@ export default function LoginPage() {
     setOtpTarget("");
     setOtpChannel("SMS");
     setOtpDeliveryStatus("PENDING");
+    setDebugOtp("");
     setExpiresIn(null);
     setSubmitting(false);
     setError("");
@@ -290,6 +280,7 @@ export default function LoginPage() {
                 </form>
               ) : (
                 <form className="space-y-4" onSubmit={handleVerify}>
+                  <DebugOtpBox otp={debugOtp} onFill={setOtp} />
                   <label className="block">
                     <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
                     <input

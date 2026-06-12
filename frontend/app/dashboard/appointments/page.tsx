@@ -1,12 +1,15 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useDashboardAppointmentDoctors, useDashboardAppointments } from "@/lib/dashboard-appointments-query";
 import { formatVietnamDate, getVietnamDateInput, getVietnamYesterdayDateInput } from "@/lib/date";
-import type { Appointment, AppointmentStatus, DoctorProfile, ListResult } from "@/lib/types";
+import { queryKeys } from "@/lib/query-keys";
+import type { Appointment, AppointmentStatus, DoctorProfile } from "@/lib/types";
 
 const statusOptions: { value: "" | AppointmentStatus; label: string }[] = [
   { value: "", label: "Tất cả trạng thái" },
@@ -118,6 +121,7 @@ const canEditPatientInfoStatus = (status: AppointmentStatus) =>
 
 export default function AppointmentsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
@@ -127,7 +131,6 @@ export default function AppointmentsPage() {
   const [phone, setPhone] = useState("");
   const [bookingCode, setBookingCode] = useState("");
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -159,56 +162,47 @@ export default function AppointmentsPage() {
     }),
     [bookingCode, date, doctorId, isDoctor, page, phone, status],
   );
+  const doctorQuery = useMemo(() => ({ limit: 100 }), []);
+  const appointmentsQuery = useDashboardAppointments(query);
+  const doctorsQuery = useDashboardAppointmentDoctors(doctorQuery, !isDoctor);
+  const loading = appointmentsQuery.isLoading;
 
-  const loadAppointments = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const result = await apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
-        query,
-      });
-      setAppointments(result.items);
-      setPagination(result.pagination);
+  const invalidateAppointments = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "appointments"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "doctor-time-slots"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "medical-records"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "invoices"] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardOverview }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicHome }),
+    ]);
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!appointmentsQuery.data) return;
+      setAppointments(appointmentsQuery.data.items);
+      setPagination(appointmentsQuery.data.pagination);
       setSelected((current) =>
-        current ? result.items.find((item) => item.id === current.id) || current : current,
+        current ? appointmentsQuery.data.items.find((item) => item.id === current.id) || current : current,
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được lịch hẹn");
-    } finally {
-      setLoading(false);
-    }
-  }, [query]);
-
-  const loadDoctors = useCallback(async () => {
-    if (isDoctor) {
-      setDoctors([]);
-      return;
-    }
-
-    try {
-      const result = await apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
-        query: { limit: 100 },
-      });
-      setDoctors(result.items);
-    } catch {
-      setDoctors([]);
-    }
-  }, [isDoctor]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadAppointments();
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadAppointments]);
+  }, [appointmentsQuery.data]);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDoctors(doctorsQuery.data?.items || []), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [doctorsQuery.data]);
+
+  useEffect(() => {
+    const queryError = appointmentsQuery.error || doctorsQuery.error;
+    if (!queryError) return;
     const timeoutId = window.setTimeout(() => {
-      void loadDoctors();
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu lịch hẹn");
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadDoctors]);
-
+  }, [appointmentsQuery.error, doctorsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -253,7 +247,7 @@ export default function AppointmentsPage() {
       });
       setSelected(updated);
       setNotice(message);
-      await loadAppointments();
+      await invalidateAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thực hiện được thao tác");
     } finally {
@@ -316,7 +310,7 @@ export default function AppointmentsPage() {
       setPatientInfoForm(buildPatientInfoForm(updated));
       setEditingPatientInfo(false);
       setNotice("Đã cập nhật thông tin tiếp nhận");
-      await loadAppointments();
+      await invalidateAppointments();
       scrollTo(detailRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được thông tin tiếp nhận");
@@ -357,7 +351,7 @@ export default function AppointmentsPage() {
         { method: "POST" },
       );
       setNotice(`Đã dọn ${result.count} lịch quá hạn OTP`);
-      await loadAppointments();
+      await invalidateAppointments();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không dọn được lịch OTP");
     } finally {
@@ -468,7 +462,7 @@ export default function AppointmentsPage() {
         ) : null}
 
         <div className="rounded-md border border-[#dce3ee] bg-white">
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[170px_170px_1fr_1fr]" : "lg:grid-cols-[170px_1fr_150px_150px_150px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-2 2xl:grid-cols-[170px_170px_minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-2 2xl:grid-cols-[170px_minmax(0,1fr)_150px_150px_150px]"}`}>
             <VietnamDateInput value={date} onChange={(value) => { setDate(value); setPage(1); }} ariaLabel="Ngày lọc lịch hẹn" className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" />
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">

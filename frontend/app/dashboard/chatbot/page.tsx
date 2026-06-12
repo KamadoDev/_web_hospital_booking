@@ -1,9 +1,19 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import {
+  useDashboardChatbotFAQs,
+  useDashboardChatbotLogs,
+  useDashboardChatbotOverview,
+  useDashboardChatbotSession,
+  useDashboardChatbotSessions,
+  useDashboardChatbotSettings,
+} from "@/lib/dashboard-chatbot-query";
 import { formatVietnamDateTime } from "@/lib/date";
+import { queryKeys } from "@/lib/query-keys";
 import type {
   ChatbotFAQ,
   ChatbotLog,
@@ -12,7 +22,6 @@ import type {
   ChatbotSession,
   ChatbotSessionDetail,
   ChatbotSettings,
-  ListResult,
   Pagination,
 } from "@/lib/types";
 
@@ -91,11 +100,13 @@ const displayParticipant = (item: ChatbotSession | ChatbotSessionDetail | Chatbo
 
 export default function ChatbotPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const canView = user?.role === "ADMIN" || user?.role === "STAFF";
   const canAdmin = user?.role === "ADMIN";
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [overview, setOverview] = useState<ChatbotOverview | null>(null);
   const [settings, setSettings] = useState<ChatbotSettings | null>(null);
+  const [settingsActive, setSettingsActive] = useState(true);
   const [settingsForm, setSettingsForm] = useState<SettingsForm>(defaultSettings);
   const [faqs, setFaqs] = useState<ChatbotFAQ[]>([]);
   const [faqPagination, setFaqPagination] = useState<Pagination>(emptyPagination);
@@ -116,7 +127,6 @@ export default function ChatbotPage() {
   const [logSearch, setLogSearch] = useState("");
   const [logIntent, setLogIntent] = useState("");
   const [logPage, setLogPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -154,64 +164,83 @@ export default function ChatbotPage() {
     [logIntent, logPage, logSearch],
   );
 
-  const loadOverview = useCallback(async () => {
-    if (!canView) return;
-    const result = await apiRequest<ChatbotOverview>("/dashboard/chatbot/overview");
-    setOverview(result);
-  }, [canView]);
+  const overviewQuery = useDashboardChatbotOverview({}, canView);
+  const settingsQuery = useDashboardChatbotSettings(canView);
+  const faqsQuery = useDashboardChatbotFAQs(faqQuery, canView);
+  const sessionsQuery = useDashboardChatbotSessions(sessionQuery, canView);
+  const logsQuery = useDashboardChatbotLogs(logQuery, canView);
+  const selectedSessionQuery = useDashboardChatbotSession(selectedSession?.id);
+  const loading =
+    overviewQuery.isLoading ||
+    settingsQuery.isLoading ||
+    faqsQuery.isLoading ||
+    sessionsQuery.isLoading ||
+    logsQuery.isLoading;
 
-  const loadSettings = useCallback(async () => {
-    if (!canView) return;
-    const result = await apiRequest<ChatbotSettings>("/dashboard/chatbot/settings");
-    setSettings(result);
-    setSettingsForm(result.value);
-  }, [canView]);
-
-  const loadFaqs = useCallback(async () => {
-    if (!canView) return;
-    const result = await apiRequest<ListResult<ChatbotFAQ>>("/dashboard/chatbot/faqs", {
-      query: faqQuery,
-    });
-    setFaqs(result.items);
-    setFaqPagination(result.pagination);
-  }, [canView, faqQuery]);
-
-  const loadSessions = useCallback(async () => {
-    if (!canView) return;
-    const result = await apiRequest<ListResult<ChatbotSession>>("/dashboard/chatbot/sessions", {
-      query: sessionQuery,
-    });
-    setSessions(result.items);
-    setSessionPagination(result.pagination);
-  }, [canView, sessionQuery]);
-
-  const loadLogs = useCallback(async () => {
-    if (!canView) return;
-    const result = await apiRequest<ListResult<ChatbotLog>>("/dashboard/chatbot/logs", {
-      query: logQuery,
-    });
-    setLogs(result.items);
-    setLogPagination(result.pagination);
-  }, [canView, logQuery]);
-
-  const loadAll = useCallback(async () => {
-    if (!canView) return;
-    setLoading(true);
-    setError("");
-    try {
-      await Promise.all([loadOverview(), loadSettings(), loadFaqs(), loadSessions(), loadLogs()]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được dữ liệu chatbot");
-    } finally {
-      setLoading(false);
-    }
-  }, [canView, loadFaqs, loadLogs, loadOverview, loadSessions, loadSettings]);
+  const invalidateChatbotFAQs = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "chatbot", "faqs"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "chatbot", "overview"] }),
+    ]);
+  };
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadAll(), 0);
+    if (!overviewQuery.data) return;
+    const timeoutId = window.setTimeout(() => setOverview(overviewQuery.data), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadAll]);
+  }, [overviewQuery.data]);
 
+  useEffect(() => {
+    if (!settingsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setSettings(settingsQuery.data);
+      setSettingsActive(settingsQuery.data.isActive);
+      setSettingsForm(settingsQuery.data.value);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [settingsQuery.data]);
+
+  useEffect(() => {
+    if (!faqsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setFaqs(faqsQuery.data.items);
+      setFaqPagination(faqsQuery.data.pagination);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [faqsQuery.data]);
+
+  useEffect(() => {
+    if (!sessionsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setSessions(sessionsQuery.data.items);
+      setSessionPagination(sessionsQuery.data.pagination);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [sessionsQuery.data]);
+
+  useEffect(() => {
+    if (!logsQuery.data) return;
+    const timeoutId = window.setTimeout(() => {
+      setLogs(logsQuery.data.items);
+      setLogPagination(logsQuery.data.pagination);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [logsQuery.data]);
+
+  useEffect(() => {
+    if (!selectedSessionQuery.data) return;
+    const timeoutId = window.setTimeout(() => setSelectedSession(selectedSessionQuery.data), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedSessionQuery.data]);
+
+  useEffect(() => {
+    const queryError = overviewQuery.error || settingsQuery.error || faqsQuery.error || sessionsQuery.error || logsQuery.error || selectedSessionQuery.error;
+    if (!queryError) return;
+    const timeoutId = window.setTimeout(() => {
+      setError(queryError instanceof Error ? queryError.message : "Không tải được dữ liệu chatbot");
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [faqsQuery.error, logsQuery.error, overviewQuery.error, selectedSessionQuery.error, sessionsQuery.error, settingsQuery.error]);
   useEffect(() => {
     if (!notice && !error) return;
     const timeoutId = window.setTimeout(() => {
@@ -278,8 +307,7 @@ export default function ChatbotPage() {
       }
       setEditingFaq(null);
       setFaqForm(emptyFaqForm);
-      await loadFaqs();
-      await loadOverview();
+      await invalidateChatbotFAQs();
       scrollTo(faqListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không lưu được FAQ chatbot");
@@ -298,7 +326,7 @@ export default function ChatbotPage() {
         body: { isActive: !item.isActive },
       });
       setNotice(item.isActive ? "Đã tắt FAQ chatbot" : "Đã bật FAQ chatbot");
-      await loadFaqs();
+      await invalidateChatbotFAQs();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được trạng thái FAQ");
     }
@@ -315,8 +343,7 @@ export default function ChatbotPage() {
       });
       setDeleteFaq(null);
       setNotice("Đã xoá FAQ chatbot");
-      await loadFaqs();
-      await loadOverview();
+      await invalidateChatbotFAQs();
       scrollTo(faqListRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không xoá được FAQ chatbot");
@@ -334,10 +361,17 @@ export default function ChatbotPage() {
     try {
       const result = await apiRequest<ChatbotSettings>("/dashboard/chatbot/settings", {
         method: "PATCH",
-        body: settingsForm,
+        body: {
+          isActive: settingsActive,
+          ...settingsForm,
+        },
       });
       setSettings(result);
+      setSettingsActive(result.isActive);
       setSettingsForm(result.value);
+      queryClient.setQueryData(queryKeys.dashboardChatbotSettings, result);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboardChatbotSettings });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.publicChatbotSettings });
       setNotice("Đã cập nhật cấu hình chatbot");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không cập nhật được cấu hình chatbot");
@@ -350,8 +384,8 @@ export default function ChatbotPage() {
     setError("");
     setNotice("");
     try {
-      const result = await apiRequest<ChatbotSessionDetail>(`/dashboard/chatbot/sessions/${item.id}`);
-      setSelectedSession(result);
+      setSelectedSession({ ...item, logs: [] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboardChatbotSession(item.id) });
       setActiveTab("sessions");
       scrollTo(sessionDetailRef);
     } catch (err) {
@@ -625,6 +659,13 @@ export default function ChatbotPage() {
             <p className="text-xs text-[#8a98aa]">Cập nhật {formatDateTime(settings?.updatedAt)}</p>
           </div>
           <form className="mt-5 grid gap-4 lg:grid-cols-2" onSubmit={saveSettings}>
+            <label className="flex items-center justify-between rounded-md border border-[#cfe0f3] bg-[#f8fbff] px-3 py-2 lg:col-span-2">
+              <span>
+                <span className="block text-sm font-semibold text-[#172033]">Bật chatbot trên website</span>
+                <span className="mt-1 block text-xs text-[#667892]">Tắt công tắc này sẽ ngừng widget chat ở trang người dùng.</span>
+              </span>
+              <input disabled={!canAdmin} type="checkbox" checked={settingsActive} onChange={(event) => setSettingsActive(event.target.checked)} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" />
+            </label>
             <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Bật AI</span><input disabled={!canAdmin} type="checkbox" checked={settingsForm.aiEnabled} onChange={(event) => setSettingsForm((current) => ({ ...current, aiEnabled: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" /></label>
             <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Bật FAQ</span><input disabled={!canAdmin} type="checkbox" checked={settingsForm.faqEnabled} onChange={(event) => setSettingsForm((current) => ({ ...current, faqEnabled: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" /></label>
             <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Fallback khi lỗi AI</span><input disabled={!canAdmin} type="checkbox" checked={settingsForm.fallbackEnabled} onChange={(event) => setSettingsForm((current) => ({ ...current, fallbackEnabled: event.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:opacity-60" /></label>

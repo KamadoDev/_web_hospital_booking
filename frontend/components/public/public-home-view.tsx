@@ -21,22 +21,21 @@ import {
   X,
 } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
+import Image from "next/image";
 import Link from "next/link";
-import { Dispatch, ReactNode, SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBookingWidget } from "@/components/public/public-booking-widget";
 import { PublicChatbotWidget } from "@/components/public/public-chatbot-widget";
 import { PublicConsultationRequest } from "@/components/public/public-consultation-request";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
 import type { Banner, DoctorProfile } from "@/lib/types";
-import type { HomeSelection, PublicHomeData } from "./public-home-types";
+import type { PublicHomeData } from "./public-home-types";
 
 type PublicHomeViewProps = {
   data: PublicHomeData;
   loading: boolean;
   error: string;
-  selection: HomeSelection;
-  setSelection: Dispatch<SetStateAction<HomeSelection>>;
 };
 
 const formatCurrency = (value: number) =>
@@ -76,7 +75,7 @@ const faqCategoryMeta = {
 
 const faqCategoryOrder = ["booking", "payment", "doctor", "insurance", "general"] as const;
 
-export function PublicHomeView({ data, loading, error, selection, setSelection }: PublicHomeViewProps) {
+export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   const hospitalName = data.settings?.hospitalName?.trim() || "Hospital Booking";
   const logo = data.settings?.logo?.trim();
   const hotline = data.settings?.hotline?.trim() || data.settings?.emergencyHotline?.trim() || "1900 0000";
@@ -107,7 +106,7 @@ export function PublicHomeView({ data, loading, error, selection, setSelection }
         }}
       />
 
-      <PublicBookingWidget data={data} loading={loading} selection={selection} setSelection={setSelection} />
+      <PublicBookingWidget data={data} loading={loading} />
       <PublicConsultationRequest />
       <DepartmentSection departments={data.departments.slice(0, 6)} loading={loading} />
       <DoctorSection doctors={data.doctors.slice(0, 4)} loading={loading} />
@@ -137,8 +136,8 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
     <header className="sticky top-0 z-40 border-b border-[#dce3ee] bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
-            {logo ? <img src={logo} alt={hospitalName} className="h-full w-full object-contain p-1" /> : <Hospital className="h-6 w-6" />}
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+            {logo ? <Image src={logo} alt={hospitalName} fill sizes="44px" unoptimized className="object-contain p-1" /> : <Hospital className="h-6 w-6" />}
           </span>
           <span className="min-w-0">
             <span className="block truncate text-base font-semibold">{hospitalName}</span>
@@ -316,13 +315,21 @@ function HeroSection({
             ) : heroSlides.length ? (
               <div ref={emblaRef} className="absolute inset-0 overflow-hidden">
                 <div className="flex h-full touch-pan-y">
-                  {heroSlides.map((slide) => {
+                  {heroSlides.map((slide, index) => {
                     const slideImage = slide.mobileImage || slide.image;
 
                     return (
                       <div key={slide.id} className="relative min-w-0 flex-[0_0_100%]">
                         {slideImage ? (
-                          <img src={slideImage} alt={slide.title || hospitalName} className="h-full w-full object-cover" />
+                          <Image
+                            src={slideImage}
+                            alt={slide.title || hospitalName}
+                            fill
+                            sizes="(min-width: 1024px) 50vw, 100vw"
+                            priority={index === 0}
+                            unoptimized
+                            className="object-cover"
+                          />
                         ) : (
                           <div className="h-full w-full bg-[linear-gradient(135deg,#e7f0fb_0%,#f0fff4_55%,#fff8eb_100%)]" />
                         )}
@@ -397,7 +404,7 @@ function DepartmentSection({ departments, loading }: { departments: PublicHomeDa
         )) : departments.length ? departments.map((item, index) => (
           <ScrollReveal key={item.id} delay={index * 70}>
             <article className="ui-lift-card flex h-full min-h-[328px] flex-col overflow-hidden rounded-md border border-[#dce3ee] bg-white">
-              <div className="h-36 shrink-0 bg-[#e7f0fb]">{item.image ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[#0d4f8b]"><HeartPulse className="h-10 w-10" /></div>}</div>
+              <div className="relative h-36 shrink-0 bg-[#e7f0fb]">{item.image ? <Image src={item.image} alt={item.name} fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" unoptimized className="object-cover" /> : <div className="flex h-full items-center justify-center text-[#0d4f8b]"><HeartPulse className="h-10 w-10" /></div>}</div>
               <div className="flex flex-1 flex-col p-4">
                 <h3 className="line-clamp-2 min-h-12 font-semibold leading-6">{item.name}</h3>
                 <p className="mt-2 line-clamp-3 min-h-[72px] text-sm leading-6 text-[#667892]">{item.description || "Đội ngũ chuyên môn sẵn sàng tư vấn và tiếp nhận lịch khám."}</p>
@@ -432,7 +439,7 @@ function DoctorSection({ doctors, loading }: { doctors: DoctorProfile[]; loading
             <ScrollReveal key={doctor.id} delay={index * 70}>
               <article className="ui-lift-card rounded-md border border-[#dce3ee] bg-[#f8fafc] p-4">
                 <div className="flex items-center gap-3">
-                  {doctor.user.avatar ? <img src={doctor.user.avatar} alt={doctor.user.fullName} className="h-14 w-14 rounded-md object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-md bg-[#e7f0fb] text-lg font-semibold text-[#0d4f8b]">{firstLetter(doctor.user.fullName)}</div>}
+                  {doctor.user.avatar ? <Image src={doctor.user.avatar} alt={doctor.user.fullName} width={56} height={56} sizes="56px" unoptimized className="h-14 w-14 rounded-md object-cover" /> : <div className="flex h-14 w-14 items-center justify-center rounded-md bg-[#e7f0fb] text-lg font-semibold text-[#0d4f8b]">{firstLetter(doctor.user.fullName)}</div>}
                   <div className="min-w-0">
                     <h3 className="truncate font-semibold">{doctorName(doctor)}</h3>
                     <p className="truncate text-sm text-[#667892]">{doctor.department.name}</p>
@@ -704,7 +711,7 @@ function BrandSocialIcon({ name }: { name: string }) {
   }
 
   if (key === "zalo") {
-    return <img src="/zalo.svg" alt="" aria-hidden="true" className="h-6 w-6" />;
+    return <Image src="/zalo.svg" alt="" width={24} height={24} aria-hidden="true" className="h-6 w-6" />;
   }
 
   return <ExternalLink className="h-4 w-4" aria-hidden="true" />;
@@ -790,7 +797,7 @@ function PublicFooter({ settings, hospitalName, logo, hotline, loading }: { sett
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,420px)] lg:px-8">
         <div>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10">{logo ? <img src={logo} alt={hospitalName} className="h-full w-full object-contain p-1" /> : <Hospital className="h-5 w-5" />}</span>
+            <span className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-white/10">{logo ? <Image src={logo} alt={hospitalName} fill sizes="40px" unoptimized className="object-contain p-1" /> : <Hospital className="h-5 w-5" />}</span>
             <div>
               <p className="font-semibold">{hospitalName}</p>
               <p className="text-sm text-white/70">Nền tảng đặt lịch khám bệnh</p>
@@ -839,7 +846,7 @@ function PublicFooter({ settings, hospitalName, logo, hotline, loading }: { sett
               ))}
             </div>
           ) : null}
-          <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />Thông tin cấu hình từ dashboard</p>
+          {/* <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" />Thông tin cấu hình từ dashboard</p> */}
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs leading-5 text-white/60 sm:px-6">
