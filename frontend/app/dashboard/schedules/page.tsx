@@ -445,7 +445,7 @@ export default function SchedulesPage() {
             </div>
             {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo lịch mẫu</button> : null}
           </div>
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "sm:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_160px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_160px]" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_160px]"}`}>
             {!isDoctor ? (
               <select value={doctorId} onChange={(e) => { setDoctorId(e.target.value); setSchedulePage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
                 <option value="">Tất cả bác sĩ</option>
@@ -547,7 +547,7 @@ export default function SchedulesPage() {
               <button type="button" onClick={() => setSlotQuickFilter("LOCKED", today())} className="rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-4 text-left text-[#946200] transition hover:-translate-y-0.5 hover:shadow-sm"><p className="text-sm font-medium opacity-80">Đã khóa</p><p className="mt-2 text-2xl font-semibold">{slotSummary.locked}</p><p className="mt-1 text-xs opacity-75">Không nhận đặt lịch</p></button>
             </div>
           ) : null}
-          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "sm:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_190px]"}`}>
+          <div className={`grid gap-3 border-b border-[#e5ebf3] p-4 ${isDoctor ? "lg:grid-cols-[160px_190px]" : "lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_160px_190px]"}`}>
             {!isDoctor ? (
             <select value={slotDoctorId} onChange={(e) => { setSlotDoctorId(e.target.value); setSlotPage(1); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]">
               <option value="">Tất cả bác sĩ</option>

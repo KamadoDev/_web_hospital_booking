@@ -27,10 +27,12 @@ const toPrismaJson = (value: unknown) =>
 
 class SiteSettingsService {
   async get() {
-    const setting = await prisma.siteSetting.upsert({
+    const existingSetting = await prisma.siteSetting.findUnique({
       where: { key: SITE_SETTINGS_KEY },
-      update: {},
-      create: {
+    });
+
+    const setting = existingSetting || await prisma.siteSetting.create({
+      data: {
         key: SITE_SETTINGS_KEY,
         value: toPrismaJson(defaultSiteSettings),
         description: "Public website display settings",

@@ -233,6 +233,36 @@ html.theme-dark body {
   color: var(--text-muted) !important;
 }
 
+.vietnam-date-input,
+[data-theme="dark"] .vietnam-date-input,
+.theme-dark .vietnam-date-input {
+  color: transparent !important;
+  caret-color: transparent !important;
+  color-scheme: light;
+}
+
+.vietnam-date-input:focus,
+[data-theme="dark"] .vietnam-date-input:focus,
+.theme-dark .vietnam-date-input:focus {
+  color: var(--foreground) !important;
+  caret-color: auto !important;
+}
+
+.vietnam-date-input-label {
+  color: var(--foreground) !important;
+  opacity: 1;
+  transition: opacity 120ms ease;
+}
+
+.vietnam-date-input:focus + .vietnam-date-input-label {
+  opacity: 0;
+}
+
+[data-theme="dark"] .vietnam-date-input::-webkit-calendar-picker-indicator,
+.theme-dark .vietnam-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.8);
+}
+
 button,
 input,
 textarea,
