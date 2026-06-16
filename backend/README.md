@@ -260,6 +260,43 @@ Start Command: npm run worker:otp
 
 Worker can dung chung `DATABASE_URL`, `REDIS_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `OTP_SECRET`, `JWT_SECRET` va `NODE_ENV=production` voi backend web service.
 
+## Elasticsearch Public Search
+
+Backend ho tro Elasticsearch nhu mot lop search phu cho public data. PostgreSQL van la nguon du lieu chinh; neu Elasticsearch loi hoac chua bat, `/api/search` se fallback ve PostgreSQL.
+
+Bien moi truong:
+
+```txt
+ELASTICSEARCH_ENABLED=true
+ELASTICSEARCH_NODE=https://your-elastic-cloud-endpoint
+ELASTICSEARCH_API_KEY=your-api-key
+ELASTICSEARCH_INDEX=hospital_public_search
+```
+
+Reindex du lieu co san:
+
+```bash
+npm run search:reindex
+```
+
+API search public:
+
+```txt
+GET /api/search?q=tim%20mach&type=all&limit=12
+GET /api/search?q=khoa%20san&type=department
+GET /api/search?q=bac%20si&type=doctor
+GET /api/search?q=goi%20kham&type=package
+GET /api/search?q=thanh%20toan&type=faq
+```
+
+Loai du lieu duoc index:
+
+```txt
+department, doctor, package, faq, chatbot_faq
+```
+
+Sau khi CRUD cac entity tren, service se tu dong cap nhat document search. Elasticsearch loi chi ghi log, khong lam that bai thao tac CRUD chinh.
+
 Response mau:
 
 ```json

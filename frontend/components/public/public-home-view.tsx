@@ -28,7 +28,9 @@ import { BackToTopButton } from "@/components/public/back-to-top-button";
 import { PublicBookingWidget } from "@/components/public/public-booking-widget";
 import { PublicChatbotWidget } from "@/components/public/public-chatbot-widget";
 import { PublicConsultationRequest } from "@/components/public/public-consultation-request";
+import { PublicGlobalSearch } from "@/components/public/public-global-search";
 import { ScrollReveal } from "@/components/public/scroll-reveal";
+import { usePublicSearchSuggestions } from "@/lib/public-search-query";
 import type { Banner, DoctorProfile } from "@/lib/types";
 import type { PublicHomeData } from "./public-home-types";
 
@@ -86,6 +88,7 @@ export function PublicHomeView({ data, loading, error }: PublicHomeViewProps) {
   return (
     <main className="min-h-screen bg-[#f6f8fb] text-[#172033]">
       <PublicHeader hospitalName={hospitalName} logo={logo} hotline={hotline} />
+      <PublicSearchRail />
 
       {error ? (
         <section className="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -127,10 +130,12 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
     ["#doctors", "Bác sĩ"],
     ["#packages", "Gói khám"],
     ["#consultation", "Tư vấn"],
-    ["/faqs", "Hỏi đáp"],
-    ["/guide/booking", "Hướng dẫn"],
     ["/appointments/lookup", "Tra cứu lịch"],
+    ["/guide/booking", "Hướng dẫn"],
+    ["/search", "Tìm kiếm"],
+    ["/faqs", "Hỏi đáp"],
   ];
+  const quickSearchKeywords = ["Tim mạch", "Tổng quát", "BHYT", "Thanh toán", "Quên mã lịch"];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#dce3ee] bg-white/95 backdrop-blur">
@@ -145,8 +150,8 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 text-sm font-medium text-[#42526b] lg:flex">
-          {navItems.map(([href, label]) => (
+        <nav className="hidden items-center gap-1 text-sm font-medium text-[#42526b] xl:flex">
+          {navItems.slice(0, 6).map(([href, label]) => (
             href.startsWith("/") ? (
               <Link key={href} href={href} className="rounded-md px-3 py-2 hover:bg-[#f1f5f9]">{label}</Link>
             ) : (
@@ -177,6 +182,31 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
         </button>
       </div>
 
+      <div className="hidden border-t border-[#edf2f7] bg-[linear-gradient(90deg,#f8fbff_0%,#eef7ff_48%,#f7fbf4_100%)]">
+        <div className="mx-auto grid max-w-7xl gap-3 px-4 py-3 sm:px-6 lg:grid-cols-[minmax(260px,0.8fr)_minmax(420px,1.2fr)] lg:items-center lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 animate-pulse items-center justify-center rounded-md bg-white text-[#0d4f8b] shadow-sm shadow-[#0d4f8b]/10">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[#172033]">Tìm nhanh thông tin khám bệnh</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {quickSearchKeywords.map((keyword) => (
+                  <Link
+                    key={keyword}
+                    href={`/search?q=${encodeURIComponent(keyword)}`}
+                    className="rounded-full border border-[#d8e9ff] bg-white/80 px-2.5 py-1 text-xs font-semibold text-[#0d4f8b] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+                  >
+                    {keyword}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+          <PublicGlobalSearch compact />
+        </div>
+      </div>
+
       {mobileOpen ? (
         <nav className="border-t border-[#e5ebf3] bg-white px-4 py-3 lg:hidden">
           {[...navItems, ["#booking", "Đặt lịch"]].map(([href, label]) => (
@@ -193,6 +223,52 @@ function PublicHeader({ hospitalName, logo, hotline }: { hospitalName: string; l
         </nav>
       ) : null}
     </header>
+  );
+}
+
+function PublicSearchRail() {
+  const defaultKeywords = ["Tim mạch", "Tổng quát", "BHYT", "Thanh toán", "Quên mã lịch"];
+  const suggestionsQuery = usePublicSearchSuggestions(5);
+  const quickSearchKeywords = suggestionsQuery.data?.items.length
+    ? suggestionsQuery.data.items
+    : defaultKeywords;
+
+  return (
+    <section className="relative z-30 border-b border-[#dce3ee] bg-[#eef6ff]">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div className="grid gap-4 rounded-lg border border-white/80 bg-white/85 p-4 shadow-[0_16px_40px_rgba(13,79,139,0.10)] backdrop-blur lg:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.15fr)] lg:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
+              <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#30c47c]" />
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[#172033]">Tìm kiếm thông tin</p>
+              <p className="mt-1 text-xs leading-5 text-[#667892]">
+                Chuyên khoa, bác sĩ, gói khám hoặc hướng dẫn tra cứu lịch hẹn.
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-[#8a9bb0]">
+                {suggestionsQuery.data?.source === "analytics" ? "Gợi ý dựa trên lượt tìm kiếm gần đây" : "Gợi ý phổ biến"}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {quickSearchKeywords.map((keyword) => (
+                  <Link
+                    key={keyword}
+                    href={`/search?q=${encodeURIComponent(keyword)}`}
+                    className="rounded-full border border-[#d8e9ff] bg-[#f8fbff] px-2.5 py-1 text-xs font-semibold text-[#0d4f8b] transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm"
+                  >
+                    {keyword}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="lg:pl-2">
+            <PublicGlobalSearch compact />
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

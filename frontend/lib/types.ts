@@ -643,6 +643,17 @@ export type DashboardStatisticsOverview = {
     refundedAmount: number;
     netAmount: number;
   };
+  searchAnalytics: {
+    metrics: {
+      totalSearches: number;
+      emptySearches: number;
+      successRate: number;
+    };
+    topKeywords: { keyword: string; normalized: string; count: number }[];
+    emptyKeywords: { keyword: string; normalized: string; count: number }[];
+    byType: { type: string; count: number }[];
+    bySource: { source: string; count: number }[];
+  };
   latestAppointments: StatisticsAppointmentSummary[];
 };
 

@@ -3,6 +3,7 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
 import MediaAssetService from "./mediaAsset.service.js";
+import SearchIndexer from "./search/search.indexer.js";
 
 type CreateDepartmentInput = {
   name: string;
@@ -133,6 +134,8 @@ class DepartmentService {
       await MediaAssetService.attachAsset(imageAsset.id, "DEPARTMENT", department.id);
     }
 
+    await SearchIndexer.syncDepartment(department.id);
+
     return department;
   }
 
@@ -197,6 +200,21 @@ class DepartmentService {
       );
     }
 
+    await SearchIndexer.syncDepartment(department.id);
+    const related = await prisma.department.findUnique({
+      where: { id },
+      select: {
+        doctors: { select: { id: true } },
+        packages: { select: { id: true } },
+      },
+    });
+    for (const doctor of related?.doctors || []) {
+      await SearchIndexer.syncDoctor(doctor.id);
+    }
+    for (const packageItem of related?.packages || []) {
+      await SearchIndexer.syncPackage(packageItem.id);
+    }
+
     return department;
   }
 
@@ -210,6 +228,8 @@ class DepartmentService {
     await prisma.department.delete({
       where: { id },
     });
+
+    await SearchIndexer.remove("department", id);
 
     return department;
   }

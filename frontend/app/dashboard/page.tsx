@@ -61,6 +61,22 @@ const paymentLabel: Record<PaymentMethod, string> = {
   OTHER: "Khác",
 };
 
+const searchTypeLabel: Record<string, string> = {
+  all: "Tất cả",
+  department: "Chuyên khoa",
+  doctor: "Bác sĩ",
+  package: "Gói khám",
+  faq: "Câu hỏi",
+  chatbot_faq: "Trợ lý",
+};
+
+const searchSourceLabel: Record<string, string> = {
+  elasticsearch: "Elasticsearch",
+  postgres: "PostgreSQL",
+  empty: "Rỗng",
+  unknown: "Không rõ",
+};
+
 const slotLabel: Record<string, string> = {
   AVAILABLE: "Trống",
   BOOKED: "Đã đặt",
@@ -167,6 +183,40 @@ function ActionRow({
       </div>
       <span className={`rounded-md px-2 py-1 text-sm font-semibold ${toneClass}`}>{value}</span>
     </Link>
+  );
+}
+
+function SearchAnalyticsList({
+  title,
+  items,
+  empty,
+  tone = "blue",
+}: {
+  title: string;
+  items: { label: string; value: string }[];
+  empty: string;
+  tone?: "blue" | "amber";
+}) {
+  const badgeClass = tone === "amber"
+    ? "bg-[#fff8eb] text-[#946200]"
+    : "bg-[#e7f0fb] text-[#0d4f8b]";
+
+  return (
+    <div className="rounded-md border border-[#eef2f7] bg-[#f8fafc] p-4">
+      <h4 className="text-sm font-semibold text-[#172033]">{title}</h4>
+      <div className="mt-3 space-y-2">
+        {items.length ? items.map((item, index) => (
+          <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm">
+            <span className="min-w-0 truncate text-[#42526b]">{item.label}</span>
+            <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${badgeClass}`}>{item.value}</span>
+          </div>
+        )) : (
+          <p className="rounded-md border border-dashed border-[#dce3ee] bg-white px-3 py-4 text-center text-xs text-[#667892]">
+            {empty}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -533,6 +583,64 @@ function DashboardPage() {
               <MetricCard title="Đã thu" value={formatCurrency(overview.metrics.collectedAmount)} tone="green" />
               <MetricCard title="Doanh thu thuần" value={formatCurrency(overview.metrics.netAmount)} tone="green" caption={`Hoàn tiền ${formatCurrency(overview.metrics.refundedAmount)}`} />
             </div>
+          </div>
+        </section>
+      ) : null}
+
+      {overview ? (
+        <section className="rounded-md border border-[#dce3ee] bg-white p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h3 className="font-semibold">Hành vi tìm kiếm</h3>
+              <p className="mt-1 text-sm text-[#667892]">
+                Theo dõi từ khóa người dùng tìm trên website để bổ sung nội dung, FAQ và dữ liệu chatbot.
+              </p>
+            </div>
+            <Link href="/search" className="w-fit rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f8fafc]">
+              Mở trang tìm kiếm
+            </Link>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <MetricCard title="Lượt tìm kiếm" value={formatNumber(overview.searchAnalytics.metrics.totalSearches)} tone="blue" />
+            <MetricCard title="Không có kết quả" value={formatNumber(overview.searchAnalytics.metrics.emptySearches)} tone={overview.searchAnalytics.metrics.emptySearches ? "amber" : "green"} />
+            <MetricCard title="Tỷ lệ có kết quả" value={`${formatNumber(overview.searchAnalytics.metrics.successRate)}%`} tone="green" />
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-4">
+            <SearchAnalyticsList
+              title="Top từ khóa"
+              empty="Chưa có lượt tìm kiếm."
+              items={overview.searchAnalytics.topKeywords.map((item) => ({
+                label: item.keyword,
+                value: formatNumber(item.count),
+              }))}
+            />
+            <SearchAnalyticsList
+              title="Cần bổ sung nội dung"
+              empty="Chưa có từ khóa rỗng."
+              tone="amber"
+              items={overview.searchAnalytics.emptyKeywords.map((item) => ({
+                label: item.keyword,
+                value: formatNumber(item.count),
+              }))}
+            />
+            <SearchAnalyticsList
+              title="Theo loại dữ liệu"
+              empty="Chưa có dữ liệu loại."
+              items={overview.searchAnalytics.byType.map((item) => ({
+                label: searchTypeLabel[item.type] || item.type,
+                value: formatNumber(item.count),
+              }))}
+            />
+            <SearchAnalyticsList
+              title="Theo nguồn"
+              empty="Chưa có dữ liệu nguồn."
+              items={overview.searchAnalytics.bySource.map((item) => ({
+                label: searchSourceLabel[item.source] || item.source,
+                value: formatNumber(item.count),
+              }))}
+            />
           </div>
         </section>
       ) : null}

@@ -61,8 +61,10 @@ const countBy = <T extends string | null>(
 ) =>
   values.map((value) => ({
     value,
-    count: groups.find((group) => group.key === value)?.count || 0,
+      count: groups.find((group) => group.key === value)?.count || 0,
   }));
+
+const normalizeNullableKey = (value: string | null) => value || "unknown";
 
 class DashboardStatisticsService {
   async getOverview(input: DateRangeInput) {
@@ -87,6 +89,12 @@ class DashboardStatisticsService {
       paidInvoiceAggregate,
       refundedInvoiceAggregate,
       latestAppointments,
+      totalSearches,
+      emptySearches,
+      topSearchKeywords,
+      topEmptySearchKeywords,
+      searchTypeGroups,
+      searchSourceGroups,
     ] = await prisma.$transaction([
       prisma.appointment.count({ where: { appointmentDate } }),
       prisma.appointment.count({ where: { appointmentDate, status: "PENDING_CONFIRM" } }),
@@ -163,6 +171,34 @@ class DashboardStatisticsService {
         orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
         take: 5,
       }),
+      prisma.searchAnalyticsLog.count({ where: { createdAt } }),
+      prisma.searchAnalyticsLog.count({ where: { createdAt, hasResults: false } }),
+      prisma.searchAnalyticsLog.groupBy({
+        by: ["normalized", "keyword"],
+        where: { createdAt },
+        _count: { _all: true },
+        orderBy: { _count: { normalized: "desc" } },
+        take: 8,
+      }),
+      prisma.searchAnalyticsLog.groupBy({
+        by: ["normalized", "keyword"],
+        where: { createdAt, hasResults: false },
+        _count: { _all: true },
+        orderBy: { _count: { normalized: "desc" } },
+        take: 8,
+      }),
+      prisma.searchAnalyticsLog.groupBy({
+        by: ["type"],
+        where: { createdAt },
+        _count: { _all: true },
+        orderBy: { _count: { type: "desc" } },
+      }),
+      prisma.searchAnalyticsLog.groupBy({
+        by: ["source"],
+        where: { createdAt },
+        _count: { _all: true },
+        orderBy: { _count: { source: "desc" } },
+      }),
     ]);
 
     const collectedAmount = sumAmount(paidInvoiceAggregate._sum.finalAmount);
@@ -184,6 +220,33 @@ class DashboardStatisticsService {
         collectedAmount,
         refundedAmount,
         netAmount: collectedAmount - refundedAmount,
+      },
+      searchAnalytics: {
+        metrics: {
+          totalSearches,
+          emptySearches,
+          successRate: totalSearches
+            ? Math.round(((totalSearches - emptySearches) / totalSearches) * 100)
+            : 0,
+        },
+        topKeywords: topSearchKeywords.map((item) => ({
+          keyword: item.keyword,
+          normalized: item.normalized,
+          count: item._count._all,
+        })),
+        emptyKeywords: topEmptySearchKeywords.map((item) => ({
+          keyword: item.keyword,
+          normalized: item.normalized,
+          count: item._count._all,
+        })),
+        byType: searchTypeGroups.map((item) => ({
+          type: item.type,
+          count: item._count._all,
+        })),
+        bySource: searchSourceGroups.map((item) => ({
+          source: normalizeNullableKey(item.source),
+          count: item._count._all,
+        })),
       },
       latestAppointments,
     };

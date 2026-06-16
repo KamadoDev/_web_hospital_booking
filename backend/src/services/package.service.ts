@@ -2,6 +2,7 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { createSlug } from "../utils/slug.js";
+import SearchIndexer from "./search/search.indexer.js";
 
 type PackageItemInput = {
   name: string;
@@ -185,6 +186,8 @@ class PackageService {
       throw new AppError("Không tìm thấy gói khám", 404);
     }
 
+    await SearchIndexer.syncPackage(packageItem.id);
+
     return withFinalPrice(packageItem);
   }
 
@@ -221,6 +224,8 @@ class PackageService {
       },
       select: packageSelect,
     });
+
+    await SearchIndexer.syncPackage(packageItem.id);
 
     return withFinalPrice(packageItem);
   }
@@ -279,13 +284,15 @@ class PackageService {
       where: { id },
     });
 
+    await SearchIndexer.remove("package", id);
+
     return packageItem;
   }
 
   async createItem(packageId: string, input: PackageItemInput) {
     await this.getById(packageId);
 
-    return prisma.packageItem.create({
+    const item = await prisma.packageItem.create({
       data: {
         packageId,
         name: input.name,
@@ -295,13 +302,17 @@ class PackageService {
         order: input.order ?? 0,
       },
     });
+
+    await SearchIndexer.syncPackage(packageId);
+
+    return item;
   }
 
   async updateItem(packageId: string, itemId: string, input: Partial<PackageItemInput>) {
     await this.getById(packageId);
     await this.getItem(packageId, itemId);
 
-    return prisma.packageItem.update({
+    const item = await prisma.packageItem.update({
       where: { id: itemId },
       data: {
         name: input.name,
@@ -311,6 +322,10 @@ class PackageService {
         order: input.order,
       },
     });
+
+    await SearchIndexer.syncPackage(packageId);
+
+    return item;
   }
 
   async deleteItem(packageId: string, itemId: string) {
@@ -320,6 +335,8 @@ class PackageService {
     await prisma.packageItem.delete({
       where: { id: itemId },
     });
+
+    await SearchIndexer.syncPackage(packageId);
 
     return item;
   }

@@ -1,6 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import SearchIndexer from "./search/search.indexer.js";
 
 type FAQInput = {
   question?: string;
@@ -58,7 +59,7 @@ class PublicFAQService {
   }
 
   async create(input: Required<Pick<FAQInput, "question" | "answer">> & FAQInput) {
-    return prisma.publicFAQ.create({
+    const faq = await prisma.publicFAQ.create({
       data: {
         question: input.question,
         answer: input.answer,
@@ -68,12 +69,16 @@ class PublicFAQService {
       },
       select: publicFAQSelect,
     });
+
+    await SearchIndexer.syncPublicFAQ(faq.id);
+
+    return faq;
   }
 
   async update(id: string, input: FAQInput) {
     await this.getById(id);
 
-    return prisma.publicFAQ.update({
+    const faq = await prisma.publicFAQ.update({
       where: { id },
       data: {
         question: input.question,
@@ -84,6 +89,10 @@ class PublicFAQService {
       },
       select: publicFAQSelect,
     });
+
+    await SearchIndexer.syncPublicFAQ(faq.id);
+
+    return faq;
   }
 
   async delete(id: string) {
@@ -92,6 +101,8 @@ class PublicFAQService {
     await prisma.publicFAQ.delete({
       where: { id },
     });
+
+    await SearchIndexer.remove("faq", id);
 
     return faq;
   }

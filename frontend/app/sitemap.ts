@@ -59,6 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     route("/departments", "weekly", 0.85),
     route("/doctors", "weekly", 0.85),
     route("/packages", "weekly", 0.85),
+    route("/search", "weekly", 0.65),
     route("/faqs", "weekly", 0.7),
     route("/guide/booking", "monthly", 0.7),
   ];

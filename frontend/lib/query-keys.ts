@@ -93,6 +93,8 @@ export const queryKeys = {
   publicDoctors: (filters?: { search?: string; departmentId?: string; departmentSlug?: string }) =>
     ["public", "doctors", filters || {}] as const,
   publicPackages: (filters?: { search?: string; isPopular?: boolean }) => ["public", "packages", filters || {}] as const,
+  publicSearch: (filters?: { q?: string; type?: string; limit?: number }) => ["public", "search", filters || {}] as const,
+  publicSearchSuggestions: (filters?: { limit?: number }) => ["public", "search", "suggestions", filters || {}] as const,
   publicAvailableSlots: (filters?: { doctorId?: string; date?: string }) => ["public", "available-slots", filters || {}] as const,
   publicAppointmentLookup: (filters?: { bookingCode?: string; phone?: string }) =>
     ["public", "appointments", "lookup", filters || {}] as const,

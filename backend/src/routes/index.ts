@@ -26,6 +26,7 @@ import publicDepartmentRouter from "./publicDepartment.route.js";
 import publicDoctorRouter from "./publicDoctor.route.js";
 import { dashboardFAQRouter, publicFAQRouter } from "./publicFAQ.route.js";
 import publicPackageRouter from "./publicPackage.route.js";
+import searchRouter from "./search.route.js";
 import {
   dashboardSiteSettingsRouter,
   publicSiteSettingsRouter,
@@ -64,5 +65,6 @@ router.use("/site-settings", publicSiteSettingsRouter);
 router.use("/consultation-requests", publicConsultationRequestRouter);
 router.use("/payments", paymentRouter);
 router.use("/uploads", uploadRouter);
+router.use("/search", searchRouter);
 
 export default router;
