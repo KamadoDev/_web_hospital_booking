@@ -229,7 +229,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
       setPending(result);
       setMessage(buildBookingOtpMessage(result.bookingCode, result.otpDeliveryStatus));
       scrollToBox(pendingOtpRef);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tạo được lịch hẹn");
       scrollToBox(formErrorRef);
@@ -261,7 +261,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
       setPending(null);
       setMessage("Xác thực OTP thành công. Lịch hẹn đang chờ bệnh viện xác nhận.");
       scrollToBox(verifiedBoxRef);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailableSlots({ doctorId: selection.doctorId, date: draft.date }) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Xác thực OTP thất bại");
       scrollToBox(pendingOtpRef);
