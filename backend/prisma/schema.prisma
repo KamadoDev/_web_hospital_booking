@@ -1014,6 +1014,24 @@ model PublicFAQ {
   @@index([order])
 }
 
+model SearchAnalyticsLog {
+  id String @id @default(uuid())
+
+  keyword     String
+  normalized  String
+  type        String @default("all")
+  source      String?
+  resultCount Int    @default(0)
+  hasResults  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([normalized])
+  @@index([type])
+  @@index([hasResults])
+  @@index([createdAt])
+}
+
 // ===================== CONSULTATION REQUEST =====================
 
 model ConsultationRequest {

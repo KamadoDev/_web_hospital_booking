@@ -1,6 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import SearchIndexer from "./search/search.indexer.js";
 
 type CreateFAQInput = {
   question: string;
@@ -110,7 +111,7 @@ class DashboardChatbotFAQService {
       throw new AppError("Câu hỏi FAQ đã tồn tại", 409);
     }
 
-    return prisma.chatbotFAQ.create({
+    const faq = await prisma.chatbotFAQ.create({
       data: {
         question: input.question,
         answer: input.answer,
@@ -119,6 +120,10 @@ class DashboardChatbotFAQService {
       },
       select: faqSelect,
     });
+
+    await SearchIndexer.syncChatbotFAQ(faq.id);
+
+    return faq;
   }
 
   async update(id: string, input: UpdateFAQInput) {
@@ -141,7 +146,7 @@ class DashboardChatbotFAQService {
       }
     }
 
-    return prisma.chatbotFAQ.update({
+    const faq = await prisma.chatbotFAQ.update({
       where: { id },
       data: {
         question: input.question,
@@ -151,16 +156,24 @@ class DashboardChatbotFAQService {
       },
       select: faqSelect,
     });
+
+    await SearchIndexer.syncChatbotFAQ(faq.id);
+
+    return faq;
   }
 
   async updateStatus(id: string, isActive: boolean) {
     await this.getById(id);
 
-    return prisma.chatbotFAQ.update({
+    const faq = await prisma.chatbotFAQ.update({
       where: { id },
       data: { isActive },
       select: faqSelect,
     });
+
+    await SearchIndexer.syncChatbotFAQ(faq.id);
+
+    return faq;
   }
 
   async delete(id: string) {
@@ -169,6 +182,8 @@ class DashboardChatbotFAQService {
     await prisma.chatbotFAQ.delete({
       where: { id },
     });
+
+    await SearchIndexer.remove("chatbot_faq", id);
 
     return faq;
   }

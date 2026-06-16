@@ -4,6 +4,7 @@ import { prisma } from "../config/prisma.js";
 import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
+import SearchIndexer from "./search/search.indexer.js";
 
 type DashboardRole = Extract<Role, "ADMIN" | "STAFF" | "DOCTOR">;
 
@@ -230,13 +231,21 @@ class DashboardUserService {
       );
     }
 
+    const doctorProfile = await prisma.doctorProfile.findUnique({
+      where: { userId: id },
+      select: { id: true },
+    });
+    if (doctorProfile) {
+      await SearchIndexer.syncDoctor(doctorProfile.id);
+    }
+
     return user;
   }
 
   async updateStatus(id: string, isActive: boolean) {
     await this.getById(id);
 
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: {
         id,
       },
@@ -245,6 +254,16 @@ class DashboardUserService {
       },
       select: dashboardUserSelect,
     });
+
+    const doctorProfile = await prisma.doctorProfile.findUnique({
+      where: { userId: id },
+      select: { id: true },
+    });
+    if (doctorProfile) {
+      await SearchIndexer.syncDoctor(doctorProfile.id);
+    }
+
+    return user;
   }
 
   async updatePassword(id: string, password: string) {

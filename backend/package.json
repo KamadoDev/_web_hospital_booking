@@ -16,6 +16,8 @@
     "seed:demo": "tsx src/scripts/seedDemoFlow.ts",
     "seed:demo-full": "tsx src/scripts/seedDemoData.ts",
     "seed:chatbot-faq": "tsx src/scripts/seedChatbotFAQ.ts",
+    "search:reindex": "tsx src/scripts/reindexSearch.ts",
+    "search:check-url-rules": "tsx src/scripts/checkSearchUrlRules.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -26,6 +28,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@elastic/elasticsearch": "^9.4.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/extension-accelerate": "^3.0.1",

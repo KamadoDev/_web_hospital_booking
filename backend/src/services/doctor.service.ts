@@ -1,6 +1,7 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
+import SearchIndexer from "./search/search.indexer.js";
 
 type CreateDoctorProfileInput = {
   userId: string;
@@ -159,7 +160,7 @@ class DoctorService {
       throw new AppError("Không tìm thấy chuyên khoa", 404);
     }
 
-    return prisma.doctorProfile.create({
+    const doctor = await prisma.doctorProfile.create({
       data: {
         userId: input.userId,
         departmentId: input.departmentId,
@@ -172,6 +173,10 @@ class DoctorService {
       },
       select: doctorProfileSelect,
     });
+
+    await SearchIndexer.syncDoctor(doctor.id);
+
+    return doctor;
   }
 
   async update(id: string, input: UpdateDoctorProfileInput) {
@@ -188,7 +193,7 @@ class DoctorService {
       }
     }
 
-    return prisma.doctorProfile.update({
+    const doctor = await prisma.doctorProfile.update({
       where: { id },
       data: {
         departmentId: input.departmentId,
@@ -201,18 +206,26 @@ class DoctorService {
       },
       select: doctorProfileSelect,
     });
+
+    await SearchIndexer.syncDoctor(doctor.id);
+
+    return doctor;
   }
 
   async updateAvailability(id: string, isAvailable: boolean) {
     await this.getById(id);
 
-    return prisma.doctorProfile.update({
+    const doctor = await prisma.doctorProfile.update({
       where: { id },
       data: {
         isAvailable,
       },
       select: doctorProfileSelect,
     });
+
+    await SearchIndexer.syncDoctor(doctor.id);
+
+    return doctor;
   }
 
   async delete(id: string) {
@@ -225,6 +238,8 @@ class DoctorService {
     await prisma.doctorProfile.delete({
       where: { id },
     });
+
+    await SearchIndexer.remove("doctor", id);
 
     return doctor;
   }
