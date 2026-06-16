@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, CheckCircle2, Clock, Copy, CreditCard, Info, Loader2, Send, ShieldCheck, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, Copy, CreditCard, Delete, Info, Loader2, Phone, Send, ShieldCheck, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
@@ -31,6 +31,11 @@ type PublicBookingWidgetProps = {
 
 const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const sanitizePhoneInput = (value: string) => {
+  const trimmed = value.trim();
+  const keepPlus = trimmed.startsWith("+") ? "+" : "";
+  return `${keepPlus}${trimmed.replace(/\D/g, "")}`.slice(0, keepPlus ? 12 : 11);
+};
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -67,6 +72,7 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
   const [otp, setOtp] = useState("");
   const [verifiedAppointment, setVerifiedAppointment] = useState<Appointment | null>(null);
   const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
+  const [showPhonePad, setShowPhonePad] = useState(false);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const formErrorRef = useRef<HTMLDivElement | null>(null);
   const pendingOtpRef = useRef<HTMLDivElement | null>(null);
@@ -154,6 +160,14 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
     setMessage("");
     setError("");
     setDraftPatch(patch);
+  };
+
+  const updatePatientPhone = (value: string) => {
+    updateDraft({ patientPhone: sanitizePhoneInput(value) });
+  };
+
+  const appendPhoneDigit = (digit: string) => {
+    updatePatientPhone(`${draft.patientPhone}${digit}`);
   };
 
   const validateDraft = () => {
@@ -417,7 +431,73 @@ export function PublicBookingWidget({ data, loading }: PublicBookingWidgetProps)
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Số điện thoại</span>
-                  <input value={draft.patientPhone} onChange={(event) => updateDraft({ patientPhone: event.target.value })} placeholder="0901234567" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]" required />
+                  <div className="relative mt-1">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667892]" />
+                    <input
+                      value={draft.patientPhone}
+                      onChange={(event) => updatePatientPhone(event.target.value)}
+                      onFocus={() => setShowPhonePad(true)}
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      pattern="(0|\+84)[0-9]{9,10}"
+                      placeholder="0901234567"
+                      className="w-full rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-2.5 pl-9 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                      required
+                    />
+                  </div>
+                  {showPhonePad ? (
+                    <div className="mt-2 rounded-md border border-[#d8e9ff] bg-[#f8fbff] p-3 shadow-sm">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold text-[#0d4f8b]">Nhập nhanh số điện thoại</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowPhonePad(false)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#667892] hover:bg-white"
+                          aria-label="Đóng bàn phím số"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
+                          <button
+                            key={digit}
+                            type="button"
+                            onClick={() => appendPhoneDigit(digit)}
+                            className="rounded-md border border-[#cfd8e6] bg-white py-2 text-sm font-semibold text-[#172033] hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
+                          >
+                            {digit}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => updatePatientPhone("+84")}
+                          className="rounded-md border border-[#cfd8e6] bg-white py-2 text-sm font-semibold text-[#0d4f8b] hover:border-[#0d4f8b]"
+                        >
+                          +84
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => appendPhoneDigit("0")}
+                          className="rounded-md border border-[#cfd8e6] bg-white py-2 text-sm font-semibold text-[#172033] hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
+                        >
+                          0
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updatePatientPhone(draft.patientPhone.slice(0, -1))}
+                          className="inline-flex items-center justify-center rounded-md border border-[#cfd8e6] bg-white py-2 text-[#42526b] hover:border-[#0d4f8b] hover:text-[#0d4f8b]"
+                          aria-label="Xóa một số"
+                        >
+                          <Delete className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[#667892]">
+                        Dùng số bắt đầu bằng 0 hoặc +84 để nhận OTP xác nhận lịch hẹn.
+                      </p>
+                    </div>
+                  ) : null}
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-[#334155]">Kênh OTP</span>
