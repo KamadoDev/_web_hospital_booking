@@ -3,7 +3,6 @@ import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import type { OtpChannel, OtpPurpose } from "../../generated/prisma/enums.js";
 import { enqueueOtpDeliveryJob } from "../queues/otp.queue.js";
-import OtpSenderService from "./otpSender.service.js";
 
 type SendOtpOptions = {
   channel?: OtpChannel;
@@ -28,6 +27,21 @@ const OTP_EXPIRES_SECONDS = 5 * 60;
 const VERIFY_WINDOW_MINUTES = 15;
 const MAX_VERIFY_FAILS_PER_PHONE_WINDOW = 5;
 const MAX_VERIFY_FAILS_PER_IP_WINDOW = 20;
+const OTP_ENQUEUE_TIMEOUT_MS = Number(process.env.OTP_ENQUEUE_TIMEOUT_MS || 1000);
+
+type QueueAttemptResult =
+  | { status: "QUEUED" }
+  | { status: "UNAVAILABLE" }
+  | { status: "FAILED"; error: unknown }
+  | { status: "TIMEOUT" };
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
+const timeout = (milliseconds: number) =>
+  new Promise<QueueAttemptResult>((resolve) => {
+    setTimeout(() => resolve({ status: "TIMEOUT" }), milliseconds);
+  });
 
 const isOtpDebugEnabled = () =>
   ["true", "1", "yes", "on"].includes((process.env.OTP_DEBUG_ENABLED || "").toLowerCase());
@@ -334,15 +348,47 @@ class AuthOtpService {
       otp,
       expiresInSeconds: OTP_EXPIRES_SECONDS,
     };
-    let deliveryStatus: "PENDING" | "SENT" = "PENDING";
+    let deliveryStatus: "PENDING" | "SENT" | "FAILED" = "PENDING";
 
-    let queued = false;
+    const queueAttemptPromise = enqueueOtpDeliveryJob(deliveryJob)
+      .then<QueueAttemptResult>((queued) => (queued ? { status: "QUEUED" } : { status: "UNAVAILABLE" }))
+      .catch<QueueAttemptResult>((error) => ({ status: "FAILED", error }));
 
-    try {
-      queued = await enqueueOtpDeliveryJob(deliveryJob);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Không đưa được OTP vào hàng đợi";
-      console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", error);
+    const queueAttempt = await Promise.race([
+      queueAttemptPromise,
+      timeout(OTP_ENQUEUE_TIMEOUT_MS),
+    ]);
+
+    if (queueAttempt.status === "TIMEOUT") {
+      queueAttemptPromise.then(async (lateAttempt) => {
+        if (lateAttempt.status !== "FAILED" && lateAttempt.status !== "UNAVAILABLE") return;
+
+        const message =
+          lateAttempt.status === "FAILED"
+            ? getErrorMessage(lateAttempt.error, "Không đưa được OTP vào hàng đợi")
+            : "Chưa cấu hình hàng đợi gửi OTP";
+
+        console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", message);
+
+        await prisma.otpCode.update({
+          where: { id: otpRecord.id },
+          data: {
+            deliveryStatus: "FAILED",
+            deliveryError: message.slice(0, 1000),
+          },
+        });
+      }).catch((error) => {
+        console.error("[OTP_QUEUE] Cannot update timed out OTP delivery status:", error);
+      });
+    }
+
+    if (queueAttempt.status === "FAILED" || queueAttempt.status === "UNAVAILABLE") {
+      const message =
+        queueAttempt.status === "FAILED"
+          ? getErrorMessage(queueAttempt.error, "Không đưa được OTP vào hàng đợi")
+          : "Chưa cấu hình hàng đợi gửi OTP";
+
+      console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", message);
 
       await prisma.otpCode.update({
         where: { id: otpRecord.id },
@@ -352,34 +398,7 @@ class AuthOtpService {
         },
       });
 
-      throw new AppError(`Không thể đưa OTP vào hàng đợi gửi mã: ${message}`, 502);
-    }
-
-    if (!queued) {
-      try {
-        await OtpSenderService.send(deliveryJob);
-        await prisma.otpCode.update({
-          where: { id: otpRecord.id },
-          data: {
-            deliveryStatus: "SENT",
-            deliveryError: null,
-            deliveredAt: new Date(),
-          },
-        });
-        deliveryStatus = "SENT";
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Không gửi được OTP";
-
-        await prisma.otpCode.update({
-          where: { id: otpRecord.id },
-          data: {
-            deliveryStatus: "FAILED",
-            deliveryError: message.slice(0, 1000),
-          },
-        });
-
-        throw error;
-      }
+      deliveryStatus = "FAILED";
     }
 
     if (process.env.NODE_ENV !== "production") {

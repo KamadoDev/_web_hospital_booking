@@ -12,6 +12,8 @@ type SendOtpInput = {
 };
 
 const isProductionLike = () => process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+const isSmsDebugEnabled = () =>
+  !isProductionLike() || ["true", "1", "yes", "on"].includes((process.env.OTP_DEBUG_ENABLED || "").toLowerCase());
 
 class OtpSenderService {
   async send(input: SendOtpInput) {
@@ -31,7 +33,7 @@ class OtpSenderService {
       return;
     }
 
-    if (!isProductionLike()) {
+    if (isSmsDebugEnabled()) {
       console.log("=================================");
       console.log(`SMS OTP DEV: ${input.otp}`);
       console.log(`Phone: ${input.target}`);

@@ -1,5 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { AppointmentStatus, Gender, OtpChannel, Role } from "../../generated/prisma/enums.js";
+import type { AppointmentStatus, Gender, OtpChannel, OtpDeliveryStatus, Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
 import { AppError } from "../utils/appError.js";
@@ -58,6 +58,48 @@ type PublicCancelAppointmentInput = {
 };
 
 const DEFAULT_PENDING_OTP_EXPIRE_MINUTES = 15;
+
+const getOtpLogNote = (label: string, status: OtpDeliveryStatus) => {
+  if (status === "FAILED") return `${label} đã được tạo nhưng chưa đưa được vào hàng đợi gửi mã`;
+  if (status === "PENDING") return `${label} đã được tạo và đang chờ hệ thống gửi mã`;
+  return `${label} đã được gửi`;
+};
+
+const resolveAppointmentOtpTarget = (appointment: {
+  patientPhone: string;
+  patientEmail?: string | null;
+  otpChannel?: OtpChannel | null;
+}) => {
+  const channel: OtpChannel = appointment.otpChannel === "EMAIL" && appointment.patientEmail ? "EMAIL" : "SMS";
+
+  return {
+    channel,
+    target: channel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
+  };
+};
+
+const resolveLookupOtpTarget = async (phone: string) => {
+  const latestAppointment = await prisma.appointment.findFirst({
+    where: {
+      patientPhone: phone,
+    },
+    select: {
+      patientPhone: true,
+      patientEmail: true,
+      otpChannel: true,
+      appointmentDate: true,
+      startTime: true,
+      createdAt: true,
+    },
+    orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }, { createdAt: "desc" }],
+  });
+
+  if (!latestAppointment) {
+    throw new AppError("Không tìm thấy lịch hẹn với số điện thoại này", 404);
+  }
+
+  return resolveAppointmentOtpTarget(latestAppointment);
+};
 const PUBLIC_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = ["PENDING_CONFIRM", "CONFIRMED"];
 
 const appointmentSelect = {
@@ -601,7 +643,7 @@ class AppointmentService {
         data: {
           appointmentId,
           action: "OTP_SENT",
-          note: "OTP xác thực đặt lịch đã được gửi",
+          note: getOtpLogNote("OTP xác thực đặt lịch", otp.deliveryStatus),
         },
       });
 
@@ -642,18 +684,16 @@ class AppointmentService {
       throw new AppError("Lịch hẹn không ở trạng thái chờ OTP", 400);
     }
 
-    const otp = await AuthOtpService.sendOtp(
-      appointment.otpChannel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
-      "BOOK_APPOINTMENT",
-      ipAddress,
-      { channel: appointment.otpChannel },
-    );
+    const otpTarget = resolveAppointmentOtpTarget(appointment);
+    const otp = await AuthOtpService.sendOtp(otpTarget.target, "BOOK_APPOINTMENT", ipAddress, {
+      channel: otpTarget.channel,
+    });
 
     await prisma.appointmentLog.create({
       data: {
         appointmentId: appointment.id,
         action: "OTP_SENT",
-        note: "OTP xác thực đặt lịch đã được gửi lại",
+        note: getOtpLogNote("OTP xác thực đặt lịch gửi lại", otp.deliveryStatus),
       },
     });
 
@@ -885,21 +925,13 @@ class AppointmentService {
       throw new AppError("Thiếu số điện thoại", 400);
     }
 
-    const existingAppointments = await prisma.appointment.count({
-      where: {
-        patientPhone: phone,
-      },
-    });
-
-    if (existingAppointments === 0) {
-      throw new AppError("Không tìm thấy lịch hẹn với số điện thoại này", 404);
-    }
+    const otpTarget = await resolveLookupOtpTarget(phone);
 
     return AuthOtpService.sendOtp(
-      phone,
+      otpTarget.target,
       "LOOKUP_RESULT",
       input.ipAddress,
-      { channel: "SMS" },
+      { channel: otpTarget.channel },
     );
   }
 
@@ -914,12 +946,12 @@ class AppointmentService {
       throw new AppError("Thiếu mã OTP", 400);
     }
 
-    await AuthOtpService.verifyOtp(
-      phone,
-      input.otp,
-      "LOOKUP_RESULT",
-      { ipAddress: input.ipAddress, channel: "SMS" },
-    );
+    const otpTarget = await resolveLookupOtpTarget(phone);
+
+    await AuthOtpService.verifyOtp(otpTarget.target, input.otp, "LOOKUP_RESULT", {
+      ipAddress: input.ipAddress,
+      channel: otpTarget.channel,
+    });
 
     const appointments = await prisma.appointment.findMany({
       where: {
@@ -939,18 +971,16 @@ class AppointmentService {
   async requestPublicCancelOtp(input: PublicCancelAppointmentInput) {
     const appointment = await this.getPublicCancellableAppointment(input);
 
-    const otp = await AuthOtpService.sendOtp(
-      appointment.otpChannel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
-      "CANCEL_APPOINTMENT",
-      input.ipAddress,
-      { channel: appointment.otpChannel || "SMS" },
-    );
+    const otpTarget = resolveAppointmentOtpTarget(appointment);
+    const otp = await AuthOtpService.sendOtp(otpTarget.target, "CANCEL_APPOINTMENT", input.ipAddress, {
+      channel: otpTarget.channel,
+    });
 
     await prisma.appointmentLog.create({
       data: {
         appointmentId: appointment.id,
         action: "OTP_SENT",
-        note: "OTP xác thực hủy lịch đã được gửi",
+        note: getOtpLogNote("OTP xác thực hủy lịch", otp.deliveryStatus),
       },
     });
 
@@ -970,12 +1000,12 @@ class AppointmentService {
 
     const appointment = await this.getPublicCancellableAppointment(input);
 
-    await AuthOtpService.verifyOtp(
-      appointment.patientPhone,
-      input.otp,
-      "CANCEL_APPOINTMENT",
-      { ipAddress: input.ipAddress, channel: appointment.otpChannel || "SMS" },
-    );
+    const otpTarget = resolveAppointmentOtpTarget(appointment);
+
+    await AuthOtpService.verifyOtp(otpTarget.target, input.otp, "CANCEL_APPOINTMENT", {
+      ipAddress: input.ipAddress,
+      channel: otpTarget.channel,
+    });
 
     return prisma.$transaction(async (tx) => {
       if (appointment.timeSlotId) {
