@@ -2,6 +2,13 @@
 
 Hệ thống đặt lịch khám bệnh trực tuyến gồm site người dùng, dashboard quản trị bệnh viện và backend API. Dự án được xây dựng cho môn Tiểu Luận Chuyên Ngành, tập trung vào luồng đặt lịch, xác thực OTP, vận hành khám bệnh, hóa đơn, thanh toán, chatbot hỗ trợ và tìm kiếm nội dung y tế.
 
+## Thông Tin Author
+
+- Developer: ``Ngô Quang Lợi``
+- Email: ``kamado.nql2109@gmail.com``
+- Môn học: ``Tiểu Luận Chuyên Ngành CNTT``
+- Trường: ``Đại Học Công Nghệ Kỹ Thuật TP HCM - HCMUTE``
+
 ## Mục Tiêu
 
 - Giúp người bệnh xem chuyên khoa, bác sĩ, gói khám và đặt lịch khám trực tuyến.
