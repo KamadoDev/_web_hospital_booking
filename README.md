@@ -8,6 +8,7 @@ Hệ thống đặt lịch khám bệnh trực tuyến gồm site người dùng
 - Email: ``kamado.nql2109@gmail.com``
 - Môn học: ``Tiểu Luận Chuyên Ngành CNTT``
 - Trường: ``Đại Học Công Nghệ Kỹ Thuật TP HCM - HCMUTE``
+- GVHD: ``GV, TS. Phan Thị Thể``
 
 ## Mục Tiêu
 
