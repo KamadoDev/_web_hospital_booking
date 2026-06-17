@@ -24,7 +24,7 @@ export function DebugOtpBox({ otp, onFill, className = "" }: DebugOtpBoxProps) {
           Điền mã
         </button>
       </div>
-      <p className="mt-2 text-xs leading-5">Chỉ hiển thị để phục vụ kiểm thử đồ án. (Thiếu kinh phí ạ)</p>
+      <p className="mt-2 text-xs leading-5">Chỉ hiển thị để phục vụ kiểm thử đồ án.</p>
     </div>
   );
 }
