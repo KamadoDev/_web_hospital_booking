@@ -1,7 +1,68 @@
-node_modules
+# dependencies
+node_modules/
+.pnp/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# env
 .env
-.next
-dist
-build
-tools
+.env.*
+!.env.example
+!.env.local.example
+
+# build outputs
+.next/
+out/
+dist/
+build/
+coverage/
+
+# generated
+backend/generated/
+backend/generated/prisma/
+frontend/.next/
+frontend/out/
+
+# cache
+.turbo/
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+
+# Vercel / local deploy
+.vercel/
+
+# uploads/temp
+tmp/
+temp/
+uploads/
+*.tmp
+
+# secrets/certs
+*.pem
+*.key
+*.crt
+
+# other
 docs
+tools
