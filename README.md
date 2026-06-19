@@ -2,6 +2,8 @@
 
 Hệ thống đặt lịch khám bệnh trực tuyến gồm site người dùng, dashboard quản trị bệnh viện và backend API. Dự án được xây dựng cho môn Tiểu Luận Chuyên Ngành, tập trung vào luồng đặt lịch, xác thực OTP, vận hành khám bệnh, hóa đơn, thanh toán, chatbot hỗ trợ và tìm kiếm nội dung y tế.
 
+website đã deploy: https://web-hospital-booking.vercel.app/
+
 ## Thông Tin Author
 
 - Developer: ``Ngô Quang Lợi``
@@ -56,11 +58,8 @@ PostgreSQL là nguồn dữ liệu chính. Elasticsearch chỉ là lớp tăng t
 ## Cấu Trúc Thư Mục
 
 ```txt
-.
-├── backend/       # Express API, Prisma schema, services, workers
-├── frontend/      # Next.js app, dashboard, public website, UI components
-├── docs/          # Tài liệu bổ sung nếu có
-└── tools/         # Script/công cụ phụ trợ
+|-->backend/       # Express API, Prisma schema, services, workers
+|-->frontend/      # Next.js app, dashboard, public website, UI components
 ```
 
 ## Tính Năng Chính
