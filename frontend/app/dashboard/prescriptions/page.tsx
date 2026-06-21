@@ -12,6 +12,7 @@ import {
   useDashboardPrescriptions,
 } from "@/lib/dashboard-prescriptions-query";
 import { queryKeys } from "@/lib/query-keys";
+import { formatVietnamDateTime } from "@/lib/date";
 import type {
   DoctorProfile,
   Prescription,
@@ -110,6 +111,7 @@ export default function PrescriptionsPage() {
   const detailRef = useRef<HTMLElement | null>(null);
 
   const canEdit = user?.role === "ADMIN" || user?.role === "DOCTOR";
+  const canCancel = user?.role === "ADMIN" || user?.role === "DOCTOR";
   const isDoctor = user?.role === "DOCTOR";
 
   const query = useMemo(
@@ -484,7 +486,14 @@ export default function PrescriptionsPage() {
                 <p className="font-semibold">{selected.patient.fullName}</p>
                 <p className="text-[#667892]">{selected.patient.phone || "-"} · {selected.medicalRecord.recordCode}</p>
                 <p className="mt-1 text-[#667892]">{doctorName(selected.doctor)}</p>
-                <Link href="/dashboard/medical-records" className="mt-2 inline-flex rounded-md border border-[#cfe4fa] px-2 py-1 text-xs font-medium text-[#0d4f8b]">Mở hồ sơ khám</Link>
+                <Link href={`/dashboard/medical-records?recordCode=${encodeURIComponent(selected.medicalRecord.recordCode)}`} className="mt-2 inline-flex rounded-md border border-[#cfe4fa] px-2 py-1 text-xs font-medium text-[#0d4f8b]">Mở hồ sơ khám</Link>
+              </div>
+
+              <div className="grid gap-2 rounded-md border border-[#e5ebf3] bg-[#f8fafc] p-3 text-xs text-[#667892] sm:grid-cols-2">
+                <p>Tạo lúc: <span className="font-medium text-[#42526b]">{formatVietnamDateTime(selected.createdAt)}</span></p>
+                <p>Cập nhật: <span className="font-medium text-[#42526b]">{formatVietnamDateTime(selected.updatedAt)}</span></p>
+                {selected.issuedAt ? <p>Phát hành: <span className="font-medium text-[#1f7a3a]">{formatVietnamDateTime(selected.issuedAt)}</span></p> : null}
+                {selected.cancelledAt ? <p>Hủy lúc: <span className="font-medium text-[#b3261e]">{formatVietnamDateTime(selected.cancelledAt)}</span></p> : null}
               </div>
 
               <form className="space-y-3" onSubmit={updateNote}>
@@ -495,7 +504,7 @@ export default function PrescriptionsPage() {
                 <div className="flex flex-wrap gap-2">
                   {canEdit && selected.status === "DRAFT" ? <button disabled={busy} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">Lưu ghi chú</button> : null}
                   {canEdit && selected.status === "DRAFT" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/issue", "Đã phát hành đơn")} className="rounded-md border border-[#cfd8e6] px-4 py-2 text-sm font-medium text-[#42526b]">Phát hành</button> : null}
-                  {selected.status !== "CANCELLED" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")} className="rounded-md border border-[#f2b8b5] px-4 py-2 text-sm font-medium text-[#b3261e]">Huỷ đơn</button> : null}
+                  {canCancel && selected.status !== "CANCELLED" ? <button type="button" disabled={busy} onClick={() => void simpleAction(selected, "/cancel", "Đã huỷ đơn thuốc")} className="rounded-md border border-[#f2b8b5] px-4 py-2 text-sm font-medium text-[#b3261e]">Huỷ đơn</button> : null}
                 </div>
               </form>
 
