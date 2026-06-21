@@ -50,6 +50,7 @@ enum OtpPurpose {
   LOOKUP_APPOINTMENT
   PATIENT_PORTAL_LOGIN
   CANCEL_APPOINTMENT
+  REVIEW_APPOINTMENT
   LOOKUP_RESULT
   ADMIN_LOGIN
   DOCTOR_LOGIN
@@ -1055,8 +1056,18 @@ model ConsultationRequest {
 
 model Review {
   id      String  @id @default(uuid())
-  rating  Int
-  comment String?
+
+  // Diem tong hop do he thong tinh tu ba tieu chi, de phuc vu thong ke nhanh.
+  rating          Float
+  doctorRating    Int
+  serviceRating   Int
+  facilityRating  Int
+  comment         String?
+
+  // Nhan vien co the an danh gia khoi bao cao noi bo khi can kiem duyet.
+  isVisible       Boolean   @default(false)
+  moderationNote  String?
+  moderatedAt     DateTime?
 
   appointmentId String      @unique
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -1068,4 +1079,6 @@ model Review {
   updatedAt DateTime @updatedAt
 
   @@index([doctorId])
+  @@index([isVisible])
+  @@index([createdAt])
 }

@@ -78,10 +78,11 @@ const resolveAppointmentOtpTarget = (appointment: {
   };
 };
 
-const resolveLookupOtpTarget = async (phone: string) => {
-  const latestAppointment = await prisma.appointment.findFirst({
+const resolveLookupOtpTarget = async (phone: string, bookingCode?: string) => {
+  const appointment = await prisma.appointment.findFirst({
     where: {
       patientPhone: phone,
+      ...(bookingCode ? { bookingCode } : {}),
     },
     select: {
       patientPhone: true,
@@ -94,11 +95,11 @@ const resolveLookupOtpTarget = async (phone: string) => {
     orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }, { createdAt: "desc" }],
   });
 
-  if (!latestAppointment) {
+  if (!appointment) {
     throw new AppError("Không tìm thấy lịch hẹn với số điện thoại này", 404);
   }
 
-  return resolveAppointmentOtpTarget(latestAppointment);
+  return resolveAppointmentOtpTarget(appointment);
 };
 const PUBLIC_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = ["PENDING_CONFIRM", "CONFIRMED"];
 
@@ -918,14 +919,15 @@ class AppointmentService {
     };
   }
 
-  async requestLookupOtp(input: { phone?: string; ipAddress: string }) {
+  async requestLookupOtp(input: { phone?: string; bookingCode?: string; ipAddress: string }) {
     const phone = input.phone?.trim();
+    const bookingCode = input.bookingCode?.trim().toUpperCase();
 
     if (!phone) {
       throw new AppError("Thiếu số điện thoại", 400);
     }
 
-    const otpTarget = await resolveLookupOtpTarget(phone);
+    const otpTarget = await resolveLookupOtpTarget(phone, bookingCode);
 
     return AuthOtpService.sendOtp(
       otpTarget.target,
@@ -935,8 +937,9 @@ class AppointmentService {
     );
   }
 
-  async verifyLookupOtp(input: { phone?: string; otp?: string; ipAddress?: string }) {
+  async verifyLookupOtp(input: { phone?: string; bookingCode?: string; otp?: string; ipAddress?: string }) {
     const phone = input.phone?.trim();
+    const bookingCode = input.bookingCode?.trim().toUpperCase();
 
     if (!phone) {
       throw new AppError("Thiếu số điện thoại", 400);
@@ -946,7 +949,7 @@ class AppointmentService {
       throw new AppError("Thiếu mã OTP", 400);
     }
 
-    const otpTarget = await resolveLookupOtpTarget(phone);
+    const otpTarget = await resolveLookupOtpTarget(phone, bookingCode);
 
     await AuthOtpService.verifyOtp(otpTarget.target, input.otp, "LOOKUP_RESULT", {
       ipAddress: input.ipAddress,
@@ -956,10 +959,11 @@ class AppointmentService {
     const appointments = await prisma.appointment.findMany({
       where: {
         patientPhone: phone,
+        ...(bookingCode ? { bookingCode } : {}),
       },
       select: publicAppointmentSummarySelect,
       orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }],
-      take: 10,
+      take: bookingCode ? 1 : 10,
     });
 
     return {

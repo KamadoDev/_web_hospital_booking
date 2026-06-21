@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, Copy, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Stethoscope } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, ClipboardList, Clock, Copy, CreditCard, ExternalLink, FileText, FlaskConical, Loader2, Phone, Pill, Search, ShieldCheck, Star, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DebugOtpBox } from "@/components/ui/debug-otp-box";
@@ -209,14 +209,18 @@ export default function AppointmentLookupPage() {
   const [phone, setPhone] = useState(() => getInitialLookupValue("phone"));
   const [forgotPhone, setForgotPhone] = useState(() => getInitialLookupValue("phone"));
   const [otp, setOtp] = useState("");
+  const [codeOtp, setCodeOtp] = useState("");
   const [appointment, setAppointment] = useState<DisplayAppointment | null>(null);
   const [forgotItems, setForgotItems] = useState<DisplayAppointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [codeOtpSent, setCodeOtpSent] = useState(false);
   const [debugLookupOtp, setDebugLookupOtp] = useState("");
+  const [debugCodeLookupOtp, setDebugCodeLookupOtp] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const lookupOtpRef = useRef<HTMLDivElement | null>(null);
+  const codeLookupOtpRef = useRef<HTMLDivElement | null>(null);
   const lookupNoticeRef = useRef<HTMLDivElement | null>(null);
   const recentListRef = useRef<HTMLDivElement | null>(null);
   const resultPanelRef = useRef<HTMLDivElement | null>(null);
@@ -228,7 +232,7 @@ export default function AppointmentLookupPage() {
     setMessage("");
   };
 
-  const lookupAppointment = async () => {
+  const requestCodeLookupOtp = async () => {
     resetFeedback();
     setAppointment(null);
 
@@ -247,17 +251,19 @@ export default function AppointmentLookupPage() {
     setLoading(true);
 
     try {
-      const result = await apiRequest<DisplayAppointment>("/appointments/lookup", {
-        query: {
+      const result = await apiRequest<{ debugOtp?: string }>("/appointments/lookup/request-otp", {
+        method: "POST",
+        body: {
           bookingCode: bookingCode.trim().toUpperCase(),
           phone: phone.trim(),
         },
       });
-
-      setAppointment(result);
-      scrollToElement(resultPanelRef.current);
+      setCodeOtpSent(true);
+      setDebugCodeLookupOtp(result.debugOtp || "");
+      setMessage("OTP tra cứu lịch hẹn đã được gửi. Nhập mã để xem thông tin lịch.");
+      scrollToRef(codeLookupOtpRef);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tra cứu được lịch hẹn");
+      setError(err instanceof Error ? err.message : "Không gửi được OTP tra cứu");
       scrollToRef(lookupNoticeRef);
     } finally {
       setLoading(false);
@@ -288,6 +294,34 @@ export default function AppointmentLookupPage() {
       scrollToRef(lookupOtpRef);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không gửi được OTP tra cứu");
+      scrollToRef(lookupNoticeRef);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCodeLookupOtp = async () => {
+    resetFeedback();
+    setAppointment(null);
+
+    if (!/^[0-9]{6}$/.test(codeOtp)) {
+      setError("OTP phải gồm đúng 6 chữ số.");
+      scrollToRef(lookupNoticeRef);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await apiRequest<LookupOtpResponse>("/appointments/lookup/verify-otp", {
+        method: "POST",
+        body: { bookingCode: bookingCode.trim().toUpperCase(), phone: phone.trim(), otp: codeOtp },
+      });
+      const matchedAppointment = result.items[0] || null;
+      setAppointment(matchedAppointment);
+      setMessage(matchedAppointment ? "Đã xác thực OTP và tải thông tin lịch hẹn." : "Không tìm thấy lịch hẹn phù hợp.");
+      scrollToRef(matchedAppointment ? resultPanelRef : lookupNoticeRef);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Xác thực OTP tra cứu thất bại");
       scrollToRef(lookupNoticeRef);
     } finally {
       setLoading(false);
@@ -353,7 +387,7 @@ export default function AppointmentLookupPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-[#667892]">Tra cứu lịch hẹn</p>
             <h1 className="mt-2 text-4xl font-semibold">Kiểm tra trạng thái lịch khám của bạn</h1>
             <p className="mt-4 text-sm leading-6 text-[#667892]">
-              Có mã lịch thì tra cứu trực tiếp. Nếu quên mã, hãy xác thực OTP bằng số điện thoại để xem các lịch gần đây.
+              Để bảo vệ thông tin khám, mọi hình thức tra cứu đều cần xác thực OTP. Nếu quên mã, hãy xác thực bằng số điện thoại để xem các lịch gần đây.
             </p>
           </div>
         </div>
@@ -403,16 +437,26 @@ export default function AppointmentLookupPage() {
                     className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-3 text-sm outline-none focus:border-[#0d4f8b]"
                   />
                 </label>
+                {codeOtpSent ? (
+                  <div ref={codeLookupOtpRef} className="space-y-3 rounded-md border border-[#cfe4fa] bg-[#f8fbff] p-3">
+                    <DebugOtpBox otp={debugCodeLookupOtp} onFill={setCodeOtp} />
+                    <label className="block">
+                      <span className="text-sm font-medium text-[#334155]">Mã OTP</span>
+                      <input value={codeOtp} onChange={(event) => setCodeOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="000000" className="mt-1 w-full rounded-md border border-[#cfd8e6] bg-white px-3 py-3 text-center text-xl font-semibold tracking-[0.25em] outline-none focus:border-[#0d4f8b]" />
+                    </label>
+                  </div>
+                ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => void lookupAppointment()}
-                disabled={loading}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                Tra cứu lịch hẹn
-              </button>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <button type="button" onClick={() => void requestCodeLookupOtp()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-md border border-[#cfd8e6] px-4 py-3 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60">
+                  {loading && !codeOtpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                  {codeOtpSent ? "Gửi lại OTP" : "Gửi OTP"}
+                </button>
+                <button type="button" onClick={() => void verifyCodeLookupOtp()} disabled={loading || !codeOtpSent} className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">
+                  {loading && codeOtpSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Xác thực và tra cứu
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mt-5">
@@ -585,6 +629,7 @@ function AppointmentResult({
       {appointment.status === "PENDING_OTP" ? (
         <PendingOtpPanel appointment={appointment} onVerified={onAppointmentChange} />
       ) : null}
+      {appointment.status === "COMPLETED" ? <ReviewPanel key={appointment.id} appointment={appointment} /> : null}
       <CancelAppointmentPanel appointment={appointment} />
       <PaymentPanel appointment={appointment} />
       <MedicalResultPanel appointment={appointment} />
@@ -863,6 +908,188 @@ function CancelAppointmentPanel({ appointment }: { appointment: DisplayAppointme
         {cancelError ? <div className="mt-3 rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm font-medium text-[#b3261e]">{cancelError}</div> : null}
       </div>
     </div>
+  );
+}
+
+type AppointmentReview = {
+  id: string;
+  rating: number;
+  doctorRating: number;
+  serviceRating: number;
+  facilityRating: number;
+  comment: string | null;
+  createdAt: string;
+};
+
+function RatingInput({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-[#e5ebf3] bg-white px-3 py-3">
+      <span className="text-sm font-medium text-[#334155]">{label}</span>
+      <div className="flex items-center gap-1" role="radiogroup" aria-label={label}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            role="radio"
+            aria-checked={value === star}
+            aria-label={`${star} sao`}
+            onClick={() => onChange(star)}
+            className="rounded p-1 text-[#d5a13b] transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#0d4f8b]"
+          >
+            <Star className={`h-5 w-5 ${star <= value ? "fill-current" : "text-[#cfd8e6]"}`} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RatingSummary({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2">
+      <p className="text-xs font-medium text-[#667892]">{label}</p>
+      <div className="mt-1 flex items-center gap-0.5 text-[#d5a13b]">
+        {[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`h-3.5 w-3.5 ${star <= value ? "fill-current" : "text-[#cfd8e6]"}`} />)}
+        <span className="ml-1 text-xs font-semibold text-[#42526b]">{value}/5</span>
+      </div>
+    </div>
+  );
+}
+
+function ReviewPanel({ appointment }: { appointment: DisplayAppointment }) {
+  const [existingReview, setExistingReview] = useState<AppointmentReview | null>(null);
+  const [doctorRating, setDoctorRating] = useState(0);
+  const [serviceRating, setServiceRating] = useState(0);
+  const [facilityRating, setFacilityRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [otp, setOtp] = useState("");
+  const [debugOtp, setDebugOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const reviewOtpRef = useRef<HTMLDivElement | null>(null);
+  const reviewNoticeRef = useRef<HTMLDivElement | null>(null);
+
+  const identity = useMemo(() => ({ bookingCode: appointment.bookingCode, phone: appointment.patientPhone }), [appointment.bookingCode, appointment.patientPhone]);
+
+  useEffect(() => {
+    let active = true;
+    const loadReview = async () => {
+      setLoading(true);
+      try {
+        const review = await apiRequest<AppointmentReview | null>(`/appointments/${appointment.id}/review`, { query: identity });
+        if (active) setExistingReview(review);
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Không tải được đánh giá");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadReview();
+    return () => { active = false; };
+  }, [appointment.id, identity]);
+
+  const requestOtp = async () => {
+    setError("");
+    setMessage("");
+    if (!doctorRating || !serviceRating || !facilityRating) {
+      setError("Vui lòng chọn đủ ba tiêu chí đánh giá trước khi nhận OTP.");
+      scrollToRef(reviewNoticeRef);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await apiRequest<{ debugOtp?: string; channel: "SMS" | "EMAIL"; deliveryStatus: string }>(`/appointments/${appointment.id}/review/request-otp`, {
+        method: "POST",
+        body: identity,
+      });
+      setDebugOtp(result.debugOtp || "");
+      setOtpSent(true);
+      setMessage(result.deliveryStatus === "FAILED" ? "Đánh giá đã sẵn sàng, nhưng hệ thống chưa gửi được OTP. Hãy thử gửi lại sau." : `OTP xác nhận đánh giá đã được gửi qua ${result.channel === "EMAIL" ? "email" : "SMS"}.`);
+      scrollToRef(reviewOtpRef);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể gửi OTP đánh giá");
+      scrollToRef(reviewNoticeRef);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitReview = async () => {
+    setError("");
+    setMessage("");
+    if (!/^[0-9]{6}$/.test(otp)) {
+      setError("Vui lòng nhập mã OTP gồm 6 chữ số.");
+      scrollToRef(reviewNoticeRef);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const review = await apiRequest<AppointmentReview>(`/appointments/${appointment.id}/review`, {
+        method: "POST",
+        body: { ...identity, otp, doctorRating, serviceRating, facilityRating, comment: comment.trim() || null },
+      });
+      setExistingReview(review);
+      setMessage("Cảm ơn bạn đã chia sẻ trải nghiệm khám.");
+      scrollToRef(reviewNoticeRef);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể gửi đánh giá");
+      scrollToRef(reviewNoticeRef);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="mt-6 rounded-md border border-[#b9d8ef] bg-[#f5fbff] p-5">
+      <div className="flex items-start gap-3">
+        <span className="rounded-md bg-[#e3f1fc] p-2 text-[#0d4f8b]"><Star className="h-5 w-5 fill-current" /></span>
+        <div>
+          <h2 className="text-base font-semibold text-[#172033]">Đánh giá trải nghiệm khám</h2>
+          <p className="mt-1 text-sm leading-6 text-[#52677f]">Phản hồi của bạn giúp bệnh viện cải thiện chất lượng phục vụ.</p>
+        </div>
+      </div>
+
+      {loading ? <p className="mt-4 text-sm text-[#667892]">Đang kiểm tra đánh giá của bạn...</p> : null}
+      {!loading && existingReview ? (
+        <div className="mt-4 rounded-md border border-[#bde5c8] bg-white p-4 text-sm text-[#334155]">
+          <p className="font-semibold text-[#1f7a3a]">Bạn đã gửi đánh giá. Cảm ơn bạn.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <RatingSummary label="Bác sĩ" value={existingReview.doctorRating} />
+            <RatingSummary label="Dịch vụ" value={existingReview.serviceRating} />
+            <RatingSummary label="Cơ sở vật chất" value={existingReview.facilityRating} />
+          </div>
+          {existingReview.comment ? <p className="mt-3 border-t border-[#e5ebf3] pt-3 italic">“{existingReview.comment}”</p> : null}
+        </div>
+      ) : null}
+      {!loading && !existingReview ? (
+        <div className="mt-4 space-y-3">
+          <RatingInput label="Bác sĩ" value={doctorRating} onChange={setDoctorRating} />
+          <RatingInput label="Tiếp đón và dịch vụ" value={serviceRating} onChange={setServiceRating} />
+          <RatingInput label="Cơ sở vật chất" value={facilityRating} onChange={setFacilityRating} />
+          <label className="block">
+            <span className="text-sm font-medium text-[#334155]">Chia sẻ thêm (không bắt buộc)</span>
+            <textarea value={comment} onChange={(event) => setComment(event.target.value.slice(0, 1000))} maxLength={1000} rows={3} placeholder="Điều gì khiến bạn hài lòng hoặc cần cải thiện?" className="mt-1 w-full resize-y rounded-md border border-[#cfd8e6] bg-white px-3 py-2 text-sm outline-none focus:border-[#0d4f8b]" />
+          </label>
+          {otpSent ? (
+            <div ref={reviewOtpRef} className="scroll-mt-24 rounded-md border border-[#cfe4fa] bg-white p-3">
+              <DebugOtpBox otp={debugOtp} onFill={setOtp} />
+              <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="Nhập OTP 6 chữ số" className="mt-3 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-center text-lg font-semibold tracking-[0.2em] outline-none focus:border-[#0d4f8b]" />
+            </div>
+          ) : null}
+          <div ref={reviewNoticeRef} className="scroll-mt-24">
+            {error ? <p className="rounded-md border border-[#f2b8b5] bg-[#fff3f2] px-3 py-2 text-sm text-[#b3261e]">{error}</p> : null}
+            {message ? <p className="rounded-md border border-[#bde5c8] bg-[#f0fff4] px-3 py-2 text-sm text-[#1f7a3a]">{message}</p> : null}
+          </div>
+          <button type="button" onClick={() => void (otpSent ? submitReview() : requestOtp())} disabled={submitting} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {otpSent ? "Xác nhận gửi đánh giá" : "Nhận OTP để gửi đánh giá"}
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

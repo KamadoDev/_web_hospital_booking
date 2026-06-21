@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   Pill,
   Receipt,
+  Star,
   Settings,
   Stethoscope,
   Users,
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/schedules", label: "Lịch bác sĩ", icon: CalendarClock, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/appointments", label: "Lịch hẹn", icon: CalendarCheck, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/consultation-requests", label: "Yêu cầu tư vấn", icon: MessageSquareText, roles: ["ADMIN", "STAFF"] },
+  { href: "/dashboard/reviews", label: "Đánh giá", icon: Star, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/invoices", label: "Hoá đơn", icon: Receipt, roles: ["ADMIN", "STAFF"] },
   { href: "/dashboard/medical-records", label: "Hồ sơ khám", icon: FileText, roles: ["ADMIN", "STAFF", "DOCTOR"] },
   { href: "/dashboard/prescriptions", label: "Đơn thuốc", icon: Pill, roles: ["ADMIN", "STAFF", "DOCTOR"] },
@@ -73,7 +75,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors">
-      <aside className={`fixed inset-y-0 left-0 hidden border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 ease-out will-change-[width] lg:block ${sidebarCollapsed ? "w-20" : "w-68"}`}>
+      <aside className={`fixed inset-y-0 left-0 hidden h-dvh flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface)] transition-[width] duration-200 ease-out will-change-[width] lg:flex ${sidebarCollapsed ? "w-20" : "w-68"}`}>
         <div className={`flex h-18 items-center border-b border-[var(--border-soft)] ${sidebarCollapsed ? "justify-center px-3" : "gap-3 px-6"}`}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
             {logo ? (
@@ -98,7 +100,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <SidebarToggleIcon className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-        <nav className={`space-y-1 py-4 ${sidebarCollapsed ? "px-2" : "px-3"}`} aria-label="Điều hướng dashboard">
+        <nav className={`min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain py-4 [scrollbar-gutter:stable] ${sidebarCollapsed ? "px-2" : "px-3"}`} aria-label="Điều hướng dashboard">
           {visibleItems.map((item) => {
             const active =
               item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);

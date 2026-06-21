@@ -77,7 +77,31 @@ class PublicDoctorService {
       throw new AppError("Không tìm thấy bác sĩ", 404);
     }
 
-    return doctor;
+    const [reviewAggregate, publicReviews] = await Promise.all([
+      prisma.review.aggregate({
+        where: { doctorId: doctor.id, isVisible: true },
+        _count: { id: true },
+        _avg: { rating: true, doctorRating: true, serviceRating: true, facilityRating: true },
+      }),
+      prisma.review.findMany({
+        where: { doctorId: doctor.id, isVisible: true, comment: { not: null } },
+        select: { id: true, rating: true, doctorRating: true, serviceRating: true, facilityRating: true, comment: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+    ]);
+
+    return {
+      ...doctor,
+      reviewSummary: {
+        count: reviewAggregate._count.id,
+        averageRating: reviewAggregate._avg.rating || 0,
+        averageDoctorRating: reviewAggregate._avg.doctorRating || 0,
+        averageServiceRating: reviewAggregate._avg.serviceRating || 0,
+        averageFacilityRating: reviewAggregate._avg.facilityRating || 0,
+      },
+      publicReviews,
+    };
   }
 }
 

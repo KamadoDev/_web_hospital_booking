@@ -67,6 +67,22 @@ export type DoctorProfile = {
     schedules: number;
     timeSlots: number;
   };
+  reviewSummary?: {
+    count: number;
+    averageRating: number;
+    averageDoctorRating: number;
+    averageServiceRating: number;
+    averageFacilityRating: number;
+  };
+  publicReviews?: {
+    id: string;
+    rating: number;
+    doctorRating: number;
+    serviceRating: number;
+    facilityRating: number;
+    comment: string | null;
+    createdAt: string;
+  }[];
 };
 
 export type PackageItem = {

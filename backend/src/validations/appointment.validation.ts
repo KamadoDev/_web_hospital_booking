@@ -42,10 +42,12 @@ export const verifyAppointmentOtpSchema = z.object({
 
 export const requestAppointmentLookupOtpSchema = z.object({
   phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
+  bookingCode: z.string().trim().min(1, "Ma lich hen khong hop le").optional(),
 });
 
 export const verifyAppointmentLookupOtpSchema = z.object({
   phone: z.string().regex(phoneRegex, "So dien thoai khong hop le"),
+  bookingCode: z.string().trim().min(1, "Ma lich hen khong hop le").optional(),
   otp: z.string().length(6, "OTP phai co 6 so").regex(/^[0-9]+$/, "OTP chi duoc chua so"),
 });
 

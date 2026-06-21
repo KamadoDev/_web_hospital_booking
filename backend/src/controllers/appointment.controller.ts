@@ -171,6 +171,7 @@ export const requestPublicAppointmentLookupOtpHandler = async (
   try {
     const result = await AppointmentService.requestLookupOtp({
       phone: req.body.phone,
+      bookingCode: req.body.bookingCode,
       ipAddress: getIpAddress(req),
     });
 
@@ -192,6 +193,7 @@ export const verifyPublicAppointmentLookupOtpHandler = async (
   try {
     const result = await AppointmentService.verifyLookupOtp({
       phone: req.body.phone,
+      bookingCode: req.body.bookingCode,
       otp: req.body.otp,
       ipAddress: getIpAddress(req),
     });
