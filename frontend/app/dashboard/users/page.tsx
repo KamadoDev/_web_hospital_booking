@@ -103,6 +103,7 @@ export default function UsersPage() {
   const formRef = useRef<HTMLElement | null>(null);
 
   const canUse = user?.role === "ADMIN";
+  const isEditingSelf = Boolean(editing && editing.id === user?.id);
 
   const query = useMemo(
     () => ({
@@ -237,6 +238,11 @@ export default function UsersPage() {
 
   const toggleStatus = async (item: DashboardUser) => {
     if (!canUse) return;
+    if (item.id === user?.id) {
+      setError("Bạn không thể tự khóa tài khoản đang đăng nhập. Hãy dùng một quản trị viên khác nếu cần vô hiệu hóa tài khoản này.");
+      setNotice("");
+      return;
+    }
     setError("");
     setNotice("");
     try {
@@ -375,7 +381,7 @@ export default function UsersPage() {
                     <td className="border-b border-[#eef2f7] px-4 py-3">
                       <div className="flex flex-wrap justify-end gap-2">
                         <button onClick={() => startEdit(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Sửa</button>
-                        <button onClick={() => void toggleStatus(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">{(item.isActive ?? true) ? "Khóa" : "Mở khóa"}</button>
+                        <button onClick={() => void toggleStatus(item)} disabled={item.id === user?.id} title={item.id === user?.id ? "Không thể tự khóa tài khoản đang đăng nhập" : undefined} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] disabled:cursor-not-allowed disabled:opacity-50">{item.id === user?.id ? "Tài khoản hiện tại" : (item.isActive ?? true) ? "Khóa" : "Mở khóa"}</button>
                         <button onClick={() => startUpdatePassword(item)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Đổi mật khẩu</button>
                       </div>
                     </td>
@@ -442,7 +448,7 @@ export default function UsersPage() {
           <label className="block"><span className="text-sm font-medium text-[#334155]">Họ tên</span><input value={form.fullName} onChange={(e) => setForm((current) => ({ ...current, fullName: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block"><span className="text-sm font-medium text-[#334155]">Số điện thoại</span><input value={form.phone} onChange={(e) => setForm((current) => ({ ...current, phone: e.target.value }))} placeholder="0901234567" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label>
-            <label className="block"><span className="text-sm font-medium text-[#334155]">Vai trò</span><select value={form.role} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as DashboardRole }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"><option value="ADMIN">Quản trị</option><option value="STAFF">Nhân viên</option><option value="DOCTOR">Bác sĩ</option></select></label>
+            <label className="block"><span className="text-sm font-medium text-[#334155]">Vai trò</span><select value={form.role} disabled={isEditingSelf} onChange={(e) => setForm((current) => ({ ...current, role: e.target.value as DashboardRole }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:cursor-not-allowed disabled:bg-[#f1f5f9] disabled:text-[#667892]"><option value="ADMIN">Quản trị</option><option value="STAFF">Nhân viên</option><option value="DOCTOR">Bác sĩ</option></select></label>
           </div>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Email</span><input value={form.email} onChange={(e) => setForm((current) => ({ ...current, email: e.target.value }))} placeholder="email@example.com" className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" /></label>
           {!editing ? <label className="block"><span className="text-sm font-medium text-[#334155]">Mật khẩu</span><input type="password" value={form.password} onChange={(e) => setForm((current) => ({ ...current, password: e.target.value }))} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" required /></label> : null}
@@ -465,7 +471,8 @@ export default function UsersPage() {
               </p>
             </div>
           ) : null}
-          <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang hoạt động</span><input type="checkbox" checked={form.isActive} onChange={(e) => setForm((current) => ({ ...current, isActive: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b]" /></label>
+          <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2"><span className="text-sm font-medium text-[#334155]">Đang hoạt động</span><input type="checkbox" checked={form.isActive} disabled={isEditingSelf} onChange={(e) => setForm((current) => ({ ...current, isActive: e.target.checked }))} className="h-4 w-4 accent-[#0d4f8b] disabled:cursor-not-allowed disabled:opacity-50" /></label>
+          {isEditingSelf ? <p className="rounded-md border border-[#cfe4fa] bg-[#f3f8ff] px-3 py-2 text-xs leading-5 text-[#0d4f8b]">Đây là tài khoản đang đăng nhập. Bạn có thể cập nhật thông tin cơ bản hoặc đổi mật khẩu, nhưng không thể tự khóa hay tự đổi quyền quản trị.</p> : null}
           <div className="flex gap-2">
             <button disabled={saving || uploading} className="flex-1 rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{uploading ? "Đang upload..." : saving ? "Đang lưu..." : editing ? "Lưu thay đổi" : "Tạo tài khoản"}</button>
             {editing ? <button type="button" onClick={startCreate} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-medium text-[#42526b]">Hủy</button> : null}

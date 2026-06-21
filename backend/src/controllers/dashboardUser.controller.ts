@@ -26,6 +26,14 @@ const getParam = (value: string | string[] | undefined) => {
   return param;
 };
 
+const getActor = (req: Request) => {
+  if (!req.user?.userId || !req.user.role) {
+    throw new AppError("Chưa đăng nhập", 401);
+  }
+
+  return { userId: req.user.userId, role: req.user.role as Role };
+};
+
 export const listDashboardUsersHandler = async (
   req: Request,
   res: Response,
@@ -92,7 +100,7 @@ export const updateDashboardUserHandler = async (
 ) => {
   try {
     const id = getParam(req.params.id);
-    const user = await DashboardUserService.update(id, req.body);
+    const user = await DashboardUserService.update(id, req.body, getActor(req));
 
     return res.json({
       success: true,
@@ -114,6 +122,7 @@ export const updateDashboardUserStatusHandler = async (
     const user = await DashboardUserService.updateStatus(
       id,
       req.body.isActive,
+      getActor(req),
     );
 
     return res.json({

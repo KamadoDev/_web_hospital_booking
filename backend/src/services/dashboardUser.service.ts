@@ -7,6 +7,7 @@ import MediaAssetService from "./mediaAsset.service.js";
 import SearchIndexer from "./search/search.indexer.js";
 
 type DashboardRole = Extract<Role, "ADMIN" | "STAFF" | "DOCTOR">;
+type Actor = { userId: string; role: Role };
 
 type CreateDashboardUserInput = {
   fullName: string;
@@ -168,8 +169,10 @@ class DashboardUserService {
     return user;
   }
 
-  async update(id: string, input: UpdateDashboardUserInput) {
-    await this.getById(id);
+  async update(id: string, input: UpdateDashboardUserInput, actor: Actor) {
+    const currentUser = await this.getById(id);
+    this.assertSelfAdministration(id, input, actor);
+    await this.assertActiveAdminContinuity(currentUser, input);
 
     if (input.role) {
       ensureDashboardRole(input.role);
@@ -242,8 +245,10 @@ class DashboardUserService {
     return user;
   }
 
-  async updateStatus(id: string, isActive: boolean) {
-    await this.getById(id);
+  async updateStatus(id: string, isActive: boolean, actor: Actor) {
+    const currentUser = await this.getById(id);
+    this.assertSelfAdministration(id, { isActive }, actor);
+    await this.assertActiveAdminContinuity(currentUser, { isActive });
 
     const user = await prisma.user.update({
       where: {
@@ -278,6 +283,34 @@ class DashboardUserService {
       },
       select: dashboardUserSelect,
     });
+  }
+
+  private assertSelfAdministration(id: string, input: UpdateDashboardUserInput, actor: Actor) {
+    if (actor.userId !== id) return;
+
+    if (input.isActive === false) {
+      throw new AppError("Bạn không thể tự khóa tài khoản đang đăng nhập", 400);
+    }
+
+    if (input.role && input.role !== "ADMIN") {
+      throw new AppError("Bạn không thể tự thay đổi quyền quản trị của chính mình", 400);
+    }
+  }
+
+  private async assertActiveAdminContinuity(currentUser: { id: string; role: Role; isActive: boolean }, input: UpdateDashboardUserInput) {
+    const removesActiveAdmin = currentUser.role === "ADMIN" && currentUser.isActive && (
+      input.isActive === false || (input.role !== undefined && input.role !== "ADMIN")
+    );
+
+    if (!removesActiveAdmin) return;
+
+    const otherActiveAdmins = await prisma.user.count({
+      where: { id: { not: currentUser.id }, role: "ADMIN", isActive: true },
+    });
+
+    if (otherActiveAdmins === 0) {
+      throw new AppError("Không thể vô hiệu hóa hoặc đổi quyền của quản trị viên hoạt động cuối cùng", 409);
+    }
   }
 }
 
