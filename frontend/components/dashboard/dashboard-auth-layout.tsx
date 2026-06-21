@@ -12,6 +12,7 @@ const roleRoutes: Record<DashboardRole, string[]> = {
     "/dashboard/appointments",
     "/dashboard/chatbot",
     "/dashboard/consultation-requests",
+    "/dashboard/reviews",
     "/dashboard/departments",
     "/dashboard/doctors",
     "/dashboard/invoices",
@@ -28,6 +29,7 @@ const roleRoutes: Record<DashboardRole, string[]> = {
     "/dashboard/appointments",
     "/dashboard/chatbot",
     "/dashboard/consultation-requests",
+    "/dashboard/reviews",
     "/dashboard/departments",
     "/dashboard/doctors",
     "/dashboard/invoices",
@@ -43,6 +45,7 @@ const roleRoutes: Record<DashboardRole, string[]> = {
     "/dashboard/appointments",
     "/dashboard/medical-records",
     "/dashboard/prescriptions",
+    "/dashboard/reviews",
     "/dashboard/schedules",
   ],
 };

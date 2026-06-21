@@ -11,6 +11,7 @@ const purposeLabel: Record<OtpPurpose, string> = {
   LOOKUP_APPOINTMENT: "tra cứu lịch hẹn",
   PATIENT_PORTAL_LOGIN: "đăng nhập cổng bệnh nhân",
   CANCEL_APPOINTMENT: "hủy lịch hẹn",
+  REVIEW_APPOINTMENT: "gửi đánh giá sau khám",
   LOOKUP_RESULT: "tra cứu lịch hẹn hoặc kết quả",
   ADMIN_LOGIN: "đăng nhập dashboard admin",
   DOCTOR_LOGIN: "đăng nhập dashboard bác sĩ",

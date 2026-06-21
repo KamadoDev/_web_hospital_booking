@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { CalendarDays, Clock, Loader2, Stethoscope } from "lucide-react";
+import { CalendarDays, Clock, Loader2, Star, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type PublicSlot, usePublicAvailableSlots } from "@/lib/public-booking-query";
@@ -27,6 +27,7 @@ const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullNam
 const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";
 const formatTime = (value: string) => value.slice(0, 5);
 const toDateInputValue = (value: string) => value.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || value;
+const formatReviewDate = (value: string) => new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date(value));
 
 export function DoctorDetailClient({ doctor, initialDate, initialSlots }: DoctorDetailClientProps) {
   const [slots, setSlots] = useState<PublicSlot[]>(initialSlots);
@@ -90,6 +91,30 @@ export function DoctorDetailClient({ doctor, initialDate, initialSlots }: Doctor
             {doctor.bio || "Bác sĩ đang tiếp nhận lịch khám và tư vấn theo chuyên khoa. Bạn có thể chọn ngày để xem khung giờ trống trước khi đặt lịch."}
           </p>
         </div>
+
+        {doctor.reviewSummary?.count ? (
+          <section className="mt-6 border-t border-[#e5ebf3] pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Đánh giá từ người bệnh</h2>
+                <p className="mt-1 text-sm text-[#667892]">Các phản hồi đã được bệnh viện xác nhận.</p>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-md bg-[#fff8eb] px-3 py-2 text-[#8a5a00]">
+                <Star className="h-4 w-4 fill-current" />
+                <span className="font-semibold">{doctor.reviewSummary.averageRating.toFixed(1)}/5</span>
+                <span className="text-sm">({doctor.reviewSummary.count})</span>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {[
+                ["Bác sĩ", doctor.reviewSummary.averageDoctorRating],
+                ["Dịch vụ", doctor.reviewSummary.averageServiceRating],
+                ["Cơ sở vật chất", doctor.reviewSummary.averageFacilityRating],
+              ].map(([label, value]) => <div key={label as string} className="rounded-md border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2"><p className="text-xs text-[#667892]">{label as string}</p><p className="mt-1 text-sm font-semibold text-[#172033]">{Number(value).toFixed(1)} / 5</p></div>)}
+            </div>
+            {doctor.publicReviews?.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2">{doctor.publicReviews.map((review) => <article key={review.id} className="rounded-md border border-[#e5ebf3] bg-white p-4"><div className="flex items-center justify-between gap-2"><span className="inline-flex items-center gap-1 text-sm font-semibold text-[#8a5a00]"><Star className="h-4 w-4 fill-current" /> {review.rating.toFixed(1)}</span><span className="text-xs text-[#667892]">Người bệnh · {formatReviewDate(review.createdAt)}</span></div><p className="mt-3 text-sm leading-6 text-[#42526b]">{review.comment}</p></article>)}</div> : null}
+          </section>
+        ) : null}
       </article>
 
       <aside className="rounded-md border border-[#dce3ee] bg-white p-5">
