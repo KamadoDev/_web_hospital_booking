@@ -30,7 +30,7 @@ router.patch(
   updatePrescriptionHandler,
 );
 router.patch("/:id/issue", requireRole("ADMIN", "DOCTOR"), issuePrescriptionHandler);
-router.patch("/:id/cancel", requireRole("ADMIN", "STAFF", "DOCTOR"), cancelPrescriptionHandler);
+router.patch("/:id/cancel", requireRole("ADMIN", "DOCTOR"), cancelPrescriptionHandler);
 router.post(
   "/:id/items",
   requireRole("ADMIN", "DOCTOR"),

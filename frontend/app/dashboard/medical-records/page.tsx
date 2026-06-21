@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
 import { apiRequest, uploadImages } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -121,6 +122,7 @@ const buildLabPayload = (form: LabForm) => ({
 
 export default function MedicalRecordsPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
@@ -163,6 +165,18 @@ export default function MedicalRecordsPage() {
   const doctorsQuery = useDashboardMedicalRecordDoctors(doctorQuery, !isDoctor);
   const selectedRecordQuery = useDashboardMedicalRecord(selected?.id);
   const loading = recordsQuery.isLoading;
+
+  useEffect(() => {
+    const linkedRecordCode = searchParams.get("recordCode")?.trim().toUpperCase();
+    if (!linkedRecordCode) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setRecordCode(linkedRecordCode);
+      setDate("");
+      setPage(1);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchParams]);
 
   const invalidateMedicalRecords = async () => {
     await Promise.all([
