@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { ArrowLeft, ArrowRight, PackageCheck, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
 import { serverApiRequest } from "@/lib/server-api";
@@ -26,9 +27,9 @@ const getBookingUrl = (item: MedicalPackage) => {
   return `/?${params.toString()}#booking`;
 };
 
-async function getPackage(slug: string) {
+const getPackage = cache(async (slug: string) => {
   return serverApiRequest<MedicalPackage>(`/packages/${slug}`);
-}
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

@@ -2,6 +2,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { ArrowLeft, ArrowRight, Clock, HeartPulse, PackageCheck, Star } from "lucide-react";
 import Link from "next/link";
 import type { PublicDepartment } from "@/components/public/public-home-types";
@@ -23,9 +24,9 @@ const formatCurrency = (value: number) =>
 const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 const firstLetter = (value: string) => value.trim().slice(0, 1).toUpperCase() || "B";
 
-async function getDepartment(slug: string) {
+const getDepartment = cache(async (slug: string) => {
   return serverApiRequest<PublicDepartment>(`/departments/${slug}`);
-}
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -60,11 +61,12 @@ export default async function PublicDepartmentDetailPage({ params }: PageProps) 
   let packages: MedicalPackage[] = [];
 
   try {
-    department = await getDepartment(slug);
-    const [doctorItems, packageItems] = await Promise.all([
+    const [departmentResult, doctorItems, packageItems] = await Promise.all([
+      getDepartment(slug),
       serverApiRequest<DoctorProfile[]>("/doctors", { query: { departmentSlug: slug } }),
       serverApiRequest<MedicalPackage[]>("/packages"),
     ]);
+    department = departmentResult;
     doctors = doctorItems;
     packages = packageItems.filter((item) => item.department?.id === department.id);
   } catch {

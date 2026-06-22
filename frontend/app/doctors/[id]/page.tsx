@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DoctorDetailClient, type PublicSlot } from "@/app/doctors/[id]/doctor-detail-client";
@@ -14,9 +15,9 @@ type PageProps = {
 
 const doctorName = (doctor: DoctorProfile) => [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
 
-async function getDoctor(id: string) {
+const getDoctor = cache(async (id: string) => {
   return serverApiRequest<DoctorProfile>(`/doctors/${id}`);
-}
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
@@ -52,10 +53,14 @@ export default async function PublicDoctorDetailPage({ params }: PageProps) {
   let slots: PublicSlot[] = [];
 
   try {
-    doctor = await getDoctor(id);
-    slots = await serverApiRequest<PublicSlot[]>(`/doctors/${id}/available-slots`, {
-      query: { date: today },
-    }).catch(() => []);
+    const [doctorResult, slotResult] = await Promise.all([
+      getDoctor(id),
+      serverApiRequest<PublicSlot[]>(`/doctors/${id}/available-slots`, {
+        query: { date: today },
+      }).catch(() => []),
+    ]);
+    doctor = doctorResult;
+    slots = slotResult;
   } catch {
     notFound();
   }

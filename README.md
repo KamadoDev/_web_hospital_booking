@@ -2,7 +2,8 @@
 
 Hệ thống đặt lịch khám bệnh trực tuyến gồm site người dùng, dashboard quản trị bệnh viện và backend API. Dự án được xây dựng cho môn Tiểu Luận Chuyên Ngành, tập trung vào luồng đặt lịch, xác thực OTP, vận hành khám bệnh, hóa đơn, thanh toán, chatbot hỗ trợ và tìm kiếm nội dung y tế.
 
-website đã deploy: https://web-hospital-booking.vercel.app/
+website đã deploy: https://web-hospital-booking.vercel.app
+Dashboard: https://web-hospital-booking.vercel.app/dashboard
 
 ## Thông Tin Author
 
@@ -69,13 +70,15 @@ PostgreSQL là nguồn dữ liệu chính. Elasticsearch chỉ là lớp tăng t
 - Trang chủ lấy cấu hình động từ dashboard: logo, favicon, banner, FAQ, thông tin bệnh viện.
 - Banner hero dạng carousel bằng Embla.
 - Danh sách và chi tiết chuyên khoa, bác sĩ, gói khám.
+- Trang chi tiết có skeleton loading, cache server và tải song song dữ liệu độc lập để điều hướng mượt hơn.
 - Form đặt lịch gồm thông tin bắt buộc và thông tin bổ sung.
 - Chọn chuyên khoa, bác sĩ, ngày khám, slot khám và gói khám.
 - Xác thực OTP khi đặt lịch.
 - Hiển thị mã đặt lịch, nút copy mã, box OTP test khi bật debug.
-- Tra cứu lịch hẹn bằng mã lịch và số điện thoại.
+- Giao diện tra cứu lịch hẹn bằng mã lịch và số điện thoại theo luồng xác thực OTP trước khi hiển thị chi tiết.
 - Quên mã lịch bằng OTP.
 - Hủy lịch public có xác thực OTP.
+- Đánh giá trải nghiệm khám sau khi lịch hoàn thành, xác thực OTP theo số điện thoại.
 - Xem hóa đơn, thanh toán online/mock payment.
 - Xem kết quả khám, kết quả lâm sàng và đơn thuốc đã phát hành.
 - Chatbot hỗ trợ đặt lịch, tra cứu, FAQ và điều hướng nhanh.
@@ -98,6 +101,7 @@ PostgreSQL là nguồn dữ liệu chính. Elasticsearch chỉ là lớp tăng t
 - Dashboard thống kê bằng card và chart.
 - Quản lý chatbot, FAQ chatbot, cấu hình bật/tắt AI.
 - Theo dõi Search Analytics.
+- Duyệt/ẩn đánh giá của người bệnh; bác sĩ chỉ xem phản hồi ẩn danh thuộc phạm vi của mình.
 
 ## Luồng Nghiệp Vụ Chính
 
@@ -130,13 +134,14 @@ Nếu chọn `EMAIL`, bệnh nhân phải nhập email và OTP được gửi qu
 - Lịch đặt bằng SMS thì gửi lại SMS hoặc debug SMS.
 - Có kiểm tra cooldown và giới hạn gửi OTP.
 
-### 3. Tra Cứu Và Quên Mã Lịch
+### 3. Tra Cứu, Quên Mã Và Đánh Giá
 
-- Tra cứu trực tiếp bằng `bookingCode + phone`.
+- Giao diện tra cứu bằng `bookingCode + phone` yêu cầu OTP trước khi hiển thị chi tiết lịch.
 - Nếu quên mã lịch, người bệnh nhập số điện thoại.
 - Backend tìm lịch gần nhất theo số điện thoại.
 - Nếu lịch gần nhất có email và dùng kênh email, OTP tra cứu sẽ gửi qua email.
 - Nếu không có email, hệ thống fallback về SMS/debug SMS.
+- Lịch đã hoàn thành có thể nhận đánh giá qua OTP; đánh giá chỉ công khai khi được ADMIN/STAFF duyệt hiển thị.
 
 ### 4. Hủy Lịch
 
@@ -202,11 +207,14 @@ GET  /api/packages/:slug
 POST /api/appointments
 POST /api/appointments/:id/resend-otp
 POST /api/appointments/:id/verify-otp
-GET  /api/appointments/lookup
+GET  /api/appointments/lookup/result
 POST /api/appointments/lookup/request-otp
 POST /api/appointments/lookup/verify-otp
 POST /api/appointments/lookup/cancel/request-otp
 POST /api/appointments/lookup/cancel/verify
+GET  /api/appointments/:id/review
+POST /api/appointments/:id/review/request-otp
+POST /api/appointments/:id/review
 GET  /api/search
 GET  /api/search/suggestions
 POST /api/search/analytics
@@ -236,6 +244,8 @@ GET/POST/PATCH     /api/dashboard/invoices
 GET                /api/dashboard/statistics
 GET/POST/PATCH     /api/dashboard/users
 GET/POST/PATCH     /api/dashboard/chatbot
+GET                /api/dashboard/reviews
+PATCH              /api/dashboard/reviews/:id/visibility
 POST               /api/uploads/images
 GET                /api/uploads/images
 DELETE             /api/uploads/images/:id
@@ -384,6 +394,8 @@ Script demo có thể reset database và sinh chuyên khoa, bác sĩ, gói khám
 - Site settings điều khiển logo, favicon, banner, FAQ và một số nội dung public.
 - TanStack Query được dùng để cache/refetch dữ liệu frontend.
 - Zustand được dùng để đồng bộ trạng thái đặt lịch giữa trang chi tiết và form đặt lịch.
+- Các trang chi tiết public dùng `loading.tsx` để hiển thị skeleton ngay khi chuyển route; dữ liệu detail được cache theo ISR 5 phút và khử request trùng giữa metadata/nội dung.
+- Review lưu điểm tổng quan và các điểm thành phần; dữ liệu công khai chỉ lấy review đã được duyệt, không lộ tên bệnh nhân hay mã lịch.
 - Vercel Analytics và Speed Insights dùng để theo dõi traffic và hiệu năng frontend.
 - Render Free có cold start; nên warm up backend trước khi demo.
 
@@ -411,6 +423,7 @@ npm run build
 - Render Free có độ trễ do cold start và giới hạn tài nguyên.
 - Thanh toán thật mới ở mức mô phỏng/mock hoặc cần cấu hình thêm provider.
 - Một số chính sách BHYT mới dừng ở mức hỗ trợ nhập và tính giảm trừ theo dữ liệu hệ thống, chưa thay thế quy trình giám định bảo hiểm thực tế.
+- Endpoint kết quả khám public hiện được UI gọi sau bước OTP; nên bổ sung lookup token ngắn hạn ở backend để buộc API thực thi cùng chính sách bảo mật.
 
 ## Hướng Phát Triển
 
