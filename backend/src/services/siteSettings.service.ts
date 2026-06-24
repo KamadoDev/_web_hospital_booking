@@ -31,13 +31,15 @@ class SiteSettingsService {
       where: { key: SITE_SETTINGS_KEY },
     });
 
-    const setting = existingSetting || await prisma.siteSetting.create({
-      data: {
-        key: SITE_SETTINGS_KEY,
-        value: toPrismaJson(defaultSiteSettings),
-        description: "Public website display settings",
-      },
-    });
+    const setting =
+      existingSetting ||
+      (await prisma.siteSetting.create({
+        data: {
+          key: SITE_SETTINGS_KEY,
+          value: toPrismaJson(defaultSiteSettings),
+          description: "Public website display settings",
+        },
+      }));
 
     return {
       ...setting,
@@ -54,13 +56,21 @@ class SiteSettingsService {
       input.logoAssetId === undefined
         ? null
         : input.logoAssetId
-          ? await MediaAssetService.attachAsset(input.logoAssetId, "SITE_SETTING", SITE_SETTINGS_KEY)
+          ? await MediaAssetService.attachAsset(
+              input.logoAssetId,
+              "SITE_SETTING",
+              SITE_SETTINGS_KEY,
+            )
           : null;
     const faviconAsset =
       input.faviconAssetId === undefined
         ? null
         : input.faviconAssetId
-          ? await MediaAssetService.attachAsset(input.faviconAssetId, "SITE_SETTING", SITE_SETTINGS_KEY)
+          ? await MediaAssetService.attachAsset(
+              input.faviconAssetId,
+              "SITE_SETTING",
+              SITE_SETTINGS_KEY,
+            )
           : null;
     const { logoAssetId, faviconAssetId, ...settingsInput } = input;
     const nextValue = {
@@ -80,10 +90,13 @@ class SiteSettingsService {
     });
 
     const currentValue = current.value as Record<string, unknown>;
-    const currentLogo = typeof currentValue.logo === "string" ? currentValue.logo : null;
-    const currentFavicon = typeof currentValue.favicon === "string" ? currentValue.favicon : null;
+    const currentLogo =
+      typeof currentValue.logo === "string" ? currentValue.logo : null;
+    const currentFavicon =
+      typeof currentValue.favicon === "string" ? currentValue.favicon : null;
     const nextLogo = typeof nextValue.logo === "string" ? nextValue.logo : null;
-    const nextFavicon = typeof nextValue.favicon === "string" ? nextValue.favicon : null;
+    const nextFavicon =
+      typeof nextValue.favicon === "string" ? nextValue.favicon : null;
 
     if (nextLogo !== currentLogo) {
       await MediaAssetService.detachOwnerAssetByUrl(

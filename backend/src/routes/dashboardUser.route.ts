@@ -21,9 +21,17 @@ const router = Router();
 router.use(authDashboard, requireRole("ADMIN"));
 
 router.get("/", listDashboardUsersHandler);
-router.post("/", validate(createDashboardUserSchema), createDashboardUserHandler);
+router.post(
+  "/",
+  validate(createDashboardUserSchema),
+  createDashboardUserHandler,
+);
 router.get("/:id", getDashboardUserHandler);
-router.patch("/:id", validate(updateDashboardUserSchema), updateDashboardUserHandler);
+router.patch(
+  "/:id",
+  validate(updateDashboardUserSchema),
+  updateDashboardUserHandler,
+);
 router.patch(
   "/:id/status",
   validate(updateDashboardUserStatusSchema),

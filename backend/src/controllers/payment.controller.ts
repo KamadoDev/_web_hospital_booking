@@ -77,7 +77,8 @@ export const getMockCheckoutHandler = async (
 
     return res.json({
       success: true,
-      message: "Mock checkout. Gọi endpoint success hoặc fail để giả lập kết quả thanh toán.",
+      message:
+        "Mock checkout. Gọi endpoint success hoặc fail để giả lập kết quả thanh toán.",
       data: {
         transaction,
         successUrl: `/api/payments/mock/${transaction.transactionCode}/success`,
@@ -135,7 +136,8 @@ export const paymentProviderWebhookHandler = async (
 ) => {
   return res.status(501).json({
     success: false,
-    message: "Webhook provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
+    message:
+      "Webhook provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
   });
 };
 
@@ -145,6 +147,7 @@ export const paymentProviderReturnHandler = async (
 ) => {
   return res.status(501).json({
     success: false,
-    message: "Return URL provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
+    message:
+      "Return URL provider chưa được tích hợp. Cần thêm adapter và xác thực chữ ký trước khi cập nhật thanh toán.",
   });
 };

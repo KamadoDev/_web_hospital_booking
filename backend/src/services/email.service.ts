@@ -10,7 +10,8 @@ type SendMailInput = {
 };
 
 const getBooleanEnv = (value?: string) => value === "true";
-const isProductionLike = () => process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+const isProductionLike = () =>
+  process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
 
 class EmailService {
   private getResendClient() {
@@ -49,7 +50,10 @@ class EmailService {
     const resend = this.getResendClient();
     if (!resend) return false;
 
-    const from = process.env.RESEND_FROM || process.env.MAIL_FROM || "Hospital Booking <onboarding@resend.dev>";
+    const from =
+      process.env.RESEND_FROM ||
+      process.env.MAIL_FROM ||
+      "Hospital Booking <onboarding@resend.dev>";
     const { error } = await resend.emails.send({
       from,
       to: [input.to],
@@ -59,7 +63,10 @@ class EmailService {
     });
 
     if (error) {
-      throw new AppError(error.message || "Resend gửi email không thành công", 502);
+      throw new AppError(
+        error.message || "Resend gửi email không thành công",
+        502,
+      );
     }
 
     return true;
@@ -70,7 +77,8 @@ class EmailService {
     if (sentByResend) return;
 
     const transporter = this.getTransporter();
-    const from = process.env.MAIL_FROM || process.env.MAIL_USER || "Hospital Booking";
+    const from =
+      process.env.MAIL_FROM || process.env.MAIL_USER || "Hospital Booking";
 
     if (!transporter) {
       console.log("=================================");

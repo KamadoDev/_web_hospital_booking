@@ -25,7 +25,11 @@ const publicDoctorSelect = {
 } satisfies Prisma.DoctorProfileSelect;
 
 class PublicDoctorService {
-  async list(query: { search?: string; departmentSlug?: string; departmentId?: string }) {
+  async list(query: {
+    search?: string;
+    departmentSlug?: string;
+    departmentId?: string;
+  }) {
     const where: Prisma.DoctorProfileWhereInput = {
       isAvailable: true,
       user: {
@@ -43,7 +47,9 @@ class PublicDoctorService {
         { title: { contains: query.search, mode: "insensitive" } },
         { specialization: { contains: query.search, mode: "insensitive" } },
         { user: { fullName: { contains: query.search, mode: "insensitive" } } },
-        { department: { name: { contains: query.search, mode: "insensitive" } } },
+        {
+          department: { name: { contains: query.search, mode: "insensitive" } },
+        },
       ];
     }
 
@@ -81,11 +87,24 @@ class PublicDoctorService {
       prisma.review.aggregate({
         where: { doctorId: doctor.id, isVisible: true },
         _count: { id: true },
-        _avg: { rating: true, doctorRating: true, serviceRating: true, facilityRating: true },
+        _avg: {
+          rating: true,
+          doctorRating: true,
+          serviceRating: true,
+          facilityRating: true,
+        },
       }),
       prisma.review.findMany({
         where: { doctorId: doctor.id, isVisible: true, comment: { not: null } },
-        select: { id: true, rating: true, doctorRating: true, serviceRating: true, facilityRating: true, comment: true, createdAt: true },
+        select: {
+          id: true,
+          rating: true,
+          doctorRating: true,
+          serviceRating: true,
+          facilityRating: true,
+          comment: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: "desc" },
         take: 6,
       }),

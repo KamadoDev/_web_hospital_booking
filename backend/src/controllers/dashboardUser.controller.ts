@@ -41,8 +41,12 @@ export const listDashboardUsersHandler = async (
 ) => {
   try {
     const result = await DashboardUserService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
-      role: typeof req.query.role === "string" ? (req.query.role as Role) : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
+      role:
+        typeof req.query.role === "string"
+          ? (req.query.role as Role)
+          : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),

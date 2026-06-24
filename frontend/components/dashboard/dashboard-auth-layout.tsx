@@ -52,10 +52,16 @@ const roleRoutes: Record<DashboardRole, string[]> = {
 
 const canAccessPath = (role: DashboardRole, pathname: string) =>
   roleRoutes[role].some((route) =>
-    route === "/dashboard" ? pathname === route : pathname === route || pathname.startsWith(`${route}/`),
+    route === "/dashboard"
+      ? pathname === route
+      : pathname === route || pathname.startsWith(`${route}/`),
   );
 
-export function DashboardAuthLayout({ children }: { children: React.ReactNode }) {
+export function DashboardAuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuth();

@@ -14,5 +14,8 @@ const adapters = {
 export const getPaymentProviderAdapter = (provider: PaymentProvider) =>
   adapters[provider];
 
-export type { CreateProviderPaymentResult, PaymentProviderAdapter } from "./types.js";
+export type {
+  CreateProviderPaymentResult,
+  PaymentProviderAdapter,
+} from "./types.js";
 export { verifyMomoSignature } from "./momo.provider.js";

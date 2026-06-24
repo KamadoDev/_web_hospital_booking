@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/$/, "");
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+).replace(/\/$/, "");
 
 export const absoluteUrl = (pathOrUrl?: string | null) => {
   if (!pathOrUrl) return undefined;
@@ -9,7 +11,10 @@ export const absoluteUrl = (pathOrUrl?: string | null) => {
 };
 
 export const cleanText = (value?: string | null, fallback = "") => {
-  const text = (value || fallback).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const text = (value || fallback)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return text;
 };
 
@@ -18,7 +23,8 @@ export const truncateText = (value: string, maxLength = 155) => {
   return `${value.slice(0, maxLength - 1).trim()}…`;
 };
 
-export const jsonLdString = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
+export const jsonLdString = (value: unknown) =>
+  JSON.stringify(value).replace(/</g, "\\u003c");
 
 export function buildOpenGraph({
   title,

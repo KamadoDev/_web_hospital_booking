@@ -11,9 +11,13 @@ type SendOtpInput = {
   expiresInSeconds: number;
 };
 
-const isProductionLike = () => process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+const isProductionLike = () =>
+  process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
 const isSmsDebugEnabled = () =>
-  !isProductionLike() || ["true", "1", "yes", "on"].includes((process.env.OTP_DEBUG_ENABLED || "").toLowerCase());
+  !isProductionLike() ||
+  ["true", "1", "yes", "on"].includes(
+    (process.env.OTP_DEBUG_ENABLED || "").toLowerCase(),
+  );
 
 class OtpSenderService {
   async send(input: SendOtpInput) {

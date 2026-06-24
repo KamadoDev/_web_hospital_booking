@@ -41,7 +41,11 @@ router.patch(
   validate(payInvoiceSchema),
   payInvoiceHandler,
 );
-router.patch("/:id/cancel", requireRole("ADMIN", "STAFF"), cancelInvoiceHandler);
+router.patch(
+  "/:id/cancel",
+  requireRole("ADMIN", "STAFF"),
+  cancelInvoiceHandler,
+);
 router.patch(
   "/:id/refund",
   requireRole("ADMIN"),

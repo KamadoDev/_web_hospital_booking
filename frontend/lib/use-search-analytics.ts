@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { trackPublicSearch, type PublicSearchResponse, type PublicSearchType } from "@/lib/public-search-query";
+import {
+  trackPublicSearch,
+  type PublicSearchResponse,
+  type PublicSearchType,
+} from "@/lib/public-search-query";
 
 const TRACK_TTL_MS = 45 * 1000;
 

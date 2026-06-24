@@ -1408,8 +1408,8 @@ function PublicFooter({
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs leading-5 text-white/60 sm:px-6">
         Xây dựng website quàn lí đặt lịch khám bệnh có tích hợp chatbot hỗ trợ -
-        Môn Tiểu Luận Chuyên Ngành - Ngô Quang Lợi - Trường Đại Học Công
-        Nghệ Kỹ Thuật TP HCM - HCMUTE
+        Môn Tiểu Luận Chuyên Ngành - Ngô Quang Lợi - Trường Đại Học Công Nghệ Kỹ
+        Thuật TP HCM - HCMUTE
       </div>
     </footer>
   );

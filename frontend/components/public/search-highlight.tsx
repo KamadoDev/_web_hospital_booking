@@ -43,7 +43,8 @@ export function HighlightText({
     if (foundAt === -1) break;
 
     const originalStart = map[foundAt] ?? originalCursor;
-    const originalEnd = (map[foundAt + normalizedQuery.length - 1] ?? originalStart) + 1;
+    const originalEnd =
+      (map[foundAt + normalizedQuery.length - 1] ?? originalStart) + 1;
 
     if (originalStart > originalCursor) {
       segments.push({

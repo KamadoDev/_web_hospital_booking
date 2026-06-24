@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -12,6 +13,7 @@ import {
 import { formatVietnamDate, getVietnamDateInput, isVietnamSlotStartInPast } from "@/lib/date";
 import { queryKeys } from "@/lib/query-keys";
 import { VietnamDateInput } from "@/components/ui/vietnam-date-input";
+import { ScheduleChangeRequestPanel } from "@/components/dashboard/schedule-change-request-panel";
 import type {
   DoctorProfile,
   DoctorSchedule,
@@ -156,6 +158,7 @@ export default function SchedulesPage() {
 
   const canWrite = user?.role === "ADMIN" || user?.role === "STAFF";
   const isDoctor = user?.role === "DOCTOR";
+  const canManageSlots = canWrite || isDoctor;
 
   const scheduleQuery = useMemo(
     () => ({
@@ -287,7 +290,6 @@ export default function SchedulesPage() {
     setLockReason(slot.lockReason || "");
     setError("");
     setNotice("");
-    scrollTo(slotListRef);
   };
 
   const handleScheduleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -388,8 +390,33 @@ export default function SchedulesPage() {
     }
   };
 
+  const handleLockSlot = async (slot: DoctorTimeSlot) => {
+    if (!canManageSlots) return;
+    const reason = lockReason.trim();
+    if (reason.length < 2) {
+      setError("Lý do khóa slot tối thiểu 2 ký tự");
+      return;
+    }
+    setError("");
+    setNotice("");
+    setSaving(true);
+    try {
+      await apiRequest<DoctorTimeSlot>(`/dashboard/doctor-time-slots/${slot.id}/lock`, {
+        method: "PATCH",
+        body: { lockReason: reason },
+      });
+      setNotice("Đã khóa slot khám");
+      setLockSlotTarget(null);
+      setLockReason("");
+      void invalidateSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không khóa được slot");
+    } finally {
+      setSaving(false);
+    }
+  };
   const handleUnlockSlot = async (slot: DoctorTimeSlot) => {
-    if (!canWrite) return;
+    if (!canManageSlots) return;
     setError("");
     setNotice("");
     try {
@@ -418,7 +445,7 @@ export default function SchedulesPage() {
   };
 
   return (
-    <div className={`grid gap-6 ${canWrite ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
+    <div className={`grid gap-6 ${canWrite || isDoctor ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
       {notice || error ? (
         <div className="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-md sm:right-6 sm:top-6">
           <div className={`rounded-md border px-4 py-3 shadow-lg ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
@@ -440,7 +467,7 @@ export default function SchedulesPage() {
               <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Lịch làm việc của tôi" : "Lịch mẫu theo tuần"}</p>
               <h2 className="mt-1 text-2xl font-semibold">Lịch làm việc bác sĩ</h2>
               <p className="mt-2 text-sm text-[#667892]">
-                {isDoctor ? "Xem khung giờ làm việc cố định theo tuần. Việc tạo hoặc chỉnh lịch do Admin/Staff thực hiện." : "Tạo khung giờ lặp lại theo thứ để sinh slot khám theo ngày."}
+                {isDoctor ? "Bạn có thể gửi yêu cầu thay đổi lịch mẫu. Staff/Admin duyệt trước khi áp dụng." : "Tạo khung giờ lặp lại theo thứ để sinh slot khám theo ngày."}
               </p>
             </div>
             {canWrite ? <button onClick={startCreate} className="rounded-md bg-[#0d4f8b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Tạo lịch mẫu</button> : null}
@@ -536,7 +563,7 @@ export default function SchedulesPage() {
             <p className="text-sm font-medium text-[#55708f]">{isDoctor ? "Slot khám của tôi" : "Slot khám theo ngày"}</p>
             <h2 className="mt-1 text-2xl font-semibold">Slot khám</h2>
             <p className="mt-2 text-sm text-[#667892]">
-              {isDoctor ? "Theo dõi slot khám theo ngày, trạng thái đặt lịch và lý do khóa nếu có." : "Sinh slot từ lịch mẫu, khoá/mở khoá, huỷ hoặc xoá slot chưa được đặt."}
+              {isDoctor ? "Theo dõi slot của mình; có thể khóa hoặc mở khóa slot chưa đặt và chưa qua giờ." : "Sinh slot từ lịch mẫu, khoá/mở khoá, huỷ hoặc xoá slot chưa được đặt."}
             </p>
           </div>
           {isDoctor ? (
@@ -595,16 +622,16 @@ export default function SchedulesPage() {
                       <td className="border-b border-[#eef2f7] px-4 py-3">{slot.appointment?.bookingCode || "-"}</td>
                       <td className="border-b border-[#eef2f7] px-4 py-3">
                         <div className="flex justify-end gap-2">
-                          {canWrite && !slot.appointment && slot.status !== "BOOKED" ? (
+                          {canManageSlots && !slot.appointment && slot.status !== "BOOKED" && !isVietnamSlotStartInPast(slot.date, slot.startTime) ? (
                             <>
                               {slot.status === "LOCKED" ? (
                                 <button onClick={() => void handleUnlockSlot(slot)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Mở khoá</button>
                               ) : (
                                 <button onClick={() => startLockSlot(slot)} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Khoá</button>
                               )}
-                              {slot.status !== "CANCELLED" ? <button onClick={() => void handleSlotStatus(slot, "CANCELLED")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Huỷ</button> : null}
-                              {slot.status !== "AVAILABLE" ? <button onClick={() => void handleSlotStatus(slot, "AVAILABLE")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Trống</button> : null}
-                              <button onClick={() => { setDeleteSlotTarget(slot); setLockSlotTarget(null); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button>
+                              {canWrite && slot.status !== "CANCELLED" ? <button onClick={() => void handleSlotStatus(slot, "CANCELLED")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Huỷ</button> : null}
+                              {canWrite && slot.status !== "AVAILABLE" ? <button onClick={() => void handleSlotStatus(slot, "AVAILABLE")} className="rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b]">Trống</button> : null}
+                              {canWrite ? <button onClick={() => { setDeleteSlotTarget(slot); setLockSlotTarget(null); }} className="rounded-md border border-[#f2b8b5] px-3 py-1.5 text-xs font-medium text-[#b3261e]">Xoá</button> : null}
                             </>
                           ) : null}
                         </div>
@@ -615,37 +642,6 @@ export default function SchedulesPage() {
               </tbody>
             </table>
           </div>
-          {lockSlotTarget ? (
-            <form
-              className="border-t border-[#dce3ee] bg-[#f8fbff] p-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleSlotStatus(lockSlotTarget, "LOCKED");
-              }}
-            >
-              <div className="grid gap-3 lg:grid-cols-[1fr_2fr_auto] lg:items-end">
-                <div>
-                  <p className="text-sm font-semibold text-[#0d4f8b]">Khoá slot khám</p>
-                  <p className="mt-1 text-sm text-[#667892]">{formatDate(lockSlotTarget.date)} - {lockSlotTarget.startTime} đến {lockSlotTarget.endTime}</p>
-                </div>
-                <label className="block">
-                  <span className="text-sm font-medium text-[#334155]">Lý do khoá</span>
-                  <input
-                    value={lockReason}
-                    onChange={(event) => setLockReason(event.target.value)}
-                    className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
-                    placeholder="Ví dụ: bác sĩ bận họp chuyên môn"
-                    required
-                    minLength={2}
-                  />
-                </label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="rounded-md border border-[#cfd8e6] px-3 py-2 text-sm font-medium text-[#42526b]">Huỷ</button>
-                  <button type="submit" className="rounded-md bg-[#0d4f8b] px-3 py-2 text-sm font-semibold text-white hover:bg-[#083d6d]">Khoá slot</button>
-                </div>
-              </div>
-            </form>
-          ) : null}
           {deleteSlotTarget ? (
             <div className="border-t border-[#f2d4d2] bg-[#fff8f7] p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -672,8 +668,9 @@ export default function SchedulesPage() {
         </section>
       </section>
 
-      {canWrite ? (
+      {canWrite || isDoctor ? (
         <aside className="space-y-4">
+          {canWrite ? <>
           <section ref={formPanelRef} className="scroll-mt-24 rounded-md border border-[#dce3ee] bg-white p-5">
             <h3 className="text-lg font-semibold">{editingSchedule ? "Cập nhật lịch mẫu" : "Tạo lịch mẫu"}</h3>
             <form className="mt-5 space-y-4" onSubmit={handleScheduleSubmit}>
@@ -743,7 +740,24 @@ export default function SchedulesPage() {
               <button disabled={saving} className="w-full rounded-md bg-[#0d4f8b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60">{saving ? "Đang sinh..." : "Sinh slot"}</button>
             </form>
           </section>
+          </> : null}
+          <ScheduleChangeRequestPanel isDoctor={Boolean(isDoctor)} schedules={schedules} onNotice={setNotice} onError={setError} />
         </aside>
+      ) : null}
+      {lockSlotTarget ? (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="lock-slot-title">
+          <button type="button" aria-label={"Đóng popup khóa slot"} onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="absolute inset-0 cursor-default bg-[#172033]/40" />
+          <form className="relative z-10 w-full max-w-lg rounded-md border border-[#dce3ee] bg-white p-5 shadow-2xl" onSubmit={(event) => { event.preventDefault(); void handleLockSlot(lockSlotTarget); }}>
+            <div className="flex items-start justify-between gap-4 border-b border-[#e5ebf3] pb-4">
+              <div><p className="text-sm font-medium text-[#8a5a00]">{"Điều chỉnh khả dụng"}</p><h3 id="lock-slot-title" className="mt-1 text-xl font-semibold text-[#172033]">{"Khóa slot khám"}</h3></div>
+              <button type="button" onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="rounded-md p-2 text-[#667892] hover:bg-[#f1f5f9] hover:text-[#172033]" aria-label={"Đóng"}><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mt-4 rounded-md border border-[#f4d7a1] bg-[#fff8eb] p-3 text-sm text-[#6f4b00]"><p className="font-semibold">{formatDate(lockSlotTarget.date)}</p><p className="mt-1">{lockSlotTarget.startTime}{" đến "}{lockSlotTarget.endTime} - {doctorName(lockSlotTarget.doctor)}</p></div>
+            <label className="mt-5 block"><span className="text-sm font-medium text-[#334155]">{"Lý do khóa"}</span><textarea autoFocus value={lockReason} onChange={(event) => setLockReason(event.target.value.slice(0, 300))} className="mt-1 min-h-28 w-full resize-y rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]" placeholder={"Ví dụ: bận họp chuyên môn"} minLength={2} required /></label>
+            <p className="mt-2 text-xs leading-5 text-[#667892]">{"Slot chưa có lịch hẹn sẽ tạm ẩn khỏi luồng đặt lịch. Bạn có thể mở khóa lại khi sẵn sàng nhận lịch."}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" onClick={() => { setLockSlotTarget(null); setLockReason(""); }} className="rounded-md border border-[#cfd8e6] px-4 py-2.5 text-sm font-semibold text-[#42526b] hover:bg-[#f8fafc]">{"Hủy"}</button><button disabled={saving} type="submit" className="rounded-md bg-[#8a5a00] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6f4b00] disabled:opacity-60">{saving ? "Đang khóa..." : "Xác nhận khóa"}</button></div>
+          </form>
+        </div>
       ) : null}
     </div>
   );

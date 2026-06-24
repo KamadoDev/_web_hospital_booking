@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import type { MedicalResultStatus, Role } from "../../generated/prisma/enums.js";
+import type {
+  MedicalResultStatus,
+  Role,
+} from "../../generated/prisma/enums.js";
 import MedicalRecordService from "../services/medicalRecord.service.js";
 import { AppError } from "../utils/appError.js";
 
@@ -43,8 +46,14 @@ export const listMedicalRecordsHandler = async (
           typeof req.query.status === "string"
             ? (req.query.status as MedicalResultStatus)
             : undefined,
-        doctorId: typeof req.query.doctorId === "string" ? req.query.doctorId : undefined,
-        patientId: typeof req.query.patientId === "string" ? req.query.patientId : undefined,
+        doctorId:
+          typeof req.query.doctorId === "string"
+            ? req.query.doctorId
+            : undefined,
+        patientId:
+          typeof req.query.patientId === "string"
+            ? req.query.patientId
+            : undefined,
         recordCode:
           typeof req.query.recordCode === "string"
             ? req.query.recordCode

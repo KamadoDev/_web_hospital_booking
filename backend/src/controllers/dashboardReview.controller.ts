@@ -4,25 +4,45 @@ import ReviewService from "../services/review.service.js";
 import { AppError } from "../utils/appError.js";
 
 const getActor = (req: Request) => {
-  if (!req.user?.userId || !req.user.role) throw new AppError("Chưa đăng nhập", 401);
+  if (!req.user?.userId || !req.user.role)
+    throw new AppError("Chưa đăng nhập", 401);
   return { userId: req.user.userId, role: req.user.role as Role };
 };
 
-const numberQuery = (value: unknown) => typeof value === "string" && Number.isFinite(Number(value)) ? Number(value) : undefined;
+const numberQuery = (value: unknown) =>
+  typeof value === "string" && Number.isFinite(Number(value))
+    ? Number(value)
+    : undefined;
 
-export const listDashboardReviewsHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const listDashboardReviewsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const data = await ReviewService.dashboardList({
-      doctorId: typeof req.query.doctorId === "string" ? req.query.doctorId : undefined,
-      minRating: numberQuery(req.query.minRating),
-      page: numberQuery(req.query.page),
-      limit: numberQuery(req.query.limit),
-    }, getActor(req));
+    const data = await ReviewService.dashboardList(
+      {
+        doctorId:
+          typeof req.query.doctorId === "string"
+            ? req.query.doctorId
+            : undefined,
+        minRating: numberQuery(req.query.minRating),
+        page: numberQuery(req.query.page),
+        limit: numberQuery(req.query.limit),
+      },
+      getActor(req),
+    );
     return res.json({ success: true, data });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const updateDashboardReviewVisibilityHandler = async (req: Request, res: Response, next: NextFunction) => {
+export const updateDashboardReviewVisibilityHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     if (!id) throw new AppError("Thiếu mã đánh giá", 400);
@@ -30,6 +50,14 @@ export const updateDashboardReviewVisibilityHandler = async (req: Request, res: 
       isVisible: req.body.isVisible,
       moderationNote: req.body.moderationNote,
     });
-    return res.json({ success: true, message: req.body.isVisible ? "Đã công khai đánh giá" : "Đã ẩn đánh giá khỏi website" , data });
-  } catch (error) { next(error); }
+    return res.json({
+      success: true,
+      message: req.body.isVisible
+        ? "Đã công khai đánh giá"
+        : "Đã ẩn đánh giá khỏi website",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
 };

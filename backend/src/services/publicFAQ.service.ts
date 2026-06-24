@@ -58,7 +58,9 @@ class PublicFAQService {
     return faq;
   }
 
-  async create(input: Required<Pick<FAQInput, "question" | "answer">> & FAQInput) {
+  async create(
+    input: Required<Pick<FAQInput, "question" | "answer">> & FAQInput,
+  ) {
     const faq = await prisma.publicFAQ.create({
       data: {
         question: input.question,

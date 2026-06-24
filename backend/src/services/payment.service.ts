@@ -1,5 +1,8 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { PaymentMethod, PaymentProvider } from "../../generated/prisma/enums.js";
+import type {
+  PaymentMethod,
+  PaymentProvider,
+} from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { generatePaymentTransactionCode } from "../utils/paymentCode.js";
@@ -52,14 +55,19 @@ export const paymentTransactionSelect = {
   },
 } satisfies Prisma.PaymentTransactionSelect;
 
-const mapProviderToPaymentMethod = (provider: PaymentProvider): PaymentMethod => {
+const mapProviderToPaymentMethod = (
+  provider: PaymentProvider,
+): PaymentMethod => {
   if (provider === "MOMO") return "MOMO";
   if (provider === "VNPAY") return "VNPAY";
   return "OTHER";
 };
 
 class PaymentService {
-  async createForInvoice(invoiceId: string, input: CreatePaymentTransactionInput) {
+  async createForInvoice(
+    invoiceId: string,
+    input: CreatePaymentTransactionInput,
+  ) {
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       select: {
@@ -91,7 +99,10 @@ class PaymentService {
     }
 
     if (invoice.status !== "UNPAID") {
-      throw new AppError("Chỉ có thể tạo thanh toán online cho hóa đơn chưa thanh toán", 400);
+      throw new AppError(
+        "Chỉ có thể tạo thanh toán online cho hóa đơn chưa thanh toán",
+        400,
+      );
     }
 
     if (invoice.finalAmount <= 0) {
@@ -106,7 +117,9 @@ class PaymentService {
 
     return prisma.$transaction(async (tx) => {
       const transactionCode = await this.generateUniqueTransactionCode(tx);
-      const expiredAt = new Date(Date.now() + PAYMENT_EXPIRES_MINUTES * 60 * 1000);
+      const expiredAt = new Date(
+        Date.now() + PAYMENT_EXPIRES_MINUTES * 60 * 1000,
+      );
       const adapter = getPaymentProviderAdapter(input.provider);
       const providerResult = await adapter.createPayment({
         provider: input.provider,
@@ -301,7 +314,10 @@ class PaymentService {
 
   private ensurePendingTransaction(status: string, expiredAt: Date) {
     if (status !== "PENDING") {
-      throw new AppError("Giao dịch không còn ở trạng thái chờ thanh toán", 400);
+      throw new AppError(
+        "Giao dịch không còn ở trạng thái chờ thanh toán",
+        400,
+      );
     }
 
     if (expiredAt.getTime() <= Date.now()) {

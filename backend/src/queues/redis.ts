@@ -8,7 +8,9 @@ const getRedisUrl = () => {
   }
 
   if (redisUrl.startsWith("http://") || redisUrl.startsWith("https://")) {
-    throw new Error("REDIS_URL must be a Redis TCP URL, not the Upstash REST URL");
+    throw new Error(
+      "REDIS_URL must be a Redis TCP URL, not the Upstash REST URL",
+    );
   }
 
   if (!redisUrl.startsWith("redis://") && !redisUrl.startsWith("rediss://")) {
@@ -25,8 +27,12 @@ export const getRedisConnectionOptions = () => {
   return {
     host: redisUrl.hostname,
     port: Number(redisUrl.port || 6379),
-    username: redisUrl.username ? decodeURIComponent(redisUrl.username) : undefined,
-    password: redisUrl.password ? decodeURIComponent(redisUrl.password) : undefined,
+    username: redisUrl.username
+      ? decodeURIComponent(redisUrl.username)
+      : undefined,
+    password: redisUrl.password
+      ? decodeURIComponent(redisUrl.password)
+      : undefined,
     db: Number.isFinite(db) ? db : 0,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,

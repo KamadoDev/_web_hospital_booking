@@ -1,6 +1,10 @@
 export type DashboardRole = "ADMIN" | "STAFF" | "DOCTOR";
 
-export type ConsultationStatus = "NEW" | "CONTACTED" | "CANCELLED" | "COMPLETED";
+export type ConsultationStatus =
+  | "NEW"
+  | "CONTACTED"
+  | "CANCELLED"
+  | "COMPLETED";
 
 export type DashboardUser = {
   id: string;
@@ -173,6 +177,43 @@ export type DoctorTimeSlot = {
   doctor: DoctorSchedule["doctor"];
 };
 
+export type ScheduleChangeRequestType =
+  | "CREATE_WEEKLY_SCHEDULE"
+  | "UPDATE_WEEKLY_SCHEDULE"
+  | "DEACTIVATE_WEEKLY_SCHEDULE";
+export type ScheduleChangeRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export type ScheduleChangeRequest = {
+  id: string;
+  type: ScheduleChangeRequestType;
+  status: ScheduleChangeRequestStatus;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDuration: number;
+  maxPatients: number;
+  isActive: boolean;
+  effectiveFrom: string;
+  reason: string;
+  reviewerNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  schedule: Pick<
+    DoctorSchedule,
+    "id" | "dayOfWeek" | "startTime" | "endTime" | "isActive"
+  > | null;
+  doctor: Pick<DoctorSchedule["doctor"], "id" | "title"> & {
+    user: Pick<DoctorSchedule["doctor"]["user"], "fullName" | "avatar">;
+    department: Pick<DoctorSchedule["doctor"]["department"], "id" | "name">;
+  };
+  requestedBy: { id: string; fullName: string };
+  reviewedBy: { id: string; fullName: string } | null;
+};
 export type AppointmentStatus =
   | "PENDING_OTP"
   | "PENDING_CONFIRM"
@@ -256,10 +297,25 @@ export type Appointment = {
 };
 
 export type InvoiceStatus = "UNPAID" | "PAID" | "CANCELLED" | "REFUNDED";
-export type PaymentMethod = "CASH" | "CARD" | "BANK_TRANSFER" | "MOMO" | "VNPAY" | "OTHER";
+export type PaymentMethod =
+  | "CASH"
+  | "CARD"
+  | "BANK_TRANSFER"
+  | "MOMO"
+  | "VNPAY"
+  | "OTHER";
 export type PaymentProvider = "MOCK" | "VNPAY" | "MOMO" | "ZALOPAY";
-export type PaymentTransactionStatus = "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
-export type InsuranceRouteType = "RIGHT_ROUTE" | "WRONG_ROUTE" | "REFERRAL" | "EMERGENCY" | "SERVICE";
+export type PaymentTransactionStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "CANCELLED";
+export type InsuranceRouteType =
+  | "RIGHT_ROUTE"
+  | "WRONG_ROUTE"
+  | "REFERRAL"
+  | "EMERGENCY"
+  | "SERVICE";
 
 export type PublicInvoicePaymentTransaction = {
   id: string;
@@ -589,17 +645,16 @@ export type ChatbotSuggestedAction = {
   payload: Record<string, unknown>;
 };
 
-export type ChatbotResultItem =
-  | {
-      type: "slot";
-      id: string;
-      doctorId: string;
-      doctorName?: string;
-      departmentName?: string;
-      date: string;
-      startTime: string;
-      endTime: string;
-    };
+export type ChatbotResultItem = {
+  type: "slot";
+  id: string;
+  doctorId: string;
+  doctorName?: string;
+  departmentName?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+};
 
 export type ChatbotResultGroup = {
   type: "slots";
@@ -629,7 +684,14 @@ export type StatisticsRange = {
 
 export type StatisticsAppointmentSummary = Pick<
   Appointment,
-  "id" | "bookingCode" | "appointmentDate" | "startTime" | "endTime" | "status" | "patientName" | "patientPhone"
+  | "id"
+  | "bookingCode"
+  | "appointmentDate"
+  | "startTime"
+  | "endTime"
+  | "status"
+  | "patientName"
+  | "patientPhone"
 > & {
   doctor: {
     title: string | null;
@@ -679,7 +741,12 @@ export type DashboardAppointmentStatistics = {
     total: number;
   };
   byStatus: { value: AppointmentStatus; count: number }[];
-  daily: { date: string; total: number; completed: number; cancelled: number }[];
+  daily: {
+    date: string;
+    total: number;
+    completed: number;
+    cancelled: number;
+  }[];
 };
 
 export type DashboardRevenueStatistics = {
@@ -691,8 +758,17 @@ export type DashboardRevenueStatistics = {
     invoiceCount: number;
   };
   byStatus: { status: InvoiceStatus; count: number; amount: number }[];
-  byPaymentMethod: { paymentMethod: PaymentMethod; count: number; amount: number }[];
-  daily: { date: string; collectedAmount: number; refundedAmount: number; netAmount: number }[];
+  byPaymentMethod: {
+    paymentMethod: PaymentMethod;
+    count: number;
+    amount: number;
+  }[];
+  daily: {
+    date: string;
+    collectedAmount: number;
+    refundedAmount: number;
+    netAmount: number;
+  }[];
 };
 
 export type DashboardDoctorStatistics = {

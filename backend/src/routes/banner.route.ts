@@ -9,15 +9,26 @@ import {
 } from "../controllers/banner.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
-import { createBannerSchema, updateBannerSchema } from "../validations/siteConfig.validation.js";
+import {
+  createBannerSchema,
+  updateBannerSchema,
+} from "../validations/siteConfig.validation.js";
 
 export const publicBannerRouter = Router();
 publicBannerRouter.get("/", listPublicBannersHandler);
 
 export const dashboardBannerRouter = Router();
 dashboardBannerRouter.use(authDashboard);
-dashboardBannerRouter.get("/", requireRole("ADMIN", "STAFF"), listDashboardBannersHandler);
-dashboardBannerRouter.get("/:id", requireRole("ADMIN", "STAFF"), getDashboardBannerHandler);
+dashboardBannerRouter.get(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  listDashboardBannersHandler,
+);
+dashboardBannerRouter.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  getDashboardBannerHandler,
+);
 dashboardBannerRouter.post(
   "/",
   requireRole("ADMIN", "STAFF"),
@@ -30,4 +41,8 @@ dashboardBannerRouter.patch(
   validate(updateBannerSchema),
   updateDashboardBannerHandler,
 );
-dashboardBannerRouter.delete("/:id", requireRole("ADMIN"), deleteDashboardBannerHandler);
+dashboardBannerRouter.delete(
+  "/:id",
+  requireRole("ADMIN"),
+  deleteDashboardBannerHandler,
+);

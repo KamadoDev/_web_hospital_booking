@@ -12,7 +12,9 @@ export type DashboardDepartmentFilters = {
   limit?: number;
 };
 
-export const fetchDashboardDepartments = (filters: DashboardDepartmentFilters) =>
+export const fetchDashboardDepartments = (
+  filters: DashboardDepartmentFilters,
+) =>
   apiRequest<ListResult<Department>>("/dashboard/departments", {
     query: filters,
   });

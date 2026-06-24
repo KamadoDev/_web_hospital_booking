@@ -26,11 +26,31 @@ router.use("/", reviewRouter);
 
 router.post("/", validate(createAppointmentSchema), createAppointmentHandler);
 router.get("/lookup/result", getPublicAppointmentResultHandler);
-router.post("/lookup/request-otp", validate(requestAppointmentLookupOtpSchema), requestPublicAppointmentLookupOtpHandler);
-router.post("/lookup/verify-otp", validate(verifyAppointmentLookupOtpSchema), verifyPublicAppointmentLookupOtpHandler);
-router.post("/lookup/cancel/request-otp", validate(requestPublicCancelAppointmentOtpSchema), requestPublicAppointmentCancelOtpHandler);
-router.post("/lookup/cancel/verify", validate(verifyPublicCancelAppointmentSchema), verifyPublicAppointmentCancelHandler);
+router.post(
+  "/lookup/request-otp",
+  validate(requestAppointmentLookupOtpSchema),
+  requestPublicAppointmentLookupOtpHandler,
+);
+router.post(
+  "/lookup/verify-otp",
+  validate(verifyAppointmentLookupOtpSchema),
+  verifyPublicAppointmentLookupOtpHandler,
+);
+router.post(
+  "/lookup/cancel/request-otp",
+  validate(requestPublicCancelAppointmentOtpSchema),
+  requestPublicAppointmentCancelOtpHandler,
+);
+router.post(
+  "/lookup/cancel/verify",
+  validate(verifyPublicCancelAppointmentSchema),
+  verifyPublicAppointmentCancelHandler,
+);
 router.post("/:id/resend-otp", resendAppointmentOtpHandler);
-router.post("/:id/verify-otp", validate(verifyAppointmentOtpSchema), verifyAppointmentOtpHandler);
+router.post(
+  "/:id/verify-otp",
+  validate(verifyAppointmentOtpSchema),
+  verifyAppointmentOtpHandler,
+);
 
 export default router;

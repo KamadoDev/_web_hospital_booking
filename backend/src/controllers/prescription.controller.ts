@@ -43,8 +43,14 @@ export const listPrescriptionsHandler = async (
           typeof req.query.status === "string"
             ? (req.query.status as PrescriptionStatus)
             : undefined,
-        doctorId: typeof req.query.doctorId === "string" ? req.query.doctorId : undefined,
-        patientId: typeof req.query.patientId === "string" ? req.query.patientId : undefined,
+        doctorId:
+          typeof req.query.doctorId === "string"
+            ? req.query.doctorId
+            : undefined,
+        patientId:
+          typeof req.query.patientId === "string"
+            ? req.query.patientId
+            : undefined,
         medicalRecordId:
           typeof req.query.medicalRecordId === "string"
             ? req.query.medicalRecordId

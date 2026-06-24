@@ -27,7 +27,8 @@ const readRefreshCookieDays = () => {
   return match ? Number(match[1]) : 7;
 };
 
-const ACCESS_COOKIE_MAX_AGE = Number(process.env.DASHBOARD_ACCESS_COOKIE_MAX_AGE_SECONDS || 15 * 60) * 1000;
+const ACCESS_COOKIE_MAX_AGE =
+  Number(process.env.DASHBOARD_ACCESS_COOKIE_MAX_AGE_SECONDS || 15 * 60) * 1000;
 const REFRESH_COOKIE_MAX_AGE = readRefreshCookieDays() * 24 * 60 * 60 * 1000;
 
 const getRequestMeta = (req: Request) => ({
@@ -69,7 +70,11 @@ export const loginHandler = async (
   try {
     const { phone, password } = req.body;
 
-    const result = await DashboardAuthService.login(phone, password, getRequestMeta(req).ipAddress);
+    const result = await DashboardAuthService.login(
+      phone,
+      password,
+      getRequestMeta(req).ipAddress,
+    );
 
     return res.json({
       success: true,
@@ -89,7 +94,11 @@ export const verifyOtpHandler = async (
   try {
     const { challengeId, otp } = req.body;
 
-    const result = await DashboardAuthService.verifyOtp(challengeId, otp, getRequestMeta(req));
+    const result = await DashboardAuthService.verifyOtp(
+      challengeId,
+      otp,
+      getRequestMeta(req),
+    );
 
     setDashboardAuthCookies(res, result);
 
@@ -121,7 +130,10 @@ export const refreshHandler = async (
       });
     }
 
-    const result = await DashboardAuthService.refreshSession(refreshToken, getRequestMeta(req));
+    const result = await DashboardAuthService.refreshSession(
+      refreshToken,
+      getRequestMeta(req),
+    );
 
     setDashboardAuthCookies(res, result);
 

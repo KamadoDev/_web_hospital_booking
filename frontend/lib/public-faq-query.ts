@@ -13,7 +13,11 @@ export const fetchPublicFAQs = async (category?: string) => {
   return result.items || [];
 };
 
-export function usePublicFAQs(category: string, initialFAQs: PublicFAQ[] = [], initialCategory = "") {
+export function usePublicFAQs(
+  category: string,
+  initialFAQs: PublicFAQ[] = [],
+  initialCategory = "",
+) {
   return useQuery({
     queryKey: queryKeys.publicFAQs({ category: category || undefined }),
     queryFn: () => fetchPublicFAQs(category || undefined),

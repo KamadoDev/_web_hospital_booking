@@ -13,7 +13,11 @@ publicSiteSettingsRouter.get("/", getPublicSiteSettingsHandler);
 
 export const dashboardSiteSettingsRouter = Router();
 dashboardSiteSettingsRouter.use(authDashboard);
-dashboardSiteSettingsRouter.get("/", requireRole("ADMIN", "STAFF"), getDashboardSiteSettingsHandler);
+dashboardSiteSettingsRouter.get(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  getDashboardSiteSettingsHandler,
+);
 dashboardSiteSettingsRouter.patch(
   "/",
   requireRole("ADMIN"),

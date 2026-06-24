@@ -26,7 +26,10 @@ export const fetchDashboardUploads = (filters: DashboardUploadFilters) =>
     query: filters,
   });
 
-export function useDashboardUploads(filters: DashboardUploadFilters, enabled = true) {
+export function useDashboardUploads(
+  filters: DashboardUploadFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardUploadsList(filters),
     queryFn: () => fetchDashboardUploads(filters),

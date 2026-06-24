@@ -11,7 +11,8 @@ import { getRedisConnectionOptions } from "../queues/redis.js";
 const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
   OTP_DELIVERY_QUEUE_NAME,
   async (job) => {
-    const { otpCodeId, target, channel, purpose, otp, expiresInSeconds } = job.data;
+    const { otpCodeId, target, channel, purpose, otp, expiresInSeconds } =
+      job.data;
 
     try {
       await OtpSenderService.send({
@@ -31,7 +32,8 @@ const worker = new Worker<OtpDeliveryJobData, void, "send-otp">(
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Không gửi được OTP";
+      const message =
+        error instanceof Error ? error.message : "Không gửi được OTP";
 
       await prisma.otpCode.update({
         where: { id: otpCodeId },

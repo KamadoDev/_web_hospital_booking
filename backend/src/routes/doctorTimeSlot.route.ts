@@ -20,14 +20,22 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listDoctorTimeSlotsHandler);
+router.get(
+  "/",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  listDoctorTimeSlotsHandler,
+);
 router.post(
   "/generate",
   requireRole("ADMIN", "STAFF"),
   validate(generateDoctorTimeSlotsSchema),
   generateDoctorTimeSlotsHandler,
 );
-router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getDoctorTimeSlotHandler);
+router.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  getDoctorTimeSlotHandler,
+);
 router.patch(
   "/:id/status",
   requireRole("ADMIN", "STAFF"),
@@ -36,11 +44,19 @@ router.patch(
 );
 router.patch(
   "/:id/lock",
-  requireRole("ADMIN", "STAFF"),
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
   validate(lockDoctorTimeSlotSchema),
   lockDoctorTimeSlotHandler,
 );
-router.patch("/:id/unlock", requireRole("ADMIN", "STAFF"), unlockDoctorTimeSlotHandler);
-router.delete("/:id", requireRole("ADMIN", "STAFF"), deleteDoctorTimeSlotHandler);
+router.patch(
+  "/:id/unlock",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  unlockDoctorTimeSlotHandler,
+);
+router.delete(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  deleteDoctorTimeSlotHandler,
+);
 
 export default router;

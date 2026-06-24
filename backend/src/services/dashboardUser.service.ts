@@ -5,6 +5,7 @@ import { hashPassword } from "../utils/password.js";
 import { AppError } from "../utils/appError.js";
 import MediaAssetService from "./mediaAsset.service.js";
 import SearchIndexer from "./search/search.indexer.js";
+import { invalidateDashboardAuthSnapshot } from "./dashboardAuthCache.service.js";
 
 type DashboardRole = Extract<Role, "ADMIN" | "STAFF" | "DOCTOR">;
 type Actor = { userId: string; role: Role };
@@ -163,7 +164,11 @@ class DashboardUserService {
     });
 
     if (avatarAsset) {
-      await MediaAssetService.attachAsset(avatarAsset.id, "USER_AVATAR", user.id);
+      await MediaAssetService.attachAsset(
+        avatarAsset.id,
+        "USER_AVATAR",
+        user.id,
+      );
     }
 
     return user;
@@ -203,7 +208,11 @@ class DashboardUserService {
       input.avatarAssetId === null
         ? null
         : input.avatarAssetId
-          ? await MediaAssetService.attachAsset(input.avatarAssetId, "USER_AVATAR", id)
+          ? await MediaAssetService.attachAsset(
+              input.avatarAssetId,
+              "USER_AVATAR",
+              id,
+            )
           : undefined;
 
     const user = await prisma.user.update({
@@ -234,6 +243,8 @@ class DashboardUserService {
       );
     }
 
+    invalidateDashboardAuthSnapshot(id);
+
     const doctorProfile = await prisma.doctorProfile.findUnique({
       where: { userId: id },
       select: { id: true },
@@ -260,6 +271,8 @@ class DashboardUserService {
       select: dashboardUserSelect,
     });
 
+    invalidateDashboardAuthSnapshot(id);
+
     const doctorProfile = await prisma.doctorProfile.findUnique({
       where: { userId: id },
       select: { id: true },
@@ -285,7 +298,11 @@ class DashboardUserService {
     });
   }
 
-  private assertSelfAdministration(id: string, input: UpdateDashboardUserInput, actor: Actor) {
+  private assertSelfAdministration(
+    id: string,
+    input: UpdateDashboardUserInput,
+    actor: Actor,
+  ) {
     if (actor.userId !== id) return;
 
     if (input.isActive === false) {
@@ -293,14 +310,22 @@ class DashboardUserService {
     }
 
     if (input.role && input.role !== "ADMIN") {
-      throw new AppError("Bạn không thể tự thay đổi quyền quản trị của chính mình", 400);
+      throw new AppError(
+        "Bạn không thể tự thay đổi quyền quản trị của chính mình",
+        400,
+      );
     }
   }
 
-  private async assertActiveAdminContinuity(currentUser: { id: string; role: Role; isActive: boolean }, input: UpdateDashboardUserInput) {
-    const removesActiveAdmin = currentUser.role === "ADMIN" && currentUser.isActive && (
-      input.isActive === false || (input.role !== undefined && input.role !== "ADMIN")
-    );
+  private async assertActiveAdminContinuity(
+    currentUser: { id: string; role: Role; isActive: boolean },
+    input: UpdateDashboardUserInput,
+  ) {
+    const removesActiveAdmin =
+      currentUser.role === "ADMIN" &&
+      currentUser.isActive &&
+      (input.isActive === false ||
+        (input.role !== undefined && input.role !== "ADMIN"));
 
     if (!removesActiveAdmin) return;
 
@@ -309,7 +334,10 @@ class DashboardUserService {
     });
 
     if (otherActiveAdmins === 0) {
-      throw new AppError("Không thể vô hiệu hóa hoặc đổi quyền của quản trị viên hoạt động cuối cùng", 409);
+      throw new AppError(
+        "Không thể vô hiệu hóa hoặc đổi quyền của quản trị viên hoạt động cuối cùng",
+        409,
+      );
     }
   }
 }

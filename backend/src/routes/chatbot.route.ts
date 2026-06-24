@@ -9,6 +9,10 @@ import { chatbotMessageSchema } from "../validations/chatbot.validation.js";
 const router = Router();
 
 router.get("/settings", getPublicChatbotSettingsHandler);
-router.post("/message", validate(chatbotMessageSchema), sendChatbotMessageHandler);
+router.post(
+  "/message",
+  validate(chatbotMessageSchema),
+  sendChatbotMessageHandler,
+);
 
 export default router;

@@ -18,7 +18,10 @@ export const fetchDashboardUsers = (filters: DashboardUserFilters) =>
     query: filters,
   });
 
-export function useDashboardUsers(filters: DashboardUserFilters, enabled = true) {
+export function useDashboardUsers(
+  filters: DashboardUserFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardUsers(filters),
     queryFn: () => fetchDashboardUsers(filters),

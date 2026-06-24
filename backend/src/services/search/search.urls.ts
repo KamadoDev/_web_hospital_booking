@@ -14,11 +14,13 @@ export const resolveSupportSearchUrl = (input: {
   keywords?: string[];
   fallback?: string;
 }) => {
-  const haystack = normalizeSearchText([
-    input.title || "",
-    input.description || "",
-    ...(input.keywords || []),
-  ].join(" "));
+  const haystack = normalizeSearchText(
+    [
+      input.title || "",
+      input.description || "",
+      ...(input.keywords || []),
+    ].join(" "),
+  );
 
   if (
     hasAny(haystack, [

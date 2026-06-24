@@ -57,15 +57,25 @@ const resolveOtpTarget = (appointment: {
   patientEmail: string | null;
   otpChannel: OtpChannel;
 }) => {
-  const channel: OtpChannel = appointment.otpChannel === "EMAIL" && appointment.patientEmail ? "EMAIL" : "SMS";
-  return { channel, target: channel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone };
+  const channel: OtpChannel =
+    appointment.otpChannel === "EMAIL" && appointment.patientEmail
+      ? "EMAIL"
+      : "SMS";
+  return {
+    channel,
+    target:
+      channel === "EMAIL"
+        ? appointment.patientEmail || ""
+        : appointment.patientPhone,
+  };
 };
 
 class ReviewService {
   private async findOwnedAppointment(input: AppointmentIdentity) {
     const bookingCode = input.bookingCode?.trim().toUpperCase();
     const phone = input.phone?.trim();
-    if (!bookingCode || !phone) throw new AppError("Thiếu mã lịch hẹn hoặc số điện thoại", 400);
+    if (!bookingCode || !phone)
+      throw new AppError("Thiếu mã lịch hẹn hoặc số điện thoại", 400);
 
     const appointment = await prisma.appointment.findFirst({
       where: { id: input.appointmentId, bookingCode, patientPhone: phone },
@@ -81,23 +91,54 @@ class ReviewService {
 
   async requestOtp(input: AppointmentIdentity & { ipAddress: string }) {
     const appointment = await this.findOwnedAppointment(input);
-    if (appointment.status !== "COMPLETED") throw new AppError("Chỉ có thể đánh giá sau khi lịch khám đã hoàn tất", 409);
-    if (appointment.review) throw new AppError("Lịch hẹn này đã được đánh giá", 409);
+    if (appointment.status !== "COMPLETED")
+      throw new AppError(
+        "Chỉ có thể đánh giá sau khi lịch khám đã hoàn tất",
+        409,
+      );
+    if (appointment.review)
+      throw new AppError("Lịch hẹn này đã được đánh giá", 409);
 
     const otpTarget = resolveOtpTarget(appointment);
-    const otp = await AuthOtpService.sendOtp(otpTarget.target, "REVIEW_APPOINTMENT", input.ipAddress, { channel: otpTarget.channel });
-    return { bookingCode: appointment.bookingCode, channel: otp.channel, deliveryStatus: otp.deliveryStatus, expiresIn: otp.expiresIn, debugOtp: otp.debugOtp };
+    const otp = await AuthOtpService.sendOtp(
+      otpTarget.target,
+      "REVIEW_APPOINTMENT",
+      input.ipAddress,
+      { channel: otpTarget.channel },
+    );
+    return {
+      bookingCode: appointment.bookingCode,
+      channel: otp.channel,
+      deliveryStatus: otp.deliveryStatus,
+      expiresIn: otp.expiresIn,
+      debugOtp: otp.debugOtp,
+    };
   }
 
   async create(input: CreateReviewInput) {
     const appointment = await this.findOwnedAppointment(input);
-    if (appointment.status !== "COMPLETED") throw new AppError("Chỉ có thể đánh giá sau khi lịch khám đã hoàn tất", 409);
-    if (appointment.review) throw new AppError("Lịch hẹn này đã được đánh giá", 409);
+    if (appointment.status !== "COMPLETED")
+      throw new AppError(
+        "Chỉ có thể đánh giá sau khi lịch khám đã hoàn tất",
+        409,
+      );
+    if (appointment.review)
+      throw new AppError("Lịch hẹn này đã được đánh giá", 409);
     if (!input.otp) throw new AppError("Thiếu mã OTP", 400);
 
     const otpTarget = resolveOtpTarget(appointment);
-    await AuthOtpService.verifyOtp(otpTarget.target, input.otp, "REVIEW_APPOINTMENT", { channel: otpTarget.channel, ipAddress: input.ipAddress });
-    const rating = Number(((input.doctorRating + input.serviceRating + input.facilityRating) / 3).toFixed(2));
+    await AuthOtpService.verifyOtp(
+      otpTarget.target,
+      input.otp,
+      "REVIEW_APPOINTMENT",
+      { channel: otpTarget.channel, ipAddress: input.ipAddress },
+    );
+    const rating = Number(
+      (
+        (input.doctorRating + input.serviceRating + input.facilityRating) /
+        3
+      ).toFixed(2),
+    );
 
     try {
       return await prisma.review.create({
@@ -113,7 +154,13 @@ class ReviewService {
         select: reviewSelect,
       });
     } catch (error) {
-      if (typeof error === "object" && error && "code" in error && error.code === "P2002") throw new AppError("Lịch hẹn này đã được đánh giá", 409);
+      if (
+        typeof error === "object" &&
+        error &&
+        "code" in error &&
+        error.code === "P2002"
+      )
+        throw new AppError("Lịch hẹn này đã được đánh giá", 409);
       throw error;
     }
   }
@@ -124,7 +171,10 @@ class ReviewService {
     let doctorId = filters.doctorId;
 
     if (actor.role === "DOCTOR") {
-      const profile = await prisma.doctorProfile.findUnique({ where: { userId: actor.userId }, select: { id: true } });
+      const profile = await prisma.doctorProfile.findUnique({
+        where: { userId: actor.userId },
+        select: { id: true },
+      });
       if (!profile) throw new AppError("Không tìm thấy hồ sơ bác sĩ", 404);
       doctorId = profile.id;
     }
@@ -138,8 +188,21 @@ class ReviewService {
         where,
         select: {
           ...reviewSelect,
-          appointment: { select: { bookingCode: true, patientName: true, appointmentDate: true, startTime: true } },
-          doctor: { select: { title: true, user: { select: { fullName: true } }, department: { select: { name: true } } } },
+          appointment: {
+            select: {
+              bookingCode: true,
+              patientName: true,
+              appointmentDate: true,
+              startTime: true,
+            },
+          },
+          doctor: {
+            select: {
+              title: true,
+              user: { select: { fullName: true } },
+              department: { select: { name: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
@@ -148,29 +211,52 @@ class ReviewService {
       prisma.review.count({ where }),
       prisma.review.aggregate({
         where,
-        _avg: { rating: true, doctorRating: true, serviceRating: true, facilityRating: true },
+        _avg: {
+          rating: true,
+          doctorRating: true,
+          serviceRating: true,
+          facilityRating: true,
+        },
       }),
     ]);
 
-    const safeItems = actor.role === "DOCTOR"
-      ? items.map(({ appointment, ...review }) => ({
-          ...review,
-          appointment: {
-            appointmentDate: appointment.appointmentDate,
-            startTime: appointment.startTime,
-          },
-        }))
-      : items;
+    const safeItems =
+      actor.role === "DOCTOR"
+        ? items.map(({ appointment, ...review }) => ({
+            ...review,
+            appointment: {
+              appointmentDate: appointment.appointmentDate,
+              startTime: appointment.startTime,
+            },
+          }))
+        : items;
 
     return {
       items: safeItems,
-      metrics: { total, averageRating: aggregate._avg.rating || 0, averageDoctorRating: aggregate._avg.doctorRating || 0, averageServiceRating: aggregate._avg.serviceRating || 0, averageFacilityRating: aggregate._avg.facilityRating || 0 },
-      pagination: { page, limit, total, totalPages: Math.max(Math.ceil(total / limit), 1) },
+      metrics: {
+        total,
+        averageRating: aggregate._avg.rating || 0,
+        averageDoctorRating: aggregate._avg.doctorRating || 0,
+        averageServiceRating: aggregate._avg.serviceRating || 0,
+        averageFacilityRating: aggregate._avg.facilityRating || 0,
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(Math.ceil(total / limit), 1),
+      },
     };
   }
 
-  async updateVisibility(id: string, input: { isVisible: boolean; moderationNote?: string | null }) {
-    const review = await prisma.review.findUnique({ where: { id }, select: { id: true } });
+  async updateVisibility(
+    id: string,
+    input: { isVisible: boolean; moderationNote?: string | null },
+  ) {
+    const review = await prisma.review.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (!review) throw new AppError("Không tìm thấy đánh giá", 404);
 
     return prisma.review.update({

@@ -36,7 +36,9 @@ export function PublicConsultationRequest() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      setSuggestionIndex((current) => (current + 1) % suggestionMessages.length);
+      setSuggestionIndex(
+        (current) => (current + 1) % suggestionMessages.length,
+      );
     }, 4200);
 
     return () => window.clearInterval(intervalId);
@@ -75,10 +77,14 @@ export function PublicConsultationRequest() {
           message: form.message || null,
         },
       });
-      setNotice("Đã gửi yêu cầu tư vấn. Nhân viên bệnh viện sẽ liên hệ lại theo số điện thoại bạn cung cấp.");
+      setNotice(
+        "Đã gửi yêu cầu tư vấn. Nhân viên bệnh viện sẽ liên hệ lại theo số điện thoại bạn cung cấp.",
+      );
       setForm(initialForm);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không gửi được yêu cầu tư vấn");
+      setError(
+        err instanceof Error ? err.message : "Không gửi được yêu cầu tư vấn",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -92,11 +98,18 @@ export function PublicConsultationRequest() {
             <div className="flex min-w-0 items-center gap-3">
               <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                 <MessageSquareText className="h-5 w-5" aria-hidden="true" />
-                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-white" aria-hidden="true" />
+                <span
+                  className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-white"
+                  aria-hidden="true"
+                />
               </span>
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold text-[#172033]">Tư vấn miễn phí!</h2>
-                <p className="truncate text-xs text-[#667892]">Nhân viên sẽ liên hệ lại với bạn</p>
+                <h2 className="truncate text-sm font-semibold text-[#172033]">
+                  Tư vấn miễn phí!
+                </h2>
+                <p className="truncate text-xs text-[#667892]">
+                  Nhân viên sẽ liên hệ lại với bạn
+                </p>
               </div>
             </div>
             <button
@@ -113,15 +126,25 @@ export function PublicConsultationRequest() {
           <form onSubmit={submitRequest} className="p-4">
             <div className="ui-soft-glow rounded-md border border-[#cfe4fa] bg-[#f3f8ff] px-3 py-2 text-sm text-[#0d4f8b]">
               <div className="flex gap-2">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <Sparkles
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  aria-hidden="true"
+                />
                 <p>{suggestionMessages[suggestionIndex]}</p>
               </div>
             </div>
 
             {notice || error ? (
-              <div className={`mt-3 rounded-md border px-3 py-2 text-sm ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}>
+              <div
+                className={`mt-3 rounded-md border px-3 py-2 text-sm ${error ? "border-[#f2b8b5] bg-[#fff3f2] text-[#b3261e]" : "border-[#a8dab5] bg-[#f0fff4] text-[#1f7a3a]"}`}
+              >
                 <div className="flex gap-2">
-                  {!error ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+                  {!error ? (
+                    <CheckCircle2
+                      className="mt-0.5 h-4 w-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                  ) : null}
                   <p>{error || notice}</p>
                 </div>
               </div>
@@ -129,19 +152,33 @@ export function PublicConsultationRequest() {
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-medium text-[#42526b]">Họ tên</span>
+                <span className="text-sm font-medium text-[#42526b]">
+                  Họ tên
+                </span>
                 <input
                   value={form.fullName}
-                  onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      fullName: event.target.value,
+                    }))
+                  }
                   placeholder="Nguyễn Văn A"
                   className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-medium text-[#42526b]">Số điện thoại</span>
+                <span className="text-sm font-medium text-[#42526b]">
+                  Số điện thoại
+                </span>
                 <input
                   value={form.phone}
-                  onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      phone: event.target.value,
+                    }))
+                  }
                   inputMode="tel"
                   placeholder="0391234567"
                   className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
@@ -151,10 +188,17 @@ export function PublicConsultationRequest() {
             </div>
 
             <label className="mt-3 block">
-              <span className="text-sm font-medium text-[#42526b]">Nội dung cần tư vấn</span>
+              <span className="text-sm font-medium text-[#42526b]">
+                Nội dung cần tư vấn
+              </span>
               <textarea
                 value={form.message}
-                onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    message: event.target.value,
+                  }))
+                }
                 rows={4}
                 placeholder="Ví dụ: Tôi muốn được tư vấn chọn chuyên khoa phù hợp..."
                 className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa]"
@@ -166,7 +210,11 @@ export function PublicConsultationRequest() {
               disabled={submitting}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0d4f8b] px-4 py-3 text-sm font-semibold text-white hover:bg-[#083d6d] disabled:opacity-60"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Send className="h-4 w-4" aria-hidden="true" />
+              )}
               {submitting ? "Đang gửi yêu cầu..." : "Gửi yêu cầu tư vấn"}
             </button>
           </form>
@@ -187,8 +235,14 @@ export function PublicConsultationRequest() {
             aria-label="Mở form tư vấn"
             title="Mở form tư vấn"
           >
-            <span className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-15 motion-safe:animate-ping" aria-hidden="true" />
-            <PhoneCall className="relative h-5 w-5 transition group-hover:scale-110" aria-hidden="true" />
+            <span
+              className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-15 motion-safe:animate-ping"
+              aria-hidden="true"
+            />
+            <PhoneCall
+              className="relative h-5 w-5 transition group-hover:scale-110"
+              aria-hidden="true"
+            />
             <span className="relative">Tư vấn</span>
           </button>
         </div>

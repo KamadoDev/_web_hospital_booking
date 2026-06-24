@@ -1,6 +1,14 @@
 "use client";
 
-import { Bot, Loader2, MessageCircle, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import {
+  Bot,
+  Loader2,
+  MessageCircle,
+  RotateCcw,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -33,7 +41,8 @@ const defaultMessages: ChatWidgetMessage[] = [
   {
     id: "welcome",
     role: "assistant",
-    content: "Xin chào, tôi có thể hỗ trợ tra cứu lịch hẹn, bác sĩ, gói khám hoặc hướng dẫn đặt lịch.",
+    content:
+      "Xin chào, tôi có thể hỗ trợ tra cứu lịch hẹn, bác sĩ, gói khám hoặc hướng dẫn đặt lịch.",
   },
 ];
 
@@ -45,7 +54,9 @@ const createId = () =>
 const readStoredChat = (): StoredChat => {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(window.localStorage.getItem(storageKey) || "{}") as StoredChat;
+    return JSON.parse(
+      window.localStorage.getItem(storageKey) || "{}",
+    ) as StoredChat;
   } catch {
     return {};
   }
@@ -55,8 +66,12 @@ export function DashboardChatbotWidget() {
   const { user } = useAuth();
   const storedChat = useMemo(() => readStoredChat(), []);
   const [open, setOpen] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>(storedChat.sessionId);
-  const [draft, setDraft] = useState<ChatBookingDraft | undefined>(storedChat.draft);
+  const [sessionId, setSessionId] = useState<string | undefined>(
+    storedChat.sessionId,
+  );
+  const [draft, setDraft] = useState<ChatBookingDraft | undefined>(
+    storedChat.draft,
+  );
   const [messages, setMessages] = useState<ChatWidgetMessage[]>(
     storedChat.messages?.length ? storedChat.messages : defaultMessages,
   );
@@ -72,7 +87,10 @@ export function DashboardChatbotWidget() {
   const sendingRef = useRef(false);
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, JSON.stringify({ sessionId, draft, messages }));
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ sessionId, draft, messages }),
+    );
   }, [draft, messages, sessionId]);
 
   useEffect(() => {
@@ -84,7 +102,10 @@ export function DashboardChatbotWidget() {
 
   const phone = useMemo(() => user?.phone || undefined, [user?.phone]);
 
-  const handleActionSideEffect = (action: ChatbotSuggestedAction, nextDraft?: ChatBookingDraft) => {
+  const handleActionSideEffect = (
+    action: ChatbotSuggestedAction,
+    nextDraft?: ChatBookingDraft,
+  ) => {
     if (typeof window === "undefined") return;
 
     if (action.type === "LOOKUP_APPOINTMENT") {
@@ -113,7 +134,10 @@ export function DashboardChatbotWidget() {
     }
   };
 
-  const sendMessage = async (content: string, action?: ChatbotSuggestedAction) => {
+  const sendMessage = async (
+    content: string,
+    action?: ChatbotSuggestedAction,
+  ) => {
     const trimmed = content.trim();
     if (!trimmed || sending || sendingRef.current) return;
 
@@ -135,22 +159,25 @@ export function DashboardChatbotWidget() {
     setSending(true);
 
     try {
-      const result = await apiRequest<ChatbotMessageResponse>("/chatbot/message", {
-        method: "POST",
-        body: {
-          sessionId,
-          message: trimmed,
-          phone,
-          draft,
-          action: action
-            ? {
-                type: action.type,
-                label: action.label,
-                payload: action.payload,
-              }
-            : undefined,
+      const result = await apiRequest<ChatbotMessageResponse>(
+        "/chatbot/message",
+        {
+          method: "POST",
+          body: {
+            sessionId,
+            message: trimmed,
+            phone,
+            draft,
+            action: action
+              ? {
+                  type: action.type,
+                  label: action.label,
+                  payload: action.payload,
+                }
+              : undefined,
+          },
         },
-      });
+      );
 
       setSessionId(result.sessionId);
       setDraft(result.draft);
@@ -173,7 +200,8 @@ export function DashboardChatbotWidget() {
         {
           id: createId(),
           role: "assistant",
-          content: "Tôi chưa xử lý được yêu cầu này. Bạn thử lại sau một chút nhé.",
+          content:
+            "Tôi chưa xử lý được yêu cầu này. Bạn thử lại sau một chút nhé.",
         },
       ]);
     } finally {
@@ -207,11 +235,16 @@ export function DashboardChatbotWidget() {
             <div className="flex items-center gap-3">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-md bg-[var(--primary-soft)] text-[var(--primary)]">
                 <Bot className="h-5 w-5" aria-hidden="true" />
-                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-[var(--surface)]" aria-hidden="true" />
+                <span
+                  className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-[var(--surface)]"
+                  aria-hidden="true"
+                />
               </div>
               <div>
                 <h2 className="text-sm font-semibold">Trợ lý dashboard</h2>
-                <p className="text-xs text-[var(--text-muted)]">Hỏi nhanh về đặt lịch, bác sĩ, gói khám</p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Hỏi nhanh về đặt lịch, bác sĩ, gói khám
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -247,7 +280,11 @@ export function DashboardChatbotWidget() {
               <div
                 key={item.id}
                 className={`flex ${
-                  item.role === "user" ? "justify-end" : item.role === "system" || item.role === "alert" ? "justify-center" : "justify-start"
+                  item.role === "user"
+                    ? "justify-end"
+                    : item.role === "system" || item.role === "alert"
+                      ? "justify-center"
+                      : "justify-start"
                 }`}
               >
                 <div
@@ -266,7 +303,9 @@ export function DashboardChatbotWidget() {
                     <ChatbotResultCards
                       groups={item.results}
                       disabled={sending}
-                      onAction={(slotAction) => void sendMessage(slotAction.label, slotAction)}
+                      onAction={(slotAction) =>
+                        void sendMessage(slotAction.label, slotAction)
+                      }
                     />
                   ) : null}
                 </div>
@@ -274,7 +313,10 @@ export function DashboardChatbotWidget() {
             ))}
             {sending ? (
               <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                <Loader2
+                  className="h-3.5 w-3.5 animate-spin"
+                  aria-hidden="true"
+                />
                 {loadingText}
               </div>
             ) : null}
@@ -297,7 +339,9 @@ export function DashboardChatbotWidget() {
                 ))}
               </div>
             ) : null}
-            {error ? <p className="mb-2 text-xs text-[#b3261e]">{error}</p> : null}
+            {error ? (
+              <p className="mb-2 text-xs text-[#b3261e]">{error}</p>
+            ) : null}
             <form className="flex gap-2" onSubmit={submitMessage}>
               <input
                 ref={inputRef}
@@ -324,11 +368,17 @@ export function DashboardChatbotWidget() {
           aria-label="Mở chatbot"
           title="Mở chatbot"
         >
-          <span className="absolute inset-0 rounded-full bg-[var(--primary)] opacity-25 motion-safe:animate-ping" aria-hidden="true" />
+          <span
+            className="absolute inset-0 rounded-full bg-[var(--primary)] opacity-25 motion-safe:animate-ping"
+            aria-hidden="true"
+          />
           <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[var(--primary)] shadow-md">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
-          <MessageCircle className="relative h-5 w-5 transition group-hover:scale-110" aria-hidden="true" />
+          <MessageCircle
+            className="relative h-5 w-5 transition group-hover:scale-110"
+            aria-hidden="true"
+          />
           <span className="relative">Chatbot</span>
         </button>
       )}

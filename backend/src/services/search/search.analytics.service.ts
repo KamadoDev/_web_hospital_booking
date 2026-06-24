@@ -10,13 +10,16 @@ type TrackSearchInput = {
   resultCount?: number;
 };
 
-const DEFAULT_SUGGESTIONS = ["Tim mạch", "Tổng quát", "BHYT", "Thanh toán", "Quên mã lịch"];
+const DEFAULT_SUGGESTIONS = [
+  "Tim mạch",
+  "Tổng quát",
+  "BHYT",
+  "Thanh toán",
+  "Quên mã lịch",
+];
 
 const normalizeKeyword = (value?: string) =>
-  (value || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
+  (value || "").replace(/\s+/g, " ").trim().slice(0, 120);
 
 const normalizeType = (value?: string) =>
   value === "all" || SEARCH_DOCUMENT_TYPES.includes(value as SearchDocumentType)
@@ -68,12 +71,14 @@ class SearchAnalyticsService {
       if (dynamicKeywords.length >= take) break;
     }
 
-    const merged = [...dynamicKeywords, ...DEFAULT_SUGGESTIONS].filter((keyword) => {
-      const normalized = normalizeSearchText(keyword);
-      if (seen.has(normalized)) return false;
-      seen.add(normalized);
-      return true;
-    });
+    const merged = [...dynamicKeywords, ...DEFAULT_SUGGESTIONS].filter(
+      (keyword) => {
+        const normalized = normalizeSearchText(keyword);
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      },
+    );
 
     return {
       items: [...dynamicKeywords, ...merged].slice(0, take),

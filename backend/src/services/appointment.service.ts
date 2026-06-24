@@ -1,10 +1,20 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { AppointmentStatus, Gender, OtpChannel, OtpDeliveryStatus, Role } from "../../generated/prisma/enums.js";
+import type {
+  AppointmentStatus,
+  Gender,
+  OtpChannel,
+  OtpDeliveryStatus,
+  Role,
+} from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import AuthOtpService from "./authOtp.service.js";
 import { AppError } from "../utils/appError.js";
 import { generateBookingCode } from "../utils/bookingCode.js";
-import { getVietnamNowParts, isSlotStartInPastVietnamTime, parseDateOnly } from "../utils/time.js";
+import {
+  getVietnamNowParts,
+  isSlotStartInPastVietnamTime,
+  parseDateOnly,
+} from "../utils/time.js";
 import MedicalRecordService from "./medicalRecord.service.js";
 
 type Actor = {
@@ -60,8 +70,10 @@ type PublicCancelAppointmentInput = {
 const DEFAULT_PENDING_OTP_EXPIRE_MINUTES = 15;
 
 const getOtpLogNote = (label: string, status: OtpDeliveryStatus) => {
-  if (status === "FAILED") return `${label} đã được tạo nhưng chưa đưa được vào hàng đợi gửi mã`;
-  if (status === "PENDING") return `${label} đã được tạo và đang chờ hệ thống gửi mã`;
+  if (status === "FAILED")
+    return `${label} đã được tạo nhưng chưa đưa được vào hàng đợi gửi mã`;
+  if (status === "PENDING")
+    return `${label} đã được tạo và đang chờ hệ thống gửi mã`;
   return `${label} đã được gửi`;
 };
 
@@ -70,11 +82,17 @@ const resolveAppointmentOtpTarget = (appointment: {
   patientEmail?: string | null;
   otpChannel?: OtpChannel | null;
 }) => {
-  const channel: OtpChannel = appointment.otpChannel === "EMAIL" && appointment.patientEmail ? "EMAIL" : "SMS";
+  const channel: OtpChannel =
+    appointment.otpChannel === "EMAIL" && appointment.patientEmail
+      ? "EMAIL"
+      : "SMS";
 
   return {
     channel,
-    target: channel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
+    target:
+      channel === "EMAIL"
+        ? appointment.patientEmail || ""
+        : appointment.patientPhone,
   };
 };
 
@@ -92,7 +110,11 @@ const resolveLookupOtpTarget = async (phone: string, bookingCode?: string) => {
       startTime: true,
       createdAt: true,
     },
-    orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }, { createdAt: "desc" }],
+    orderBy: [
+      { appointmentDate: "desc" },
+      { startTime: "desc" },
+      { createdAt: "desc" },
+    ],
   });
 
   if (!appointment) {
@@ -101,7 +123,10 @@ const resolveLookupOtpTarget = async (phone: string, bookingCode?: string) => {
 
   return resolveAppointmentOtpTarget(appointment);
 };
-const PUBLIC_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = ["PENDING_CONFIRM", "CONFIRMED"];
+const PUBLIC_CANCEL_ALLOWED_STATUSES: AppointmentStatus[] = [
+  "PENDING_CONFIRM",
+  "CONFIRMED",
+];
 
 const appointmentSelect = {
   id: true,
@@ -431,7 +456,10 @@ class AppointmentService {
       throw new AppError("Bác sĩ không sẵn sàng nhận lịch", 400);
     }
 
-    if (doctor.departmentId !== input.departmentId || !doctor.department.isActive) {
+    if (
+      doctor.departmentId !== input.departmentId ||
+      !doctor.department.isActive
+    ) {
       throw new AppError("Bác sĩ không thuộc chuyên khoa đã chọn", 400);
     }
 
@@ -471,7 +499,10 @@ class AppointmentService {
       throw new AppError("Gói khám không hoạt động", 400);
     }
 
-    if (packageItem?.departmentId && packageItem.departmentId !== input.departmentId) {
+    if (
+      packageItem?.departmentId &&
+      packageItem.departmentId !== input.departmentId
+    ) {
       throw new AppError("Gói khám không thuộc chuyên khoa đã chọn", 400);
     }
 
@@ -500,8 +531,12 @@ class AppointmentService {
     }
 
     const packageIncludedItemsTotal =
-      packageItem?.items.filter((item) => item.included).reduce((total, item) => total + item.price, 0) || 0;
-    const estimatedPrice = packageItem ? packageIncludedItemsTotal || packageItem.basePrice : doctor.consultationFee;
+      packageItem?.items
+        .filter((item) => item.included)
+        .reduce((total, item) => total + item.price, 0) || 0;
+    const estimatedPrice = packageItem
+      ? packageIncludedItemsTotal || packageItem.basePrice
+      : doctor.consultationFee;
     const serviceFee = packageItem?.serviceFee ?? 0;
     const bhytDiscount = 0;
     const finalAmount = estimatedPrice + serviceFee - bhytDiscount;
@@ -513,12 +548,18 @@ class AppointmentService {
       throw new AppError("Khung giờ khám đã qua", 400);
     }
 
-    if (patientDateOfBirth && patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)) {
+    if (
+      patientDateOfBirth &&
+      patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)
+    ) {
       throw new AppError("Ngày sinh phải nhỏ hơn ngày hiện tại", 400);
     }
 
     if (otpChannel === "EMAIL" && !normalizedPatientEmail) {
-      throw new AppError("Email là bắt buộc khi chọn xác thực OTP qua email", 400);
+      throw new AppError(
+        "Email là bắt buộc khi chọn xác thực OTP qua email",
+        400,
+      );
     }
     const existingUser = await prisma.user.findUnique({
       where: { phone: input.patientPhone },
@@ -600,8 +641,12 @@ class AppointmentService {
             patientAddress: normalizeOptionalString(input.address),
             patientCccd: normalizeOptionalString(input.cccd),
             hasBHYT: input.hasBHYT ?? false,
-            healthInsuranceCode: normalizeOptionalString(input.healthInsuranceCode),
-            registeredHospital: normalizeOptionalString(input.registeredHospital),
+            healthInsuranceCode: normalizeOptionalString(
+              input.healthInsuranceCode,
+            ),
+            registeredHospital: normalizeOptionalString(
+              input.registeredHospital,
+            ),
             allergies: normalizeOptionalString(input.allergies),
             medicalHistory: normalizeOptionalString(input.medicalHistory),
             familyHistory: normalizeOptionalString(input.familyHistory),
@@ -634,7 +679,9 @@ class AppointmentService {
       bookingCode = appointment.bookingCode;
 
       const otp = await AuthOtpService.sendOtp(
-        otpChannel === "EMAIL" ? normalizedPatientEmail || "" : input.patientPhone,
+        otpChannel === "EMAIL"
+          ? normalizedPatientEmail || ""
+          : input.patientPhone,
         "BOOK_APPOINTMENT",
         ipAddress,
         { channel: otpChannel },
@@ -686,15 +733,23 @@ class AppointmentService {
     }
 
     const otpTarget = resolveAppointmentOtpTarget(appointment);
-    const otp = await AuthOtpService.sendOtp(otpTarget.target, "BOOK_APPOINTMENT", ipAddress, {
-      channel: otpTarget.channel,
-    });
+    const otp = await AuthOtpService.sendOtp(
+      otpTarget.target,
+      "BOOK_APPOINTMENT",
+      ipAddress,
+      {
+        channel: otpTarget.channel,
+      },
+    );
 
     await prisma.appointmentLog.create({
       data: {
         appointmentId: appointment.id,
         action: "OTP_SENT",
-        note: getOtpLogNote("OTP xác thực đặt lịch gửi lại", otp.deliveryStatus),
+        note: getOtpLogNote(
+          "OTP xác thực đặt lịch gửi lại",
+          otp.deliveryStatus,
+        ),
       },
     });
 
@@ -738,7 +793,9 @@ class AppointmentService {
     }
 
     await AuthOtpService.verifyOtp(
-      appointment.otpChannel === "EMAIL" ? appointment.patientEmail || "" : appointment.patientPhone,
+      appointment.otpChannel === "EMAIL"
+        ? appointment.patientEmail || ""
+        : appointment.patientPhone,
       otp,
       "BOOK_APPOINTMENT",
       { ipAddress, channel: appointment.otpChannel },
@@ -764,7 +821,10 @@ class AppointmentService {
         : null;
 
       if (cccdOwner && cccdOwner.userId !== appointment.patientId) {
-        throw new AppError("CCCD đã được sử dụng cho hồ sơ bệnh nhân khác", 409);
+        throw new AppError(
+          "CCCD đã được sử dụng cho hồ sơ bệnh nhân khác",
+          409,
+        );
       }
 
       await tx.user.update({
@@ -919,7 +979,11 @@ class AppointmentService {
     };
   }
 
-  async requestLookupOtp(input: { phone?: string; bookingCode?: string; ipAddress: string }) {
+  async requestLookupOtp(input: {
+    phone?: string;
+    bookingCode?: string;
+    ipAddress: string;
+  }) {
     const phone = input.phone?.trim();
     const bookingCode = input.bookingCode?.trim().toUpperCase();
 
@@ -937,7 +1001,12 @@ class AppointmentService {
     );
   }
 
-  async verifyLookupOtp(input: { phone?: string; bookingCode?: string; otp?: string; ipAddress?: string }) {
+  async verifyLookupOtp(input: {
+    phone?: string;
+    bookingCode?: string;
+    otp?: string;
+    ipAddress?: string;
+  }) {
     const phone = input.phone?.trim();
     const bookingCode = input.bookingCode?.trim().toUpperCase();
 
@@ -951,10 +1020,15 @@ class AppointmentService {
 
     const otpTarget = await resolveLookupOtpTarget(phone, bookingCode);
 
-    await AuthOtpService.verifyOtp(otpTarget.target, input.otp, "LOOKUP_RESULT", {
-      ipAddress: input.ipAddress,
-      channel: otpTarget.channel,
-    });
+    await AuthOtpService.verifyOtp(
+      otpTarget.target,
+      input.otp,
+      "LOOKUP_RESULT",
+      {
+        ipAddress: input.ipAddress,
+        channel: otpTarget.channel,
+      },
+    );
 
     const appointments = await prisma.appointment.findMany({
       where: {
@@ -976,9 +1050,14 @@ class AppointmentService {
     const appointment = await this.getPublicCancellableAppointment(input);
 
     const otpTarget = resolveAppointmentOtpTarget(appointment);
-    const otp = await AuthOtpService.sendOtp(otpTarget.target, "CANCEL_APPOINTMENT", input.ipAddress, {
-      channel: otpTarget.channel,
-    });
+    const otp = await AuthOtpService.sendOtp(
+      otpTarget.target,
+      "CANCEL_APPOINTMENT",
+      input.ipAddress,
+      {
+        channel: otpTarget.channel,
+      },
+    );
 
     await prisma.appointmentLog.create({
       data: {
@@ -1006,10 +1085,15 @@ class AppointmentService {
 
     const otpTarget = resolveAppointmentOtpTarget(appointment);
 
-    await AuthOtpService.verifyOtp(otpTarget.target, input.otp, "CANCEL_APPOINTMENT", {
-      ipAddress: input.ipAddress,
-      channel: otpTarget.channel,
-    });
+    await AuthOtpService.verifyOtp(
+      otpTarget.target,
+      input.otp,
+      "CANCEL_APPOINTMENT",
+      {
+        ipAddress: input.ipAddress,
+        channel: otpTarget.channel,
+      },
+    );
 
     return prisma.$transaction(async (tx) => {
       if (appointment.timeSlotId) {
@@ -1044,15 +1128,18 @@ class AppointmentService {
     });
   }
 
-  async dashboardList(query: {
-    status?: AppointmentStatus;
-    doctorId?: string;
-    date?: string;
-    phone?: string;
-    bookingCode?: string;
-    page?: number;
-    limit?: number;
-  }, actor: Actor) {
+  async dashboardList(
+    query: {
+      status?: AppointmentStatus;
+      doctorId?: string;
+      date?: string;
+      phone?: string;
+      bookingCode?: string;
+      page?: number;
+      limit?: number;
+    },
+    actor: Actor,
+  ) {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
@@ -1112,9 +1199,16 @@ class AppointmentService {
     return appointment;
   }
 
-  async updatePatientInfo(id: string, input: UpdateAppointmentPatientInfoInput, actor: Actor) {
+  async updatePatientInfo(
+    id: string,
+    input: UpdateAppointmentPatientInfoInput,
+    actor: Actor,
+  ) {
     if (actor.role === "DOCTOR") {
-      throw new AppError("Bác sĩ không có quyền cập nhật thông tin tiếp nhận", 403);
+      throw new AppError(
+        "Bác sĩ không có quyền cập nhật thông tin tiếp nhận",
+        403,
+      );
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -1136,17 +1230,36 @@ class AppointmentService {
     }
 
     if (appointment.invoice) {
-      throw new AppError("Không thể cập nhật thông tin khi lịch hẹn đã có hóa đơn", 400);
+      throw new AppError(
+        "Không thể cập nhật thông tin khi lịch hẹn đã có hóa đơn",
+        400,
+      );
     }
 
-    if (["PENDING_OTP", "CANCELLED_BY_ADMIN", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_PATIENT", "NO_SHOW"].includes(appointment.status)) {
-      throw new AppError("Chỉ cập nhật thông tin tiếp nhận cho lịch đã xác thực và chưa hủy", 400);
+    if (
+      [
+        "PENDING_OTP",
+        "CANCELLED_BY_ADMIN",
+        "CANCELLED_BY_DOCTOR",
+        "CANCELLED_BY_PATIENT",
+        "NO_SHOW",
+      ].includes(appointment.status)
+    ) {
+      throw new AppError(
+        "Chỉ cập nhật thông tin tiếp nhận cho lịch đã xác thực và chưa hủy",
+        400,
+      );
     }
 
     const patientDateOfBirth =
-      input.dateOfBirth === undefined ? undefined : parseOptionalDate(input.dateOfBirth);
+      input.dateOfBirth === undefined
+        ? undefined
+        : parseOptionalDate(input.dateOfBirth);
 
-    if (patientDateOfBirth && patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)) {
+    if (
+      patientDateOfBirth &&
+      patientDateOfBirth >= parseDateOnly(getVietnamNowParts().date)
+    ) {
       throw new AppError("Ngày sinh phải nhỏ hơn ngày hiện tại", 400);
     }
 
@@ -1159,8 +1272,14 @@ class AppointmentService {
       patientCccd: normalizeOptionalString(input.cccd),
       patientAddress: normalizeOptionalString(input.address),
       hasBHYT,
-      healthInsuranceCode: hasBHYT === false ? null : normalizeOptionalString(input.healthInsuranceCode),
-      registeredHospital: hasBHYT === false ? null : normalizeOptionalString(input.registeredHospital),
+      healthInsuranceCode:
+        hasBHYT === false
+          ? null
+          : normalizeOptionalString(input.healthInsuranceCode),
+      registeredHospital:
+        hasBHYT === false
+          ? null
+          : normalizeOptionalString(input.registeredHospital),
       allergies: normalizeOptionalString(input.allergies),
       medicalHistory: normalizeOptionalString(input.medicalHistory),
       familyHistory: normalizeOptionalString(input.familyHistory),
@@ -1177,7 +1296,8 @@ class AppointmentService {
       });
 
       if (hasBHYT === false) {
-        appointmentData.finalAmount = current.estimatedPrice + current.serviceFee;
+        appointmentData.finalAmount =
+          current.estimatedPrice + current.serviceFee;
       }
 
       await tx.user.update({
@@ -1196,8 +1316,14 @@ class AppointmentService {
           cccd: normalizeOptionalString(input.cccd),
           address: normalizeOptionalString(input.address),
           hasBHYT,
-          healthInsuranceCode: hasBHYT === false ? null : normalizeOptionalString(input.healthInsuranceCode),
-          registeredHospital: hasBHYT === false ? null : normalizeOptionalString(input.registeredHospital),
+          healthInsuranceCode:
+            hasBHYT === false
+              ? null
+              : normalizeOptionalString(input.healthInsuranceCode),
+          registeredHospital:
+            hasBHYT === false
+              ? null
+              : normalizeOptionalString(input.registeredHospital),
           allergies: normalizeOptionalString(input.allergies),
           medicalHistory: normalizeOptionalString(input.medicalHistory),
           familyHistory: normalizeOptionalString(input.familyHistory),
@@ -1209,8 +1335,14 @@ class AppointmentService {
           cccd: normalizeOptionalString(input.cccd),
           address: normalizeOptionalString(input.address),
           hasBHYT: hasBHYT ?? false,
-          healthInsuranceCode: hasBHYT === false ? null : normalizeOptionalString(input.healthInsuranceCode),
-          registeredHospital: hasBHYT === false ? null : normalizeOptionalString(input.registeredHospital),
+          healthInsuranceCode:
+            hasBHYT === false
+              ? null
+              : normalizeOptionalString(input.healthInsuranceCode),
+          registeredHospital:
+            hasBHYT === false
+              ? null
+              : normalizeOptionalString(input.registeredHospital),
           allergies: normalizeOptionalString(input.allergies),
           medicalHistory: normalizeOptionalString(input.medicalHistory),
           familyHistory: normalizeOptionalString(input.familyHistory),
@@ -1251,7 +1383,10 @@ class AppointmentService {
 
   async updateStatus(
     id: string,
-    status: Extract<AppointmentStatus, "CONFIRMED" | "CHECKED_IN" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW">,
+    status: Extract<
+      AppointmentStatus,
+      "CONFIRMED" | "CHECKED_IN" | "IN_PROGRESS" | "COMPLETED" | "NO_SHOW"
+    >,
     actor: Actor,
   ) {
     switch (status) {
@@ -1273,7 +1408,14 @@ class AppointmentService {
   async cancel(id: string, reason: string, actor: Actor) {
     const appointment = await this.getAppointmentStatus(id, actor);
 
-    if (["COMPLETED", "CANCELLED_BY_ADMIN", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_PATIENT"].includes(appointment.status)) {
+    if (
+      [
+        "COMPLETED",
+        "CANCELLED_BY_ADMIN",
+        "CANCELLED_BY_DOCTOR",
+        "CANCELLED_BY_PATIENT",
+      ].includes(appointment.status)
+    ) {
       throw new AppError("Không thể hủy lịch hẹn này", 400);
     }
 
@@ -1342,7 +1484,10 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (appointment.status !== "CHECKED_IN") {
-      throw new AppError("Chỉ có thể bắt đầu khám sau khi bệnh nhân check-in", 400);
+      throw new AppError(
+        "Chỉ có thể bắt đầu khám sau khi bệnh nhân check-in",
+        400,
+      );
     }
 
     return prisma.$transaction(async (tx) => {
@@ -1393,7 +1538,10 @@ class AppointmentService {
     const appointment = await this.getAppointmentStatus(id, actor);
 
     if (!["CONFIRMED", "CHECKED_IN"].includes(appointment.status)) {
-      throw new AppError("Chỉ có thể đánh dấu no-show cho lịch đã xác nhận hoặc đã check-in", 400);
+      throw new AppError(
+        "Chỉ có thể đánh dấu no-show cho lịch đã xác nhận hoặc đã check-in",
+        400,
+      );
     }
 
     return prisma.$transaction(async (tx) => {
@@ -1509,7 +1657,9 @@ class AppointmentService {
     });
   }
 
-  private async getPublicCancellableAppointment(input: PublicCancelAppointmentInput) {
+  private async getPublicCancellableAppointment(
+    input: PublicCancelAppointmentInput,
+  ) {
     const bookingCode = input.bookingCode?.trim().toUpperCase();
     const phone = input.phone?.trim();
     const reason = input.reason?.trim();
@@ -1548,7 +1698,10 @@ class AppointmentService {
     }
 
     if (!PUBLIC_CANCEL_ALLOWED_STATUSES.includes(appointment.status)) {
-      throw new AppError("Chỉ có thể hủy lịch đang chờ xác nhận hoặc đã xác nhận", 400);
+      throw new AppError(
+        "Chỉ có thể hủy lịch đang chờ xác nhận hoặc đã xác nhận",
+        400,
+      );
     }
 
     return appointment;

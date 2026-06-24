@@ -32,7 +32,8 @@ export const listDashboardChatbotFAQsHandler = async (
 ) => {
   try {
     const result = await DashboardChatbotFAQService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),
@@ -53,7 +54,9 @@ export const getDashboardChatbotFAQHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const faq = await DashboardChatbotFAQService.getById(getParam(req.params.id));
+    const faq = await DashboardChatbotFAQService.getById(
+      getParam(req.params.id),
+    );
 
     return res.json({
       success: true,
@@ -130,7 +133,9 @@ export const deleteDashboardChatbotFAQHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const faq = await DashboardChatbotFAQService.delete(getParam(req.params.id));
+    const faq = await DashboardChatbotFAQService.delete(
+      getParam(req.params.id),
+    );
 
     return res.json({
       success: true,

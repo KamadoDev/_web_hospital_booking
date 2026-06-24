@@ -15,7 +15,11 @@ import {
   getFlowStatusText,
   type ChatWidgetMessage,
 } from "@/lib/chatbot-ui";
-import type { ChatBookingDraft, ChatbotMessageResponse, ChatbotSuggestedAction } from "@/lib/types";
+import type {
+  ChatBookingDraft,
+  ChatbotMessageResponse,
+  ChatbotSuggestedAction,
+} from "@/lib/types";
 
 type StoredChat = {
   sessionId?: string;
@@ -29,7 +33,8 @@ const defaultMessages: ChatWidgetMessage[] = [
   {
     id: "welcome",
     role: "assistant",
-    content: "Xin chào, tôi có thể hỗ trợ đặt lịch, tra cứu bác sĩ, gói khám và giải đáp nhanh trước khi bạn đến bệnh viện.",
+    content:
+      "Xin chào, tôi có thể hỗ trợ đặt lịch, tra cứu bác sĩ, gói khám và giải đáp nhanh trước khi bạn đến bệnh viện.",
   },
 ];
 
@@ -49,7 +54,9 @@ const readStoredChat = (): StoredChat => {
   if (typeof window === "undefined") return {};
 
   try {
-    return JSON.parse(window.localStorage.getItem(storageKey) || "{}") as StoredChat;
+    return JSON.parse(
+      window.localStorage.getItem(storageKey) || "{}",
+    ) as StoredChat;
   } catch {
     return {};
   }
@@ -60,7 +67,8 @@ export function PublicChatbotWidget() {
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [draft, setDraft] = useState<ChatBookingDraft | undefined>();
-  const [messages, setMessages] = useState<ChatWidgetMessage[]>(defaultMessages);
+  const [messages, setMessages] =
+    useState<ChatWidgetMessage[]>(defaultMessages);
   const [actions, setActions] = useState<ChatbotSuggestedAction[]>([]);
   const [message, setMessage] = useState("");
   const [suggestionIndex, setSuggestionIndex] = useState(0);
@@ -76,7 +84,9 @@ export function PublicChatbotWidget() {
   const runtimeSettings = settingsQuery.data?.value;
   const chatbotOnline = Boolean(
     settingsQuery.data?.isActive &&
-      (runtimeSettings?.aiEnabled || runtimeSettings?.faqEnabled || runtimeSettings?.fallbackEnabled),
+    (runtimeSettings?.aiEnabled ||
+      runtimeSettings?.faqEnabled ||
+      runtimeSettings?.fallbackEnabled),
   );
   const chatbotStatusText = settingsQuery.isLoading
     ? "Đang kiểm tra trạng thái"
@@ -98,7 +108,10 @@ export function PublicChatbotWidget() {
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(storageKey, JSON.stringify({ sessionId, draft, messages }));
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ sessionId, draft, messages }),
+    );
   }, [draft, hydrated, messages, sessionId]);
 
   useEffect(() => {
@@ -111,13 +124,18 @@ export function PublicChatbotWidget() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      setSuggestionIndex((current) => (current + 1) % chatbotSuggestionMessages.length);
+      setSuggestionIndex(
+        (current) => (current + 1) % chatbotSuggestionMessages.length,
+      );
     }, 4600);
 
     return () => window.clearInterval(intervalId);
   }, []);
 
-  const handleActionSideEffect = (action: ChatbotSuggestedAction, nextDraft?: ChatBookingDraft) => {
+  const handleActionSideEffect = (
+    action: ChatbotSuggestedAction,
+    nextDraft?: ChatBookingDraft,
+  ) => {
     if (typeof window === "undefined") return;
 
     if (action.type === "LOOKUP_APPOINTMENT") {
@@ -137,7 +155,9 @@ export function PublicChatbotWidget() {
     if (action.type === "CONTACT_STAFF") {
       window.dispatchEvent(new Event("open-consultation-request"));
       window.setTimeout(() => {
-        document.getElementById("consultation")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        document
+          .getElementById("consultation")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 100);
       return;
     }
@@ -147,12 +167,17 @@ export function PublicChatbotWidget() {
     }
   };
 
-  const sendMessage = async (content: string, action?: ChatbotSuggestedAction) => {
+  const sendMessage = async (
+    content: string,
+    action?: ChatbotSuggestedAction,
+  ) => {
     const trimmed = content.trim();
     if (!trimmed || sending || sendingRef.current) return;
 
     if (!chatbotOnline) {
-      setError("Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.");
+      setError(
+        "Chatbot đang tạm tắt. Vui lòng gửi yêu cầu tư vấn để nhân viên hỗ trợ.",
+      );
       return;
     }
 
@@ -174,21 +199,24 @@ export function PublicChatbotWidget() {
     setSending(true);
 
     try {
-      const result = await apiRequest<ChatbotMessageResponse>("/chatbot/message", {
-        method: "POST",
-        body: {
-          sessionId,
-          message: trimmed,
-          draft,
-          action: action
-            ? {
-                type: action.type,
-                label: action.label,
-                payload: action.payload,
-              }
-            : undefined,
+      const result = await apiRequest<ChatbotMessageResponse>(
+        "/chatbot/message",
+        {
+          method: "POST",
+          body: {
+            sessionId,
+            message: trimmed,
+            draft,
+            action: action
+              ? {
+                  type: action.type,
+                  label: action.label,
+                  payload: action.payload,
+                }
+              : undefined,
+          },
         },
-      });
+      );
 
       setSessionId(result.sessionId);
       setDraft(result.draft);
@@ -211,7 +239,8 @@ export function PublicChatbotWidget() {
         {
           id: createId(),
           role: "assistant",
-          content: "Tôi chưa xử lý được yêu cầu này. Bạn thử lại sau một chút nhé.",
+          content:
+            "Tôi chưa xử lý được yêu cầu này. Bạn thử lại sau một chút nhé.",
         },
       ]);
     } finally {
@@ -245,11 +274,19 @@ export function PublicChatbotWidget() {
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0fb] text-[#0d4f8b]">
                 <Bot className="h-5 w-5" aria-hidden="true" />
-                <span className={`absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-white ${chatbotOnline ? "bg-[#22c55e]" : "bg-[#94a3b8]"}`} aria-hidden="true" title={chatbotStatusText} />
+                <span
+                  className={`absolute -right-1 -top-1 h-3 w-3 rounded-full ring-2 ring-white ${chatbotOnline ? "bg-[#22c55e]" : "bg-[#94a3b8]"}`}
+                  aria-hidden="true"
+                  title={chatbotStatusText}
+                />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold text-[#172033]">Trợ lý đặt lịch</h2>
-                <p className="truncate text-xs text-[#667892]">{chatbotStatusText}</p>
+                <h2 className="truncate text-sm font-semibold text-[#172033]">
+                  Trợ lý đặt lịch
+                </h2>
+                <p className="truncate text-xs text-[#667892]">
+                  {chatbotStatusText}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -285,7 +322,11 @@ export function PublicChatbotWidget() {
               <div
                 key={item.id}
                 className={`flex ${
-                  item.role === "user" ? "justify-end" : item.role === "system" || item.role === "alert" ? "justify-center" : "justify-start"
+                  item.role === "user"
+                    ? "justify-end"
+                    : item.role === "system" || item.role === "alert"
+                      ? "justify-center"
+                      : "justify-start"
                 }`}
               >
                 <div
@@ -304,7 +345,9 @@ export function PublicChatbotWidget() {
                     <ChatbotResultCards
                       groups={item.results}
                       disabled={sending}
-                      onAction={(slotAction) => void sendMessage(slotAction.label, slotAction)}
+                      onAction={(slotAction) =>
+                        void sendMessage(slotAction.label, slotAction)
+                      }
                     />
                   ) : null}
                 </div>
@@ -312,7 +355,10 @@ export function PublicChatbotWidget() {
             ))}
             {sending ? (
               <div className="flex items-center gap-2 text-xs text-[#667892]">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                <Loader2
+                  className="h-3.5 w-3.5 animate-spin"
+                  aria-hidden="true"
+                />
                 {loadingText}
               </div>
             ) : null}
@@ -335,7 +381,9 @@ export function PublicChatbotWidget() {
                 ))}
               </div>
             ) : null}
-            {error ? <p className="mb-2 text-xs text-[#b3261e]">{error}</p> : null}
+            {error ? (
+              <p className="mb-2 text-xs text-[#b3261e]">{error}</p>
+            ) : null}
             <form className="flex gap-2" onSubmit={submitMessage}>
               <input
                 ref={inputRef}
@@ -363,7 +411,9 @@ export function PublicChatbotWidget() {
             onClick={() => setOpen(true)}
             className="ui-floating-callout ui-soft-glow hidden w-[min(15rem,calc(100vw-2rem))] rounded-md border border-[#cfe0f3] bg-white px-3 py-2 text-left text-xs font-medium leading-5 text-[#42526b] shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-[#f8fafc] sm:block"
           >
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#0d4f8b]">Trợ lý</span>
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#0d4f8b]">
+              Trợ lý
+            </span>
             {chatbotSuggestionMessages[suggestionIndex]}
           </button>
           <button
@@ -373,11 +423,19 @@ export function PublicChatbotWidget() {
             aria-label="Mở trợ lý"
             title={chatbotStatusText}
           >
-            {chatbotOnline ? <span className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-25 motion-safe:animate-ping" aria-hidden="true" /> : null}
+            {chatbotOnline ? (
+              <span
+                className="absolute inset-0 rounded-full bg-[#0d4f8b] opacity-25 motion-safe:animate-ping"
+                aria-hidden="true"
+              />
+            ) : null}
             <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#0d4f8b] shadow-md">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
-            <Bot className="relative h-6 w-6 transition group-hover:scale-110" aria-hidden="true" />
+            <Bot
+              className="relative h-6 w-6 transition group-hover:scale-110"
+              aria-hidden="true"
+            />
           </button>
         </div>
       )}

@@ -16,7 +16,8 @@ type VerifyOtpOptions = {
   ipAddress?: string;
 };
 
-const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || "dev_otp_secret";
+const OTP_SECRET =
+  process.env.OTP_SECRET || process.env.JWT_SECRET || "dev_otp_secret";
 const RESEND_COOLDOWN_SECONDS = 60;
 const OTP_WINDOW_MINUTES = 15;
 const MAX_OTP_SENDS_PER_WINDOW = 5;
@@ -27,7 +28,9 @@ const OTP_EXPIRES_SECONDS = 5 * 60;
 const VERIFY_WINDOW_MINUTES = 15;
 const MAX_VERIFY_FAILS_PER_PHONE_WINDOW = 5;
 const MAX_VERIFY_FAILS_PER_IP_WINDOW = 20;
-const OTP_ENQUEUE_TIMEOUT_MS = Number(process.env.OTP_ENQUEUE_TIMEOUT_MS || 1000);
+const OTP_ENQUEUE_TIMEOUT_MS = Number(
+  process.env.OTP_ENQUEUE_TIMEOUT_MS || 1000,
+);
 
 type QueueAttemptResult =
   | { status: "QUEUED" }
@@ -44,7 +47,9 @@ const timeout = (milliseconds: number) =>
   });
 
 const isOtpDebugEnabled = () =>
-  ["true", "1", "yes", "on"].includes((process.env.OTP_DEBUG_ENABLED || "").toLowerCase());
+  ["true", "1", "yes", "on"].includes(
+    (process.env.OTP_DEBUG_ENABLED || "").toLowerCase(),
+  );
 
 const hashOtp = (otp: string) =>
   createHmac("sha256", OTP_SECRET).update(otp).digest("hex");
@@ -55,7 +60,10 @@ const normalizeTarget = (target: string, channel: OtpChannel) => {
   const normalized = target.trim();
 
   if (!normalized) {
-    throw new AppError(channel === "EMAIL" ? "Thiếu email" : "Thiếu số điện thoại", 400);
+    throw new AppError(
+      channel === "EMAIL" ? "Thiếu email" : "Thiếu số điện thoại",
+      400,
+    );
   }
 
   if (channel === "EMAIL" && !emailRegex.test(normalized)) {
@@ -192,17 +200,26 @@ class AuthOtpService {
         purpose,
         reason: "OTP_SEND_IP_LIMIT",
       });
-      throw new AppError("IP đã gửi OTP quá nhiều lần. Vui lòng thử lại sau.", 429);
+      throw new AppError(
+        "IP đã gửi OTP quá nhiều lần. Vui lòng thử lại sau.",
+        429,
+      );
     }
 
-    if (phoneCount >= MAX_OTP_SENDS_PER_PHONE_WINDOW || pairCount >= MAX_OTP_SENDS_PER_WINDOW) {
+    if (
+      phoneCount >= MAX_OTP_SENDS_PER_PHONE_WINDOW ||
+      pairCount >= MAX_OTP_SENDS_PER_WINDOW
+    ) {
       await this.createBlock({
         targetType: "TARGET",
         target,
         purpose,
         reason: "OTP_SEND_TARGET_LIMIT",
       });
-      throw new AppError("Tài khoản nhận OTP đã gửi quá nhiều lần. Vui lòng thử lại sau.", 429);
+      throw new AppError(
+        "Tài khoản nhận OTP đã gửi quá nhiều lần. Vui lòng thử lại sau.",
+        429,
+      );
     }
   }
 
@@ -232,7 +249,9 @@ class AuthOtpService {
     purpose: OtpPurpose,
     ipAddress?: string,
   ) {
-    const windowStart = new Date(Date.now() - VERIFY_WINDOW_MINUTES * 60 * 1000);
+    const windowStart = new Date(
+      Date.now() - VERIFY_WINDOW_MINUTES * 60 * 1000,
+    );
 
     const [phoneFails, ipFails] = await prisma.$transaction([
       prisma.otpVerifyAttempt.count({
@@ -266,7 +285,10 @@ class AuthOtpService {
         purpose,
         reason: "OTP_VERIFY_IP_LIMIT",
       });
-      throw new AppError("IP đã nhập sai OTP quá nhiều lần. Vui lòng thử lại sau.", 429);
+      throw new AppError(
+        "IP đã nhập sai OTP quá nhiều lần. Vui lòng thử lại sau.",
+        429,
+      );
     }
 
     if (phoneFails >= MAX_VERIFY_FAILS_PER_PHONE_WINDOW) {
@@ -276,7 +298,10 @@ class AuthOtpService {
         purpose,
         reason: "OTP_VERIFY_TARGET_LIMIT",
       });
-      throw new AppError("Tài khoản nhận OTP đã nhập sai quá nhiều lần. Vui lòng thử lại sau.", 429);
+      throw new AppError(
+        "Tài khoản nhận OTP đã nhập sai quá nhiều lần. Vui lòng thử lại sau.",
+        429,
+      );
     }
   }
 
@@ -351,7 +376,9 @@ class AuthOtpService {
     let deliveryStatus: "PENDING" | "SENT" | "FAILED" = "PENDING";
 
     const queueAttemptPromise = enqueueOtpDeliveryJob(deliveryJob)
-      .then<QueueAttemptResult>((queued) => (queued ? { status: "QUEUED" } : { status: "UNAVAILABLE" }))
+      .then<QueueAttemptResult>((queued) =>
+        queued ? { status: "QUEUED" } : { status: "UNAVAILABLE" },
+      )
       .catch<QueueAttemptResult>((error) => ({ status: "FAILED", error }));
 
     const queueAttempt = await Promise.race([
@@ -360,32 +387,53 @@ class AuthOtpService {
     ]);
 
     if (queueAttempt.status === "TIMEOUT") {
-      queueAttemptPromise.then(async (lateAttempt) => {
-        if (lateAttempt.status !== "FAILED" && lateAttempt.status !== "UNAVAILABLE") return;
+      queueAttemptPromise
+        .then(async (lateAttempt) => {
+          if (
+            lateAttempt.status !== "FAILED" &&
+            lateAttempt.status !== "UNAVAILABLE"
+          )
+            return;
 
-        const message =
-          lateAttempt.status === "FAILED"
-            ? getErrorMessage(lateAttempt.error, "Không đưa được OTP vào hàng đợi")
-            : "Chưa cấu hình hàng đợi gửi OTP";
+          const message =
+            lateAttempt.status === "FAILED"
+              ? getErrorMessage(
+                  lateAttempt.error,
+                  "Không đưa được OTP vào hàng đợi",
+                )
+              : "Chưa cấu hình hàng đợi gửi OTP";
 
-        console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", message);
+          console.error(
+            "[OTP_QUEUE] Cannot enqueue OTP delivery job:",
+            message,
+          );
 
-        await prisma.otpCode.update({
-          where: { id: otpRecord.id },
-          data: {
-            deliveryStatus: "FAILED",
-            deliveryError: message.slice(0, 1000),
-          },
+          await prisma.otpCode.update({
+            where: { id: otpRecord.id },
+            data: {
+              deliveryStatus: "FAILED",
+              deliveryError: message.slice(0, 1000),
+            },
+          });
+        })
+        .catch((error) => {
+          console.error(
+            "[OTP_QUEUE] Cannot update timed out OTP delivery status:",
+            error,
+          );
         });
-      }).catch((error) => {
-        console.error("[OTP_QUEUE] Cannot update timed out OTP delivery status:", error);
-      });
     }
 
-    if (queueAttempt.status === "FAILED" || queueAttempt.status === "UNAVAILABLE") {
+    if (
+      queueAttempt.status === "FAILED" ||
+      queueAttempt.status === "UNAVAILABLE"
+    ) {
       const message =
         queueAttempt.status === "FAILED"
-          ? getErrorMessage(queueAttempt.error, "Không đưa được OTP vào hàng đợi")
+          ? getErrorMessage(
+              queueAttempt.error,
+              "Không đưa được OTP vào hàng đợi",
+            )
           : "Chưa cấu hình hàng đợi gửi OTP";
 
       console.error("[OTP_QUEUE] Cannot enqueue OTP delivery job:", message);
@@ -484,7 +532,10 @@ class AuthOtpService {
         success: false,
       });
       await this.enforceVerifyFailLimits(target, channel, purpose, ipAddress);
-      throw new AppError("OTP không chính xác, đã hết hạn hoặc đã được sử dụng", 401);
+      throw new AppError(
+        "OTP không chính xác, đã hết hạn hoặc đã được sử dụng",
+        401,
+      );
     }
 
     await prisma.otpCode.update({

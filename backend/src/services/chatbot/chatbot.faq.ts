@@ -28,7 +28,8 @@ const workflowIntents = new Set<ChatIntent>([
   "BOOKING_FORM_HELP",
 ]);
 
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const foldText = (value: string) =>
   value
@@ -46,7 +47,9 @@ const hasPhrase = (message: string, phrase: string) => {
   if (!foldedPhrase) return false;
 
   if (foldedPhrase.length <= 3) {
-    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(foldedPhrase)}([^a-z0-9]|$)`).test(message);
+    return new RegExp(
+      `(^|[^a-z0-9])${escapeRegExp(foldedPhrase)}([^a-z0-9]|$)`,
+    ).test(message);
   }
 
   return message.includes(foldedPhrase);
@@ -68,21 +71,37 @@ const scoreFAQ = (foldedMessage: string, faq: FAQMatch["faq"]) => {
   return score;
 };
 
-const inferKnowledgeIntent = (detectedIntent: ChatIntent, faq: FAQMatch["faq"]): ChatIntent => {
+const inferKnowledgeIntent = (
+  detectedIntent: ChatIntent,
+  faq: FAQMatch["faq"],
+): ChatIntent => {
   const text = foldText(`${faq.question} ${faq.keywords.join(" ")}`);
 
-  if (text.includes("thanh toan") || text.includes("hoa don") || text.includes("vien phi")) {
+  if (
+    text.includes("thanh toan") ||
+    text.includes("hoa don") ||
+    text.includes("vien phi")
+  ) {
     return "PAYMENT_GUIDE";
   }
 
-  if (text.includes("tra cuu") || text.includes("lich hen") || text.includes("quen ma")) {
+  if (
+    text.includes("tra cuu") ||
+    text.includes("lich hen") ||
+    text.includes("quen ma")
+  ) {
     return "APPOINTMENT_LOOKUP_GUIDE";
   }
 
-  return detectedIntent === "UNKNOWN" ? "GENERAL_HOSPITAL_INFO" : detectedIntent;
+  return detectedIntent === "UNKNOWN"
+    ? "GENERAL_HOSPITAL_INFO"
+    : detectedIntent;
 };
 
-const buildKnowledgeActions = (intent: ChatIntent, faq: FAQMatch["faq"]): SuggestedAction[] => {
+const buildKnowledgeActions = (
+  intent: ChatIntent,
+  faq: FAQMatch["faq"],
+): SuggestedAction[] => {
   const text = foldText(`${faq.question} ${faq.keywords.join(" ")}`);
 
   if (intent === "PAYMENT_GUIDE") {

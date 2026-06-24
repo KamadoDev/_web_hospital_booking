@@ -12,7 +12,11 @@ export const createPackageSchema = z.object({
   name: z.string().trim().min(2, "Ten goi kham toi thieu 2 ky tu"),
   slug: z.string().trim().min(2, "Slug toi thieu 2 ky tu").optional(),
   description: z.string().trim().nullable().optional(),
-  departmentId: z.string().uuid("Chuyen khoa khong hop le").nullable().optional(),
+  departmentId: z
+    .string()
+    .uuid("Chuyen khoa khong hop le")
+    .nullable()
+    .optional(),
   basePrice: z.number().int().min(0, "Gia goi khong hop le"),
   serviceFee: z.number().int().min(0, "Phi dich vu khong hop le").optional(),
   summary: z.string().trim().nullable().optional(),
@@ -25,9 +29,18 @@ export const createPackageSchema = z.object({
 
 export const updatePackageSchema = z.object({
   name: z.string().trim().min(2, "Ten goi kham toi thieu 2 ky tu").optional(),
-  slug: z.string().trim().min(2, "Slug toi thieu 2 ky tu").nullable().optional(),
+  slug: z
+    .string()
+    .trim()
+    .min(2, "Slug toi thieu 2 ky tu")
+    .nullable()
+    .optional(),
   description: z.string().trim().nullable().optional(),
-  departmentId: z.string().uuid("Chuyen khoa khong hop le").nullable().optional(),
+  departmentId: z
+    .string()
+    .uuid("Chuyen khoa khong hop le")
+    .nullable()
+    .optional(),
   basePrice: z.number().int().min(0, "Gia goi khong hop le").optional(),
   serviceFee: z.number().int().min(0, "Phi dich vu khong hop le").optional(),
   summary: z.string().trim().nullable().optional(),

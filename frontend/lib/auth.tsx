@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest, AUTH_EXPIRED_EVENT } from "@/lib/api";
 import type { DashboardUser } from "@/lib/types";
@@ -42,9 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const currentUser = await apiRequest<DashboardUser>("/auth/dashboard/me", {
-        suppressAuthExpired: true,
-      });
+      const currentUser = await apiRequest<DashboardUser>(
+        "/auth/dashboard/me",
+        {
+          suppressAuthExpired: true,
+        },
+      );
       setUser(currentUser);
       return currentUser;
     } catch {
@@ -72,7 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
 
-    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () =>
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   }, [router]);
 
   const login = useCallback((phone: string, password: string) => {
@@ -83,16 +94,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const verifyOtp = useCallback(async (challengeId: string, otp: string) => {
-    const result = await apiRequest<VerifyResult>("/auth/dashboard/verify-otp", {
-      method: "POST",
-      body: { challengeId, otp },
-    });
+    const result = await apiRequest<VerifyResult>(
+      "/auth/dashboard/verify-otp",
+      {
+        method: "POST",
+        body: { challengeId, otp },
+      },
+    );
     setUser(result.user);
     return result;
   }, []);
 
   const logout = useCallback(async () => {
-    await apiRequest<void>("/auth/dashboard/logout", { method: "POST" }).catch(() => undefined);
+    await apiRequest<void>("/auth/dashboard/logout", { method: "POST" }).catch(
+      () => undefined,
+    );
     setUser(null);
     router.replace("/login");
   }, [router]);

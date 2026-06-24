@@ -1,14 +1,43 @@
 import { z } from "zod";
 
-const manualPaymentMethods = ["CASH", "CARD", "BANK_TRANSFER", "OTHER"] as const;
-const insuranceRouteTypes = ["RIGHT_ROUTE", "WRONG_ROUTE", "REFERRAL", "EMERGENCY", "SERVICE"] as const;
+const manualPaymentMethods = [
+  "CASH",
+  "CARD",
+  "BANK_TRANSFER",
+  "OTHER",
+] as const;
+const insuranceRouteTypes = [
+  "RIGHT_ROUTE",
+  "WRONG_ROUTE",
+  "REFERRAL",
+  "EMERGENCY",
+  "SERVICE",
+] as const;
 
 const invoiceInsuranceFields = {
-  bhytDiscount: z.number().int().min(0, "Giam tru BHYT khong duoc am").optional(),
-  insuranceEligibleAmount: z.number().int().min(0, "So tien du dieu kien BHYT khong duoc am").optional(),
-  insuranceCoverageRate: z.number().int().min(0, "Ty le huong BHYT khong duoc am").max(100, "Ty le huong BHYT khong duoc vuot qua 100").optional(),
+  bhytDiscount: z
+    .number()
+    .int()
+    .min(0, "Giam tru BHYT khong duoc am")
+    .optional(),
+  insuranceEligibleAmount: z
+    .number()
+    .int()
+    .min(0, "So tien du dieu kien BHYT khong duoc am")
+    .optional(),
+  insuranceCoverageRate: z
+    .number()
+    .int()
+    .min(0, "Ty le huong BHYT khong duoc am")
+    .max(100, "Ty le huong BHYT khong duoc vuot qua 100")
+    .optional(),
   insuranceRouteType: z.enum(insuranceRouteTypes).nullable().optional(),
-  insuranceNote: z.string().trim().max(500, "Ghi chu BHYT khong duoc vuot qua 500 ky tu").nullable().optional(),
+  insuranceNote: z
+    .string()
+    .trim()
+    .max(500, "Ghi chu BHYT khong duoc vuot qua 500 ky tu")
+    .nullable()
+    .optional(),
 };
 
 export const createInvoiceSchema = z.object({
@@ -24,9 +53,16 @@ export const payInvoiceSchema = z.object({
     .string("Phuong thuc thanh toan la bat buoc")
     .trim()
     .min(1, "Phuong thuc thanh toan la bat buoc")
-    .refine((value) => manualPaymentMethods.includes(value as typeof manualPaymentMethods[number]), {
-      message: "Phuong thuc thanh toan thu cong khong hop le. Gia tri hop le: CASH, CARD, BANK_TRANSFER, OTHER. MOMO/VNPAY phai di qua API /api/payments.",
-    }),
+    .refine(
+      (value) =>
+        manualPaymentMethods.includes(
+          value as (typeof manualPaymentMethods)[number],
+        ),
+      {
+        message:
+          "Phuong thuc thanh toan thu cong khong hop le. Gia tri hop le: CASH, CARD, BANK_TRANSFER, OTHER. MOMO/VNPAY phai di qua API /api/payments.",
+      },
+    ),
 });
 
 export const refundInvoiceSchema = z.object({

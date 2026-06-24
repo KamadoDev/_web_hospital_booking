@@ -87,7 +87,8 @@ export const listMediaAssetsHandler = async (
   try {
     const result = await MediaAssetService.list({
       isUsed: parseBooleanQuery(req.query.isUsed),
-      folder: typeof req.query.folder === "string" ? req.query.folder : undefined,
+      folder:
+        typeof req.query.folder === "string" ? req.query.folder : undefined,
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),
     });

@@ -62,13 +62,16 @@ const doctorScheduleSelect = {
 } satisfies Prisma.DoctorScheduleSelect;
 
 class DoctorScheduleService {
-  async list(query: {
-    doctorId?: string;
-    dayOfWeek?: number;
-    isActive?: boolean;
-    page?: number;
-    limit?: number;
-  }, actor: Actor) {
+  async list(
+    query: {
+      doctorId?: string;
+      dayOfWeek?: number;
+      isActive?: boolean;
+      page?: number;
+      limit?: number;
+    },
+    actor: Actor,
+  ) {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;

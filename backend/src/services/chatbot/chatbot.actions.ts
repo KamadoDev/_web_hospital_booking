@@ -34,7 +34,9 @@ const defaultActionLabels: Record<SuggestedActionType, string> = {
   EMERGENCY_ADVICE: "Hướng dẫn khẩn cấp",
 };
 
-export const buildStartBookingAction = (draft: ChatBookingDraft): SuggestedAction | null => {
+export const buildStartBookingAction = (
+  draft: ChatBookingDraft,
+): SuggestedAction | null => {
   if (!draft.departmentId || !draft.doctorId || !draft.timeSlotId) return null;
 
   return {
@@ -69,8 +71,12 @@ class ChatbotActionService {
       if (await this.isPayloadValid(action.type, payload)) {
         const actionKey = [
           action.type,
-          getString(payload, "departmentId") || getString(payload, "departmentSlug") || "",
-          getString(payload, "packageId") || getString(payload, "packageSlug") || "",
+          getString(payload, "departmentId") ||
+            getString(payload, "departmentSlug") ||
+            "",
+          getString(payload, "packageId") ||
+            getString(payload, "packageSlug") ||
+            "",
           getString(payload, "doctorId") || "",
           getString(payload, "timeSlotId") || "",
         ].join(":");
@@ -89,14 +95,21 @@ class ChatbotActionService {
     const bookingAction = buildStartBookingAction(draft);
 
     const prioritizedActions =
-      bookingAction && !validActions.some((action) => action.type === "START_BOOKING")
+      bookingAction &&
+      !validActions.some((action) => action.type === "START_BOOKING")
         ? [bookingAction, ...validActions]
         : validActions;
 
-    return prioritizedActions.slice(0, Math.min(Math.max(maxSuggestedActions, 1), 6));
+    return prioritizedActions.slice(
+      0,
+      Math.min(Math.max(maxSuggestedActions, 1), 6),
+    );
   }
 
-  private async isPayloadValid(type: SuggestedActionType, payload: Record<string, unknown>) {
+  private async isPayloadValid(
+    type: SuggestedActionType,
+    payload: Record<string, unknown>,
+  ) {
     if (type === "VIEW_DEPARTMENT") {
       const departmentId = getString(payload, "departmentId");
       const departmentSlug = getString(payload, "departmentSlug");

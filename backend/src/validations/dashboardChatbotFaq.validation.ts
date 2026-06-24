@@ -13,8 +13,16 @@ export const createDashboardChatbotFAQSchema = z.object({
 });
 
 export const updateDashboardChatbotFAQSchema = z.object({
-  question: z.string().trim().min(3, "Cau hoi phai co it nhat 3 ky tu").optional(),
-  answer: z.string().trim().min(3, "Cau tra loi phai co it nhat 3 ky tu").optional(),
+  question: z
+    .string()
+    .trim()
+    .min(3, "Cau hoi phai co it nhat 3 ky tu")
+    .optional(),
+  answer: z
+    .string()
+    .trim()
+    .min(3, "Cau tra loi phai co it nhat 3 ky tu")
+    .optional(),
   keywords: keywordsSchema.optional(),
   isActive: z.boolean().optional(),
 });

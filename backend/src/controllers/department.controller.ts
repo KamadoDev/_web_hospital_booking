@@ -32,7 +32,8 @@ export const listDepartmentsHandler = async (
 ) => {
   try {
     const result = await DepartmentService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),

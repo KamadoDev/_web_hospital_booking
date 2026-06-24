@@ -19,7 +19,8 @@ export const listPublicDoctorsHandler = async (
 ) => {
   try {
     const doctors = await PublicDoctorService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
       departmentSlug:
         typeof req.query.departmentSlug === "string"
           ? req.query.departmentSlug
@@ -45,7 +46,9 @@ export const getPublicDoctorHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const doctor = await PublicDoctorService.getById(getParam(req.params.id, "id"));
+    const doctor = await PublicDoctorService.getById(
+      getParam(req.params.id, "id"),
+    );
 
     return res.json({
       success: true,

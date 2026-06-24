@@ -1,6 +1,9 @@
 import { prisma } from "../../config/prisma.js";
 import type { Prisma } from "../../../generated/prisma/client.js";
-import { isSlotStartInPastVietnamTime, parseDateOnly } from "../../utils/time.js";
+import {
+  isSlotStartInPastVietnamTime,
+  parseDateOnly,
+} from "../../utils/time.js";
 import type { ChatBookingDraft, ChatIntent } from "./chatbot.types.js";
 
 export type ChatbotContext = {
@@ -50,25 +53,35 @@ const toDateOnly = (date: Date) => {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
 
   return `${values.year}-${values.month}-${values.day}`;
 };
 
 class ChatbotContextService {
-  async load(intent: ChatIntent, draft: ChatBookingDraft): Promise<ChatbotContext> {
-    const shouldLoadPackages = [
-      "SYMPTOM_TRIAGE",
-      "DEPARTMENT_LIST",
-      "DEPARTMENT_DETAIL",
-      "PACKAGE_LIST",
-      "PACKAGE_DETAIL",
-      "BOOKING_START",
-      "BOOKING_FORM_HELP",
-    ].includes(intent) || Boolean(draft.departmentId || draft.packageId);
+  async load(
+    intent: ChatIntent,
+    draft: ChatBookingDraft,
+  ): Promise<ChatbotContext> {
+    const shouldLoadPackages =
+      [
+        "SYMPTOM_TRIAGE",
+        "DEPARTMENT_LIST",
+        "DEPARTMENT_DETAIL",
+        "PACKAGE_LIST",
+        "PACKAGE_DETAIL",
+        "BOOKING_START",
+        "BOOKING_FORM_HELP",
+      ].includes(intent) || Boolean(draft.departmentId || draft.packageId);
     const shouldLoadDoctors =
-      ["DOCTOR_LIST", "AVAILABLE_SLOT_LOOKUP", "BOOKING_START", "BOOKING_FORM_HELP"].includes(intent) ||
-      Boolean(draft.departmentId || draft.doctorId);
+      [
+        "DOCTOR_LIST",
+        "AVAILABLE_SLOT_LOOKUP",
+        "BOOKING_START",
+        "BOOKING_FORM_HELP",
+      ].includes(intent) || Boolean(draft.departmentId || draft.doctorId);
     const shouldLoadFaqs = [
       "UNKNOWN",
       "GENERAL_HOSPITAL_INFO",
@@ -76,15 +89,19 @@ class ChatbotContextService {
       "APPOINTMENT_LOOKUP_GUIDE",
     ].includes(intent);
 
-    const [departments, packages, doctors, availableSlots, faqs] = await Promise.all([
-      this.getDepartments(),
-      shouldLoadPackages ? this.getPackages(draft) : Promise.resolve([]),
-      shouldLoadDoctors ? this.getDoctors(draft) : Promise.resolve([]),
-      intent === "AVAILABLE_SLOT_LOOKUP" || intent === "DOCTOR_LIST" || draft.doctorId || draft.departmentId
-        ? this.getAvailableSlots(draft)
-        : Promise.resolve([]),
-      shouldLoadFaqs ? this.getFaqs() : Promise.resolve([]),
-    ]);
+    const [departments, packages, doctors, availableSlots, faqs] =
+      await Promise.all([
+        this.getDepartments(),
+        shouldLoadPackages ? this.getPackages(draft) : Promise.resolve([]),
+        shouldLoadDoctors ? this.getDoctors(draft) : Promise.resolve([]),
+        intent === "AVAILABLE_SLOT_LOOKUP" ||
+        intent === "DOCTOR_LIST" ||
+        draft.doctorId ||
+        draft.departmentId
+          ? this.getAvailableSlots(draft)
+          : Promise.resolve([]),
+        shouldLoadFaqs ? this.getFaqs() : Promise.resolve([]),
+      ]);
 
     return {
       departments,
@@ -101,8 +118,9 @@ class ChatbotContextService {
     if (context.departments.length) {
       sections.push(
         "DEPARTMENTS:",
-        ...context.departments.map((department) =>
-          `- ${department.id} | ${department.name} | slug=${department.slug || ""} | ${department.description || ""}`,
+        ...context.departments.map(
+          (department) =>
+            `- ${department.id} | ${department.name} | slug=${department.slug || ""} | ${department.description || ""}`,
         ),
       );
     }
@@ -110,8 +128,9 @@ class ChatbotContextService {
     if (context.packages.length) {
       sections.push(
         "PACKAGES:",
-        ...context.packages.map((item) =>
-          `- ${item.id} | ${item.name} | departmentId=${item.departmentId || ""} | department=${item.departmentName || ""} | price=${item.finalPrice} | ${item.summary || ""}`,
+        ...context.packages.map(
+          (item) =>
+            `- ${item.id} | ${item.name} | departmentId=${item.departmentId || ""} | department=${item.departmentName || ""} | price=${item.finalPrice} | ${item.summary || ""}`,
         ),
       );
     }
@@ -119,8 +138,9 @@ class ChatbotContextService {
     if (context.doctors.length) {
       sections.push(
         "DOCTORS:",
-        ...context.doctors.map((doctor) =>
-          `- ${doctor.id} | ${doctor.title || ""} ${doctor.fullName} | specialization=${doctor.specialization || ""} | departmentId=${doctor.departmentId} | department=${doctor.departmentName} | fee=${doctor.consultationFee}`,
+        ...context.doctors.map(
+          (doctor) =>
+            `- ${doctor.id} | ${doctor.title || ""} ${doctor.fullName} | specialization=${doctor.specialization || ""} | departmentId=${doctor.departmentId} | department=${doctor.departmentName} | fee=${doctor.consultationFee}`,
         ),
       );
     }
@@ -128,8 +148,9 @@ class ChatbotContextService {
     if (context.availableSlots.length) {
       sections.push(
         "AVAILABLE_SLOTS:",
-        ...context.availableSlots.map((slot) =>
-          `- ${slot.id} | doctorId=${slot.doctorId} | date=${slot.date} | ${slot.startTime}-${slot.endTime}`,
+        ...context.availableSlots.map(
+          (slot) =>
+            `- ${slot.id} | doctorId=${slot.doctorId} | date=${slot.date} | ${slot.startTime}-${slot.endTime}`,
         ),
       );
     }
@@ -137,8 +158,9 @@ class ChatbotContextService {
     if (context.faqs.length) {
       sections.push(
         "FAQ_KNOWLEDGE:",
-        ...context.faqs.map((faq) =>
-          `- ${faq.id} | Q=${faq.question} | A=${faq.answer} | keywords=${faq.keywords.join(",")}`,
+        ...context.faqs.map(
+          (faq) =>
+            `- ${faq.id} | Q=${faq.question} | A=${faq.answer} | keywords=${faq.keywords.join(",")}`,
         ),
       );
     }
@@ -202,7 +224,9 @@ class ChatbotContextService {
       departmentName: item.department?.name || null,
       summary: item.summary,
       finalPrice:
-        (item.items.filter((packageItem) => packageItem.included).reduce((total, packageItem) => total + packageItem.price, 0) ||
+        (item.items
+          .filter((packageItem) => packageItem.included)
+          .reduce((total, packageItem) => total + packageItem.price, 0) ||
           item.basePrice) + item.serviceFee,
     }));
   }
@@ -255,19 +279,20 @@ class ChatbotContextService {
 
   private async getAvailableSlots(draft: ChatBookingDraft) {
     const today = toDateOnly(new Date());
-    const requestedDate = draft.date && draft.date >= today ? draft.date : undefined;
+    const requestedDate =
+      draft.date && draft.date >= today ? draft.date : undefined;
     const baseWhere: Prisma.DoctorTimeSlotWhereInput = {
-        ...(draft.doctorId ? { doctorId: draft.doctorId } : {}),
-        status: "AVAILABLE",
-        isActive: true,
-        doctor: {
-          ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
-          isAvailable: true,
-          user: {
-            isActive: true,
-          },
+      ...(draft.doctorId ? { doctorId: draft.doctorId } : {}),
+      status: "AVAILABLE",
+      isActive: true,
+      doctor: {
+        ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
+        isAvailable: true,
+        user: {
+          isActive: true,
         },
-      };
+      },
+    };
 
     const select = {
       id: true,
@@ -292,20 +317,23 @@ class ChatbotContextService {
       ? await findSlots(parseDateOnly(requestedDate))
       : await findSlots({ gte: parseDateOnly(today) });
 
-    const usableSlots = slots.filter((slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime));
-    const fallbackSlots = requestedDate && !usableSlots.length
-      ? (await findSlots({ gte: parseDateOnly(requestedDate) }))
-          .filter((slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime))
-      : usableSlots;
+    const usableSlots = slots.filter(
+      (slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime),
+    );
+    const fallbackSlots =
+      requestedDate && !usableSlots.length
+        ? (await findSlots({ gte: parseDateOnly(requestedDate) })).filter(
+            (slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime),
+          )
+        : usableSlots;
 
-    return fallbackSlots
-      .map((slot) => ({
-        id: slot.id,
-        doctorId: slot.doctorId,
-        date: toDateOnly(slot.date),
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      }));
+    return fallbackSlots.map((slot) => ({
+      id: slot.id,
+      doctorId: slot.doctorId,
+      date: toDateOnly(slot.date),
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    }));
   }
 
   private async getFaqs() {

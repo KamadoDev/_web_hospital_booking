@@ -231,8 +231,15 @@ class DoctorService {
   async delete(id: string) {
     const doctor = await this.getById(id);
 
-    if (doctor._count.appointments > 0 || doctor._count.schedules > 0 || doctor._count.timeSlots > 0) {
-      throw new AppError("Không thể xóa bác sĩ đã có lịch hẹn hoặc lịch làm việc", 409);
+    if (
+      doctor._count.appointments > 0 ||
+      doctor._count.schedules > 0 ||
+      doctor._count.timeSlots > 0
+    ) {
+      throw new AppError(
+        "Không thể xóa bác sĩ đã có lịch hẹn hoặc lịch làm việc",
+        409,
+      );
     }
 
     await prisma.doctorProfile.delete({

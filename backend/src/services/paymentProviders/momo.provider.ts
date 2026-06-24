@@ -24,7 +24,8 @@ const requiredEnv = (key: string) => {
   return value;
 };
 
-const optionalEnv = (key: string, fallback: string) => process.env[key] || fallback;
+const optionalEnv = (key: string, fallback: string) =>
+  process.env[key] || fallback;
 
 const signMomo = (rawSignature: string, secretKey: string) =>
   crypto.createHmac("sha256", secretKey).update(rawSignature).digest("hex");

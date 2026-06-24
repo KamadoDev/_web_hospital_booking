@@ -2,6 +2,10 @@ import { NextFunction, Request, Response } from "express";
 import type { Role } from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { verifyToken } from "../utils/jwt.js";
+import {
+  cacheDashboardAuthSnapshot,
+  getCachedDashboardAuthSnapshot,
+} from "../services/dashboardAuthCache.service.js";
 
 const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
 
@@ -22,16 +26,32 @@ export const authDashboard = async (
 
     const payload = verifyToken(token);
 
-    const user = await prisma.user.findUnique({
-      where: {
-        id: payload.userId,
-      },
-      select: {
-        id: true,
-        role: true,
-        isActive: true,
-      },
-    });
+    let user = getCachedDashboardAuthSnapshot(payload.userId);
+
+    if (!user) {
+      const userLookupStartedAt = performance.now();
+      user = await prisma.user.findUnique({
+        where: {
+          id: payload.userId,
+        },
+        select: {
+          id: true,
+          role: true,
+          isActive: true,
+        },
+      });
+      const userLookupMs = performance.now() - userLookupStartedAt;
+
+      if (userLookupMs >= 100) {
+        console.warn(
+          `[SLOW_AUTH_LOOKUP] user=${payload.userId} ${userLookupMs.toFixed(1)}ms`,
+        );
+      }
+
+      if (user) {
+        cacheDashboardAuthSnapshot(user);
+      }
+    }
 
     if (!user || !user.isActive || !DASHBOARD_ROLES.includes(user.role)) {
       return res.status(401).json({

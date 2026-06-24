@@ -10,7 +10,8 @@ import type { OtpPurpose, Role } from "../../generated/prisma/enums.js";
 const DASHBOARD_ROLES: Role[] = ["ADMIN", "DOCTOR", "STAFF"];
 const MAX_CHALLENGE_ATTEMPTS = 5;
 const CHALLENGE_EXPIRES_SECONDS = 5 * 60;
-const ACCESS_TOKEN_EXPIRES_IN = (process.env.DASHBOARD_ACCESS_TOKEN_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
+const ACCESS_TOKEN_EXPIRES_IN = (process.env
+  .DASHBOARD_ACCESS_TOKEN_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
 const readRefreshTokenDays = () => {
   const value = process.env.DASHBOARD_REFRESH_TOKEN_DAYS || "7";
   const match = value.match(/^(\d+)\s*d?$/i);
@@ -20,13 +21,19 @@ const readRefreshTokenDays = () => {
 
 const REFRESH_TOKEN_DAYS = readRefreshTokenDays();
 
-const dashboardPurposeByRole: Record<Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">, OtpPurpose> = {
+const dashboardPurposeByRole: Record<
+  Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">,
+  OtpPurpose
+> = {
   ADMIN: "ADMIN_LOGIN",
   DOCTOR: "DOCTOR_LOGIN",
   STAFF: "STAFF_LOGIN",
 };
 
-const redirectPathByRole: Record<Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">, string> = {
+const redirectPathByRole: Record<
+  Extract<Role, "ADMIN" | "DOCTOR" | "STAFF">,
+  string
+> = {
   ADMIN: "/admin/dashboard",
   DOCTOR: "/doctor/dashboard",
   STAFF: "/staff/dashboard",
@@ -141,7 +148,11 @@ class DashboardAuthService {
     };
   }
 
-  async verifyOtp(challengeId: string, otp: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
+  async verifyOtp(
+    challengeId: string,
+    otp: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
     const challenge = await prisma.dashboardLoginChallenge.findUnique({
       where: {
         id: challengeId,
@@ -191,16 +202,11 @@ class DashboardAuthService {
     }
 
     try {
-      await AuthOtpService.verifyOtp(
-        otpTarget,
-        otp,
-        challenge.purpose,
-        {
-          channel: otpChannel,
-          challengeId: challenge.id,
-          ipAddress: challenge.ipAddress || undefined,
-        },
-      );
+      await AuthOtpService.verifyOtp(otpTarget, otp, challenge.purpose, {
+        channel: otpChannel,
+        challengeId: challenge.id,
+        ipAddress: challenge.ipAddress || undefined,
+      });
     } catch (error) {
       await prisma.dashboardLoginChallenge.update({
         where: {
@@ -249,7 +255,10 @@ class DashboardAuthService {
     };
   }
 
-  async refreshSession(refreshToken: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
+  async refreshSession(
+    refreshToken: string,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
     const session = await prisma.dashboardSession.findUnique({
       where: {
         refreshTokenHash: hashRefreshToken(refreshToken),

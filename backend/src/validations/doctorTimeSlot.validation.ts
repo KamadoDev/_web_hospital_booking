@@ -2,7 +2,9 @@ import { z } from "zod";
 
 export const generateDoctorTimeSlotsSchema = z.object({
   doctorId: z.string().uuid("Bac si khong hop le"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngay phai co dinh dang YYYY-MM-DD"),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngay phai co dinh dang YYYY-MM-DD"),
 });
 
 export const updateDoctorTimeSlotStatusSchema = z.object({

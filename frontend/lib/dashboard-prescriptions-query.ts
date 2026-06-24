@@ -19,7 +19,9 @@ export type DashboardPrescriptionDoctorFilters = {
   limit?: number;
 };
 
-export const fetchDashboardPrescriptions = (filters: DashboardPrescriptionFilters) =>
+export const fetchDashboardPrescriptions = (
+  filters: DashboardPrescriptionFilters,
+) =>
   apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", {
     query: filters,
   });
@@ -27,12 +29,16 @@ export const fetchDashboardPrescriptions = (filters: DashboardPrescriptionFilter
 export const fetchDashboardPrescription = (id: string) =>
   apiRequest<Prescription>(`/dashboard/prescriptions/${id}`);
 
-export const fetchDashboardPrescriptionDoctors = (filters: DashboardPrescriptionDoctorFilters) =>
+export const fetchDashboardPrescriptionDoctors = (
+  filters: DashboardPrescriptionDoctorFilters,
+) =>
   apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
     query: filters,
   });
 
-export function useDashboardPrescriptions(filters: DashboardPrescriptionFilters) {
+export function useDashboardPrescriptions(
+  filters: DashboardPrescriptionFilters,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardPrescriptionsList(filters),
     queryFn: () => fetchDashboardPrescriptions(filters),
@@ -47,7 +53,10 @@ export function useDashboardPrescription(id?: string) {
   });
 }
 
-export function useDashboardPrescriptionDoctors(filters: DashboardPrescriptionDoctorFilters, enabled: boolean) {
+export function useDashboardPrescriptionDoctors(
+  filters: DashboardPrescriptionDoctorFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardPrescriptionDoctors(filters),

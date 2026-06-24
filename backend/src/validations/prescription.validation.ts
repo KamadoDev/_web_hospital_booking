@@ -5,7 +5,12 @@ const prescriptionItemSchema = z.object({
   dosage: z.string().trim().nullable().optional(),
   frequency: z.string().trim().nullable().optional(),
   duration: z.string().trim().nullable().optional(),
-  quantity: z.number().int().positive("So luong phai lon hon 0").nullable().optional(),
+  quantity: z
+    .number()
+    .int()
+    .positive("So luong phai lon hon 0")
+    .nullable()
+    .optional(),
   unit: z.string().trim().nullable().optional(),
   instruction: z.string().trim().nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),

@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import PublicSearchService from "../services/search/search.service.js";
-import { SEARCH_DOCUMENT_TYPES, type SearchDocumentType } from "../services/search/search.types.js";
+import {
+  SEARCH_DOCUMENT_TYPES,
+  type SearchDocumentType,
+} from "../services/search/search.types.js";
 import { AppError } from "../utils/appError.js";
 
 const parseLimit = (value: unknown) => {

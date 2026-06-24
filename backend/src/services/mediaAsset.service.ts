@@ -45,10 +45,7 @@ const mediaAssetSelect = {
 const isUploadFolder = (folder: string): folder is UploadFolder =>
   Object.keys(folderMap).includes(folder);
 
-const uploadBufferToCloudinary = (
-  file: Express.Multer.File,
-  folder: string,
-) =>
+const uploadBufferToCloudinary = (file: Express.Multer.File, folder: string) =>
   new Promise<UploadApiResponse>((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -112,7 +109,11 @@ class MediaAssetService {
     };
   }
 
-  async uploadImages(files: Express.Multer.File[], folder: string, uploadedById?: string) {
+  async uploadImages(
+    files: Express.Multer.File[],
+    folder: string,
+    uploadedById?: string,
+  ) {
     if (!files.length) {
       throw new AppError("Chưa chọn file upload", 400);
     }
@@ -147,7 +148,11 @@ class MediaAssetService {
     return uploadedItems;
   }
 
-  async attachAsset(assetId: string, ownerType: MediaOwnerType, ownerId: string) {
+  async attachAsset(
+    assetId: string,
+    ownerType: MediaOwnerType,
+    ownerId: string,
+  ) {
     const asset = await prisma.mediaAsset.findUnique({
       where: {
         id: assetId,
@@ -159,7 +164,10 @@ class MediaAssetService {
       throw new AppError("Không tìm thấy ảnh đã upload", 404);
     }
 
-    if (asset.isUsed && (asset.ownerType !== ownerType || asset.ownerId !== ownerId)) {
+    if (
+      asset.isUsed &&
+      (asset.ownerType !== ownerType || asset.ownerId !== ownerId)
+    ) {
       throw new AppError("Ảnh này đã được sử dụng", 409);
     }
 
@@ -220,7 +228,11 @@ class MediaAssetService {
     });
   }
 
-  async detachOwnerAssetByUrl(ownerType: MediaOwnerType, ownerId: string, url?: string | null) {
+  async detachOwnerAssetByUrl(
+    ownerType: MediaOwnerType,
+    ownerId: string,
+    url?: string | null,
+  ) {
     if (!url) return { count: 0 };
 
     return prisma.mediaAsset.updateMany({

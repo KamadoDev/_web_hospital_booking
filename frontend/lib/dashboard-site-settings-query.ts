@@ -22,7 +22,9 @@ export type DashboardFAQFilters = {
 export const fetchDashboardSiteSettings = () =>
   apiRequest<SiteSettingsRecord>("/dashboard/site-settings");
 
-export const fetchDashboardBanners = async (filters: DashboardBannerFilters) => {
+export const fetchDashboardBanners = async (
+  filters: DashboardBannerFilters,
+) => {
   const result = await apiRequest<ListResponse<Banner>>("/dashboard/banners", {
     query: filters,
   });
@@ -46,7 +48,10 @@ export function useDashboardSiteSettings(enabled: boolean) {
   });
 }
 
-export function useDashboardBanners(filters: DashboardBannerFilters, enabled: boolean) {
+export function useDashboardBanners(
+  filters: DashboardBannerFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardBanners(filters),
     queryFn: () => fetchDashboardBanners(filters),
@@ -54,7 +59,10 @@ export function useDashboardBanners(filters: DashboardBannerFilters, enabled: bo
   });
 }
 
-export function useDashboardFAQs(filters: DashboardFAQFilters, enabled: boolean) {
+export function useDashboardFAQs(
+  filters: DashboardFAQFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardFAQs(filters),
     queryFn: () => fetchDashboardFAQs(filters),

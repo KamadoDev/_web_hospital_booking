@@ -112,10 +112,20 @@ const publicPackageSelect = {
 const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
 
-const getIncludedItemsTotal = (items?: { price: number; included: boolean }[]) =>
-  items?.filter((item) => item.included).reduce((total, item) => total + item.price, 0) || 0;
+const getIncludedItemsTotal = (
+  items?: { price: number; included: boolean }[],
+) =>
+  items
+    ?.filter((item) => item.included)
+    .reduce((total, item) => total + item.price, 0) || 0;
 
-const withFinalPrice = <T extends { basePrice: number; serviceFee: number; items?: { price: number; included: boolean }[] }>(
+const withFinalPrice = <
+  T extends {
+    basePrice: number;
+    serviceFee: number;
+    items?: { price: number; included: boolean }[];
+  },
+>(
   item: T,
 ) => {
   const includedItemsTotal = getIncludedItemsTotal(item.items);
@@ -308,7 +318,11 @@ class PackageService {
     return item;
   }
 
-  async updateItem(packageId: string, itemId: string, input: Partial<PackageItemInput>) {
+  async updateItem(
+    packageId: string,
+    itemId: string,
+    input: Partial<PackageItemInput>,
+  ) {
     await this.getById(packageId);
     await this.getItem(packageId, itemId);
 

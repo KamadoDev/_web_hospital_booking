@@ -1,4 +1,8 @@
-import type { ChatBookingDraft, ChatbotResultGroup, ChatbotSuggestedAction } from "@/lib/types";
+import type {
+  ChatBookingDraft,
+  ChatbotResultGroup,
+  ChatbotSuggestedAction,
+} from "@/lib/types";
 
 export type ChatMessageRole = "user" | "assistant" | "system" | "alert";
 
@@ -41,15 +45,21 @@ const stripActionPrefix = (label: string) =>
   label.replace(/^(Xem|Chọn|Đổi|Mở|Tra cứu|Liên hệ)\s+/i, "").trim();
 
 export const getActionLoadingText = (action?: ChatbotSuggestedAction) =>
-  action ? actionLoadingText[action.type] || "Đang xử lý lựa chọn..." : "Chatbot đang trả lời...";
+  action
+    ? actionLoadingText[action.type] || "Đang xử lý lựa chọn..."
+    : "Chatbot đang trả lời...";
 
 export const getActionInputPlaceholder = (action?: ChatbotSuggestedAction) => {
   if (action?.type === "CHANGE_DATE") return "Nhập ngày khám mong muốn...";
-  if (action?.type === "CHANGE_DOCTOR") return "Nhập tên bác sĩ hoặc chuyên khoa...";
+  if (action?.type === "CHANGE_DOCTOR")
+    return "Nhập tên bác sĩ hoặc chuyên khoa...";
   return "Nhập câu hỏi...";
 };
 
-export const getFlowStatusText = (state?: string | null, nextStep?: string | null) => {
+export const getFlowStatusText = (
+  state?: string | null,
+  nextStep?: string | null,
+) => {
   const key = state || nextStep || "";
   return statusText[key] || "";
 };
@@ -87,10 +97,14 @@ export const getActionEventMessage = (action: ChatbotSuggestedAction) => {
   }
 };
 
-export const getActionEventRole = (action: ChatbotSuggestedAction): ChatMessageRole =>
-  action.type === "EMERGENCY_ADVICE" ? "alert" : "system";
+export const getActionEventRole = (
+  action: ChatbotSuggestedAction,
+): ChatMessageRole => (action.type === "EMERGENCY_ADVICE" ? "alert" : "system");
 
-export const getActionRenderKey = (action: ChatbotSuggestedAction, index: number) => {
+export const getActionRenderKey = (
+  action: ChatbotSuggestedAction,
+  index: number,
+) => {
   const payload = action.payload || {};
   const identity = [
     typeof payload.departmentId === "string" ? payload.departmentId : "",
@@ -109,11 +123,15 @@ export const buildBookingHref = (
   action?: ChatbotSuggestedAction,
   draft?: ChatBookingDraft,
 ) => {
-  const prefill = action?.payload?.prefill as Partial<ChatBookingDraft> | undefined;
+  const prefill = action?.payload?.prefill as
+    | Partial<ChatBookingDraft>
+    | undefined;
   const source = { ...(draft || {}), ...(prefill || {}) };
   const params = new URLSearchParams();
 
-  (["departmentId", "packageId", "doctorId", "date", "timeSlotId"] as const).forEach((key) => {
+  (
+    ["departmentId", "packageId", "doctorId", "date", "timeSlotId"] as const
+  ).forEach((key) => {
     const value = source[key];
     if (typeof value === "string" && value.trim()) params.set(key, value);
   });

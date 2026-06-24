@@ -12,15 +12,23 @@ export type DashboardConsultationRequestFilters = {
   limit?: number;
 };
 
-export const fetchDashboardConsultationRequests = (filters: DashboardConsultationRequestFilters) =>
-  apiRequest<ListResult<ConsultationRequest>>("/dashboard/consultation-requests", {
-    query: filters,
-  });
+export const fetchDashboardConsultationRequests = (
+  filters: DashboardConsultationRequestFilters,
+) =>
+  apiRequest<ListResult<ConsultationRequest>>(
+    "/dashboard/consultation-requests",
+    {
+      query: filters,
+    },
+  );
 
 export const fetchDashboardConsultationRequest = (id: string) =>
   apiRequest<ConsultationRequest>(`/dashboard/consultation-requests/${id}`);
 
-export function useDashboardConsultationRequests(filters: DashboardConsultationRequestFilters, enabled = true) {
+export function useDashboardConsultationRequests(
+  filters: DashboardConsultationRequestFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardConsultationRequestsList(filters),
     queryFn: () => fetchDashboardConsultationRequests(filters),

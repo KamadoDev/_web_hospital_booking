@@ -20,5 +20,7 @@ export type CreateProviderPaymentResult = {
 
 export type PaymentProviderAdapter = {
   provider: PaymentProvider;
-  createPayment(input: CreateProviderPaymentInput): Promise<CreateProviderPaymentResult>;
+  createPayment(
+    input: CreateProviderPaymentInput,
+  ): Promise<CreateProviderPaymentResult>;
 };

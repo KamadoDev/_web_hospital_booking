@@ -131,7 +131,11 @@ class DepartmentService {
     });
 
     if (imageAsset) {
-      await MediaAssetService.attachAsset(imageAsset.id, "DEPARTMENT", department.id);
+      await MediaAssetService.attachAsset(
+        imageAsset.id,
+        "DEPARTMENT",
+        department.id,
+      );
     }
 
     await SearchIndexer.syncDepartment(department.id);
@@ -172,7 +176,11 @@ class DepartmentService {
       input.imageAssetId === null
         ? null
         : input.imageAssetId
-          ? await MediaAssetService.attachAsset(input.imageAssetId, "DEPARTMENT", id)
+          ? await MediaAssetService.attachAsset(
+              input.imageAssetId,
+              "DEPARTMENT",
+              id,
+            )
           : undefined;
 
     const department = await prisma.department.update({
@@ -222,7 +230,10 @@ class DepartmentService {
     const department = await this.getById(id);
 
     if (department._count.doctors > 0 || department._count.appointments > 0) {
-      throw new AppError("Không thể xóa chuyên khoa đã có bác sĩ hoặc lịch hẹn", 409);
+      throw new AppError(
+        "Không thể xóa chuyên khoa đã có bác sĩ hoặc lịch hẹn",
+        409,
+      );
     }
 
     await prisma.department.delete({

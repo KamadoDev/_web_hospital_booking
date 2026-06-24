@@ -1,4 +1,8 @@
-import { elasticClient, elasticsearchIndex, isElasticsearchEnabled } from "../../config/elasticsearch.js";
+import {
+  elasticClient,
+  elasticsearchIndex,
+  isElasticsearchEnabled,
+} from "../../config/elasticsearch.js";
 import { prisma } from "../../config/prisma.js";
 import type {
   PublicSearchQuery,
@@ -9,13 +13,11 @@ import type {
 import { SEARCH_DOCUMENT_TYPES } from "./search.types.js";
 import { resolveSupportSearchUrl } from "./search.urls.js";
 
-const normalizeLimit = (limit?: number) => Math.min(Math.max(limit || 12, 1), 30);
+const normalizeLimit = (limit?: number) =>
+  Math.min(Math.max(limit || 12, 1), 30);
 
 const normalizeQuery = (value?: string) =>
-  (value || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120);
+  (value || "").replace(/\s+/g, " ").trim().slice(0, 120);
 
 const normalizeType = (type?: string): SearchDocumentType | "all" =>
   SEARCH_DOCUMENT_TYPES.includes(type as SearchDocumentType)
@@ -63,7 +65,10 @@ class PublicSearchService {
           source: "elasticsearch" as const,
         };
       } catch (error) {
-        console.warn("[ELASTICSEARCH] Search failed, falling back to PostgreSQL", error);
+        console.warn(
+          "[ELASTICSEARCH] Search failed, falling back to PostgreSQL",
+          error,
+        );
       }
     }
 
@@ -124,7 +129,11 @@ class PublicSearchService {
     });
 
     return response.hits.hits
-      .map((hit) => hit._source ? toResult(hit._source, "elasticsearch", hit._score ?? undefined) : null)
+      .map((hit) =>
+        hit._source
+          ? toResult(hit._source, "elasticsearch", hit._score ?? undefined)
+          : null,
+      )
       .filter(Boolean) as PublicSearchResult[];
   }
 
@@ -186,16 +195,18 @@ class PublicSearchService {
       orderBy: { name: "asc" },
     });
 
-    return items.map((item): PublicSearchResult => ({
-      id: item.id,
-      type: "department",
-      title: item.name,
-      description: item.description,
-      url: item.slug ? `/departments/${item.slug}` : "/departments",
-      image: item.image,
-      score: includesText(item.name, search) ? 30 : 15,
-      source: "postgres",
-    }));
+    return items.map(
+      (item): PublicSearchResult => ({
+        id: item.id,
+        type: "department",
+        title: item.name,
+        description: item.description,
+        url: item.slug ? `/departments/${item.slug}` : "/departments",
+        image: item.image,
+        score: includesText(item.name, search) ? 30 : 15,
+        source: "postgres",
+      }),
+    );
   }
 
   private async searchDoctors(search: string, take: number) {
@@ -225,18 +236,20 @@ class PublicSearchService {
       orderBy: { user: { fullName: "asc" } },
     });
 
-    return items.map((item): PublicSearchResult => ({
-      id: item.id,
-      type: "doctor",
-      title: [item.title, item.user.fullName].filter(Boolean).join(" "),
-      description: item.bio || item.specialization,
-      url: `/doctors/${item.id}`,
-      image: item.user.avatar,
-      departmentName: item.department.name,
-      price: item.consultationFee,
-      score: includesText(item.user.fullName, search) ? 28 : 14,
-      source: "postgres",
-    }));
+    return items.map(
+      (item): PublicSearchResult => ({
+        id: item.id,
+        type: "doctor",
+        title: [item.title, item.user.fullName].filter(Boolean).join(" "),
+        description: item.bio || item.specialization,
+        url: `/doctors/${item.id}`,
+        image: item.user.avatar,
+        departmentName: item.department.name,
+        price: item.consultationFee,
+        score: includesText(item.user.fullName, search) ? 28 : 14,
+        source: "postgres",
+      }),
+    );
   }
 
   private async searchPackages(search: string, take: number) {
@@ -250,7 +263,11 @@ class PublicSearchService {
           { summary: { contains: search, mode: "insensitive" } },
           { description: { contains: search, mode: "insensitive" } },
           { department: { name: { contains: search, mode: "insensitive" } } },
-          { items: { some: { name: { contains: search, mode: "insensitive" } } } },
+          {
+            items: {
+              some: { name: { contains: search, mode: "insensitive" } },
+            },
+          },
         ],
       },
       select: {
@@ -273,7 +290,8 @@ class PublicSearchService {
       const includedItemsTotal = item.items
         .filter((packageItem) => packageItem.included)
         .reduce((total, packageItem) => total + packageItem.price, 0);
-      const finalPrice = (includedItemsTotal || item.basePrice) + item.serviceFee;
+      const finalPrice =
+        (includedItemsTotal || item.basePrice) + item.serviceFee;
 
       return {
         id: item.id,
@@ -283,7 +301,9 @@ class PublicSearchService {
         url: item.slug ? `/packages/${item.slug}` : "/packages",
         departmentName: item.department?.name,
         price: finalPrice,
-        score: (item.isPopular ? 5 : 0) + (includesText(item.name, search) ? 24 : 12),
+        score:
+          (item.isPopular ? 5 : 0) +
+          (includesText(item.name, search) ? 24 : 12),
         source: "postgres",
       };
     });
@@ -309,21 +329,23 @@ class PublicSearchService {
       orderBy: [{ order: "asc" }, { createdAt: "desc" }],
     });
 
-    return items.map((item): PublicSearchResult => ({
-      id: item.id,
-      type: "faq",
-      title: item.question,
-      description: item.answer,
-      url: item.category
-        ? `/faqs?category=${encodeURIComponent(item.category)}`
-        : resolveSupportSearchUrl({
-            title: item.question,
-            description: item.answer,
-            fallback: "/faqs",
-          }),
-      score: includesText(item.question, search) ? 20 : 10,
-      source: "postgres",
-    }));
+    return items.map(
+      (item): PublicSearchResult => ({
+        id: item.id,
+        type: "faq",
+        title: item.question,
+        description: item.answer,
+        url: item.category
+          ? `/faqs?category=${encodeURIComponent(item.category)}`
+          : resolveSupportSearchUrl({
+              title: item.question,
+              description: item.answer,
+              fallback: "/faqs",
+            }),
+        score: includesText(item.question, search) ? 20 : 10,
+        source: "postgres",
+      }),
+    );
   }
 
   private async searchChatbotFAQs(search: string, take: number) {
@@ -346,19 +368,21 @@ class PublicSearchService {
       orderBy: { updatedAt: "desc" },
     });
 
-    return items.map((item): PublicSearchResult => ({
-      id: item.id,
-      type: "chatbot_faq",
-      title: item.question,
-      description: item.answer,
-      url: resolveSupportSearchUrl({
+    return items.map(
+      (item): PublicSearchResult => ({
+        id: item.id,
+        type: "chatbot_faq",
         title: item.question,
         description: item.answer,
-        keywords: item.keywords,
+        url: resolveSupportSearchUrl({
+          title: item.question,
+          description: item.answer,
+          keywords: item.keywords,
+        }),
+        score: includesText(item.question, search) ? 18 : 8,
+        source: "postgres",
       }),
-      score: includesText(item.question, search) ? 18 : 8,
-      source: "postgres",
-    }));
+    );
   }
 }
 

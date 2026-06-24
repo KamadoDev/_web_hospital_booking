@@ -45,9 +45,15 @@ export const listDoctorTimeSlotsHandler = async (
   try {
     const result = await DoctorTimeSlotService.list(
       {
-        doctorId: typeof req.query.doctorId === "string" ? req.query.doctorId : undefined,
+        doctorId:
+          typeof req.query.doctorId === "string"
+            ? req.query.doctorId
+            : undefined,
         date: typeof req.query.date === "string" ? req.query.date : undefined,
-        status: typeof req.query.status === "string" ? (req.query.status as TimeSlotStatus) : undefined,
+        status:
+          typeof req.query.status === "string"
+            ? (req.query.status as TimeSlotStatus)
+            : undefined,
         isActive: parseBooleanQuery(req.query.isActive),
         page: parseNumberQuery(req.query.page),
         limit: parseNumberQuery(req.query.limit),
@@ -127,6 +133,7 @@ export const lockDoctorTimeSlotHandler = async (
     const slot = await DoctorTimeSlotService.lock(
       getParam(req.params.id),
       req.body.lockReason,
+      getActor(req),
     );
 
     return res.json({
@@ -145,7 +152,10 @@ export const unlockDoctorTimeSlotHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const slot = await DoctorTimeSlotService.unlock(getParam(req.params.id));
+    const slot = await DoctorTimeSlotService.unlock(
+      getParam(req.params.id),
+      getActor(req),
+    );
 
     return res.json({
       success: true,

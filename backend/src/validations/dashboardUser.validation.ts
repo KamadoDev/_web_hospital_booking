@@ -20,7 +20,12 @@ export const updateDashboardUserSchema = z.object({
   email: z.string().trim().email("Email khong hop le").nullable().optional(),
   phone: z.string().regex(phoneRegex, "So dien thoai khong hop le").optional(),
   role: dashboardRoleSchema.optional(),
-  avatar: z.string().trim().url("Avatar phai la URL hop le").nullable().optional(),
+  avatar: z
+    .string()
+    .trim()
+    .url("Avatar phai la URL hop le")
+    .nullable()
+    .optional(),
   avatarAssetId: z.string().uuid("Avatar khong hop le").nullable().optional(),
   isActive: z.boolean().optional(),
 });

@@ -23,16 +23,32 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listMedicalRecordsHandler);
-router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getMedicalRecordHandler);
+router.get(
+  "/",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  listMedicalRecordsHandler,
+);
+router.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  getMedicalRecordHandler,
+);
 router.patch(
   "/:id",
   requireRole("ADMIN", "STAFF", "DOCTOR"),
   validate(updateMedicalRecordSchema),
   updateMedicalRecordHandler,
 );
-router.patch("/:id/publish", requireRole("ADMIN", "STAFF", "DOCTOR"), publishMedicalRecordHandler);
-router.patch("/:id/archive", requireRole("ADMIN", "STAFF"), archiveMedicalRecordHandler);
+router.patch(
+  "/:id/publish",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  publishMedicalRecordHandler,
+);
+router.patch(
+  "/:id/archive",
+  requireRole("ADMIN", "STAFF"),
+  archiveMedicalRecordHandler,
+);
 router.post(
   "/:id/prescription",
   requireRole("ADMIN", "DOCTOR"),

@@ -17,10 +17,28 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listDepartmentsHandler);
-router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getDepartmentHandler);
-router.post("/", requireRole("ADMIN", "STAFF"), validate(createDepartmentSchema), createDepartmentHandler);
-router.patch("/:id", requireRole("ADMIN", "STAFF"), validate(updateDepartmentSchema), updateDepartmentHandler);
+router.get(
+  "/",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  listDepartmentsHandler,
+);
+router.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  getDepartmentHandler,
+);
+router.post(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  validate(createDepartmentSchema),
+  createDepartmentHandler,
+);
+router.patch(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  validate(updateDepartmentSchema),
+  updateDepartmentHandler,
+);
 router.delete("/:id", requireRole("ADMIN"), deleteDepartmentHandler);
 
 export default router;

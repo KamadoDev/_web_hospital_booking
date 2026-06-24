@@ -1,7 +1,13 @@
 import { Router } from "express";
-import { sendOtpHandler, verifyOtpHandler } from "../controllers/authOtp.controller.js";
+import {
+  sendOtpHandler,
+  verifyOtpHandler,
+} from "../controllers/authOtp.controller.js";
 import { validate } from "../middlewares/validate.middleware.js";
-import { sendOtpSchema, verifyOtpSchema } from "../validations/authOtp.validation.js";
+import {
+  sendOtpSchema,
+  verifyOtpSchema,
+} from "../validations/authOtp.validation.js";
 
 const router = Router();
 

@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Thoi gian phai co dinh dang HH:mm");
+const timeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Thoi gian phai co dinh dang HH:mm");
 
 export const createDoctorScheduleSchema = z.object({
   doctorId: z.string().uuid("Bac si khong hop le"),

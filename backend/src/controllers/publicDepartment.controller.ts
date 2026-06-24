@@ -19,7 +19,8 @@ export const listPublicDepartmentsHandler = async (
 ) => {
   try {
     const departments = await PublicDepartmentService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
     });
 
     return res.json({

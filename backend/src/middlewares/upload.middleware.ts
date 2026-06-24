@@ -19,7 +19,9 @@ export const uploadImages = multer({
   },
   fileFilter(req, file, callback) {
     if (!allowedMimeTypes.has(file.mimetype)) {
-      callback(new AppError("Chỉ hỗ trợ ảnh JPG, PNG, WEBP, GIF, SVG hoặc ICO", 400));
+      callback(
+        new AppError("Chỉ hỗ trợ ảnh JPG, PNG, WEBP, GIF, SVG hoặc ICO", 400),
+      );
       return;
     }
 

@@ -4,7 +4,10 @@ import { Loader2, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { HighlightText } from "@/components/public/search-highlight";
-import { usePublicSearch, type PublicSearchItem } from "@/lib/public-search-query";
+import {
+  usePublicSearch,
+  type PublicSearchItem,
+} from "@/lib/public-search-query";
 import { useSearchAnalytics } from "@/lib/use-search-analytics";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
@@ -63,8 +66,14 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
   };
 
   return (
-    <div ref={wrapperRef} className={`relative ${compact ? "w-full" : "w-[280px] xl:w-[340px]"}`}>
-      <label className="sr-only" htmlFor={compact ? "mobile-public-search" : "public-search"}>
+    <div
+      ref={wrapperRef}
+      className={`relative ${compact ? "w-full" : "w-[280px] xl:w-[340px]"}`}
+    >
+      <label
+        className="sr-only"
+        htmlFor={compact ? "mobile-public-search" : "public-search"}
+      >
         Tìm kiếm trên website
       </label>
       <div className="relative">
@@ -131,7 +140,10 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
                       </span>
                       {item.departmentName ? (
                         <span className="text-[11px] text-[#667892]">
-                          <HighlightText text={item.departmentName} query={highlightQuery} />
+                          <HighlightText
+                            text={item.departmentName}
+                            query={highlightQuery}
+                          />
                         </span>
                       ) : null}
                     </div>
@@ -140,12 +152,17 @@ export function PublicGlobalSearch({ compact = false }: { compact?: boolean }) {
                     </p>
                     {item.description ? (
                       <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#667892]">
-                        <HighlightText text={item.description} query={highlightQuery} />
+                        <HighlightText
+                          text={item.description}
+                          query={highlightQuery}
+                        />
                       </p>
                     ) : null}
                   </div>
                   {item.price ? (
-                    <span className="shrink-0 text-xs font-semibold text-[#0d4f8b]">{formatCurrency(item.price)}</span>
+                    <span className="shrink-0 text-xs font-semibold text-[#0d4f8b]">
+                      {formatCurrency(item.price)}
+                    </span>
                   ) : null}
                 </div>
               </Link>

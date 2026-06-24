@@ -1,9 +1,14 @@
-import { elasticClient, elasticsearchIndex, isElasticsearchEnabled } from "../../config/elasticsearch.js";
+import {
+  elasticClient,
+  elasticsearchIndex,
+  isElasticsearchEnabled,
+} from "../../config/elasticsearch.js";
 import { prisma } from "../../config/prisma.js";
 import type { SearchDocument } from "./search.types.js";
 import { resolveSupportSearchUrl } from "./search.urls.js";
 
-const documentId = (type: SearchDocument["type"], id: string) => `${type}:${id}`;
+const documentId = (type: SearchDocument["type"], id: string) =>
+  `${type}:${id}`;
 
 const toIso = (value?: Date | string | null) =>
   value ? new Date(value).toISOString() : undefined;
@@ -165,7 +170,9 @@ class SearchIndexer {
       return;
     }
 
-    const title = [doctor.title, doctor.user.fullName].filter(Boolean).join(" ");
+    const title = [doctor.title, doctor.user.fullName]
+      .filter(Boolean)
+      .join(" ");
 
     await this.upsert({
       id: doctor.id,
@@ -180,7 +187,10 @@ class SearchIndexer {
         doctor.department.name,
         doctor.department.slug || "",
       ].filter(Boolean),
-      isActive: doctor.isAvailable && doctor.user.isActive && doctor.department.isActive,
+      isActive:
+        doctor.isAvailable &&
+        doctor.user.isActive &&
+        doctor.department.isActive,
       departmentId: doctor.department.id,
       departmentName: doctor.department.name,
       departmentSlug: doctor.department.slug,
@@ -231,7 +241,8 @@ class SearchIndexer {
     const includedItemsTotal = packageItem.items
       .filter((item) => item.included)
       .reduce((total, item) => total + item.price, 0);
-    const finalPrice = (includedItemsTotal || packageItem.basePrice) + packageItem.serviceFee;
+    const finalPrice =
+      (includedItemsTotal || packageItem.basePrice) + packageItem.serviceFee;
 
     await this.upsert({
       id: packageItem.id,
@@ -245,9 +256,13 @@ class SearchIndexer {
         packageItem.summary || "",
         packageItem.description || "",
         packageItem.department?.name || "",
-        ...packageItem.items.flatMap((item) => [item.name, item.description || ""]),
+        ...packageItem.items.flatMap((item) => [
+          item.name,
+          item.description || "",
+        ]),
       ].filter(Boolean),
-      isActive: packageItem.isActive && (packageItem.department?.isActive ?? true),
+      isActive:
+        packageItem.isActive && (packageItem.department?.isActive ?? true),
       departmentId: packageItem.department?.id,
       departmentName: packageItem.department?.name,
       departmentSlug: packageItem.department?.slug,
@@ -332,7 +347,9 @@ class SearchIndexer {
 
   async reindexAll() {
     if (!this.isEnabled()) {
-      console.warn("[ELASTICSEARCH] Disabled. Set ELASTICSEARCH_ENABLED=true, ELASTICSEARCH_NODE and ELASTICSEARCH_API_KEY.");
+      console.warn(
+        "[ELASTICSEARCH] Disabled. Set ELASTICSEARCH_ENABLED=true, ELASTICSEARCH_NODE and ELASTICSEARCH_API_KEY.",
+      );
       return {
         enabled: false,
         indexed: 0,
@@ -341,13 +358,14 @@ class SearchIndexer {
 
     await this.ensureIndex();
 
-    const [departments, doctors, packages, publicFAQs, chatbotFAQs] = await Promise.all([
-      prisma.department.findMany({ select: { id: true } }),
-      prisma.doctorProfile.findMany({ select: { id: true } }),
-      prisma.package.findMany({ select: { id: true } }),
-      prisma.publicFAQ.findMany({ select: { id: true } }),
-      prisma.chatbotFAQ.findMany({ select: { id: true } }),
-    ]);
+    const [departments, doctors, packages, publicFAQs, chatbotFAQs] =
+      await Promise.all([
+        prisma.department.findMany({ select: { id: true } }),
+        prisma.doctorProfile.findMany({ select: { id: true } }),
+        prisma.package.findMany({ select: { id: true } }),
+        prisma.publicFAQ.findMany({ select: { id: true } }),
+        prisma.chatbotFAQ.findMany({ select: { id: true } }),
+      ]);
 
     for (const item of departments) await this.syncDepartment(item.id);
     for (const item of doctors) await this.syncDoctor(item.id);

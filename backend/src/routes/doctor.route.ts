@@ -21,8 +21,18 @@ router.use(authDashboard);
 
 router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listDoctorsHandler);
 router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getDoctorHandler);
-router.post("/", requireRole("ADMIN", "STAFF"), validate(createDoctorProfileSchema), createDoctorHandler);
-router.patch("/:id", requireRole("ADMIN", "STAFF"), validate(updateDoctorProfileSchema), updateDoctorHandler);
+router.post(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  validate(createDoctorProfileSchema),
+  createDoctorHandler,
+);
+router.patch(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  validate(updateDoctorProfileSchema),
+  updateDoctorHandler,
+);
 router.patch(
   "/:id/availability",
   requireRole("ADMIN", "STAFF"),

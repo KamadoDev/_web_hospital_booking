@@ -4,7 +4,9 @@ import DashboardStatisticsService from "../services/dashboardStatistics.service.
 const parseDateQuery = (value: unknown, endOfDay = false) => {
   if (typeof value !== "string") return undefined;
 
-  const date = new Date(endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`);
+  const date = new Date(
+    endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`,
+  );
   return Number.isNaN(date.getTime()) ? undefined : date;
 };
 
@@ -19,7 +21,9 @@ export const getDashboardStatisticsOverviewHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await DashboardStatisticsService.getOverview(getRangeQuery(req));
+    const data = await DashboardStatisticsService.getOverview(
+      getRangeQuery(req),
+    );
 
     return res.json({ success: true, data });
   } catch (error) {
@@ -33,7 +37,9 @@ export const getDashboardAppointmentStatisticsHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await DashboardStatisticsService.getAppointments(getRangeQuery(req));
+    const data = await DashboardStatisticsService.getAppointments(
+      getRangeQuery(req),
+    );
 
     return res.json({ success: true, data });
   } catch (error) {
@@ -47,7 +53,9 @@ export const getDashboardRevenueStatisticsHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await DashboardStatisticsService.getRevenue(getRangeQuery(req));
+    const data = await DashboardStatisticsService.getRevenue(
+      getRangeQuery(req),
+    );
 
     return res.json({ success: true, data });
   } catch (error) {
@@ -61,7 +69,9 @@ export const getDashboardDoctorStatisticsHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await DashboardStatisticsService.getDoctors(getRangeQuery(req));
+    const data = await DashboardStatisticsService.getDoctors(
+      getRangeQuery(req),
+    );
 
     return res.json({ success: true, data });
   } catch (error) {
@@ -75,7 +85,9 @@ export const getDashboardDepartmentStatisticsHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const data = await DashboardStatisticsService.getDepartments(getRangeQuery(req));
+    const data = await DashboardStatisticsService.getDepartments(
+      getRangeQuery(req),
+    );
 
     return res.json({ success: true, data });
   } catch (error) {

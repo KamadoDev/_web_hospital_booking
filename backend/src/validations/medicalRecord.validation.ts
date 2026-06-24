@@ -6,7 +6,12 @@ export const updateMedicalRecordSchema = z.object({
   treatment: z.string().trim().nullable().optional(),
   prescription: z.string().trim().nullable().optional(),
   doctorNotes: z.string().trim().nullable().optional(),
-  resultPdfUrl: z.string().trim().url("File ket qua phai la URL hop le").nullable().optional(),
+  resultPdfUrl: z
+    .string()
+    .trim()
+    .url("File ket qua phai la URL hop le")
+    .nullable()
+    .optional(),
 });
 
 export const createLabResultSchema = z.object({
@@ -15,7 +20,12 @@ export const createLabResultSchema = z.object({
   unit: z.string().trim().nullable().optional(),
   referenceRange: z.string().trim().nullable().optional(),
   conclusion: z.string().trim().nullable().optional(),
-  fileUrl: z.string().trim().url("File ket qua phai la URL hop le").nullable().optional(),
+  fileUrl: z
+    .string()
+    .trim()
+    .url("File ket qua phai la URL hop le")
+    .nullable()
+    .optional(),
 });
 
 export const updateLabResultSchema = createLabResultSchema.partial();

@@ -47,7 +47,8 @@ export const listDashboardConsultationRequestsHandler = async (
   try {
     const result = await ConsultationRequestService.list({
       status: parseStatus(req.query.status),
-      keyword: typeof req.query.keyword === "string" ? req.query.keyword : undefined,
+      keyword:
+        typeof req.query.keyword === "string" ? req.query.keyword : undefined,
       page: Number(req.query.page) || 1,
       limit: Number(req.query.limit) || 20,
     });
@@ -64,7 +65,9 @@ export const getDashboardConsultationRequestHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const request = await ConsultationRequestService.getById(getParam(req.params.id));
+    const request = await ConsultationRequestService.getById(
+      getParam(req.params.id),
+    );
 
     return res.json({ success: true, data: request });
   } catch (error) {
@@ -78,7 +81,10 @@ export const updateDashboardConsultationRequestHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const request = await ConsultationRequestService.update(getParam(req.params.id), req.body);
+    const request = await ConsultationRequestService.update(
+      getParam(req.params.id),
+      req.body,
+    );
 
     return res.json({
       success: true,
@@ -96,7 +102,9 @@ export const deleteDashboardConsultationRequestHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const request = await ConsultationRequestService.delete(getParam(req.params.id));
+    const request = await ConsultationRequestService.delete(
+      getParam(req.params.id),
+    );
 
     return res.json({
       success: true,

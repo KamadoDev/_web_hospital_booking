@@ -1,4 +1,10 @@
-import type { Banner, DoctorProfile, MedicalPackage, PublicFAQ, SiteSettingsValue } from "@/lib/types";
+import type {
+  Banner,
+  DoctorProfile,
+  MedicalPackage,
+  PublicFAQ,
+  SiteSettingsValue,
+} from "@/lib/types";
 
 export type PublicDepartment = {
   id: string;

@@ -1,5 +1,10 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { AppointmentStatus, InvoiceStatus, PaymentMethod, TimeSlotStatus } from "../../generated/prisma/enums.js";
+import type {
+  AppointmentStatus,
+  InvoiceStatus,
+  PaymentMethod,
+  TimeSlotStatus,
+} from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 
 type DateRangeInput = {
@@ -27,7 +32,10 @@ const normalizeRange = (range: DateRangeInput) => {
   return from <= to ? { from, to } : { from: to, to: from };
 };
 
-const buildDateTimeRange = ({ from, to }: ReturnType<typeof normalizeRange>) => ({
+const buildDateTimeRange = ({
+  from,
+  to,
+}: ReturnType<typeof normalizeRange>) => ({
   gte: from,
   lte: to,
 });
@@ -36,16 +44,20 @@ const sumAmount = (value: number | null | undefined) => value || 0;
 
 const getDateKeys = (range: ReturnType<typeof normalizeRange>) => {
   const dates: string[] = [];
-  const cursor = new Date(Date.UTC(
-    range.from.getUTCFullYear(),
-    range.from.getUTCMonth(),
-    range.from.getUTCDate(),
-  ));
-  const end = new Date(Date.UTC(
-    range.to.getUTCFullYear(),
-    range.to.getUTCMonth(),
-    range.to.getUTCDate(),
-  ));
+  const cursor = new Date(
+    Date.UTC(
+      range.from.getUTCFullYear(),
+      range.from.getUTCMonth(),
+      range.from.getUTCDate(),
+    ),
+  );
+  const end = new Date(
+    Date.UTC(
+      range.to.getUTCFullYear(),
+      range.to.getUTCMonth(),
+      range.to.getUTCDate(),
+    ),
+  );
 
   while (cursor <= end) {
     dates.push(toDateOnly(cursor));
@@ -61,7 +73,7 @@ const countBy = <T extends string | null>(
 ) =>
   values.map((value) => ({
     value,
-      count: groups.find((group) => group.key === value)?.count || 0,
+    count: groups.find((group) => group.key === value)?.count || 0,
   }));
 
 const normalizeNullableKey = (value: string | null) => value || "unknown";
@@ -72,8 +84,20 @@ class DashboardStatisticsService {
     const appointmentDate = buildDateTimeRange(range);
     const createdAt = buildDateTimeRange(range);
     const today = new Date();
-    const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-    const todayEnd = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
+    const todayStart = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+    const todayEnd = new Date(
+      Date.UTC(
+        today.getUTCFullYear(),
+        today.getUTCMonth(),
+        today.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
 
     const [
       totalAppointments,
@@ -97,7 +121,9 @@ class DashboardStatisticsService {
       searchSourceGroups,
     ] = await prisma.$transaction([
       prisma.appointment.count({ where: { appointmentDate } }),
-      prisma.appointment.count({ where: { appointmentDate, status: "PENDING_CONFIRM" } }),
+      prisma.appointment.count({
+        where: { appointmentDate, status: "PENDING_CONFIRM" },
+      }),
       prisma.appointment.count({
         where: {
           appointmentDate: {
@@ -106,12 +132,19 @@ class DashboardStatisticsService {
           },
         },
       }),
-      prisma.appointment.count({ where: { appointmentDate, status: "COMPLETED" } }),
+      prisma.appointment.count({
+        where: { appointmentDate, status: "COMPLETED" },
+      }),
       prisma.appointment.count({
         where: {
           appointmentDate,
           status: {
-            in: ["CANCELLED_BY_ADMIN", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_PATIENT", "NO_SHOW"],
+            in: [
+              "CANCELLED_BY_ADMIN",
+              "CANCELLED_BY_DOCTOR",
+              "CANCELLED_BY_PATIENT",
+              "NO_SHOW",
+            ],
           },
         },
       }),
@@ -172,7 +205,9 @@ class DashboardStatisticsService {
         take: 5,
       }),
       prisma.searchAnalyticsLog.count({ where: { createdAt } }),
-      prisma.searchAnalyticsLog.count({ where: { createdAt, hasResults: false } }),
+      prisma.searchAnalyticsLog.count({
+        where: { createdAt, hasResults: false },
+      }),
       prisma.searchAnalyticsLog.groupBy({
         by: ["normalized", "keyword"],
         where: { createdAt },
@@ -226,7 +261,9 @@ class DashboardStatisticsService {
           totalSearches,
           emptySearches,
           successRate: totalSearches
-            ? Math.round(((totalSearches - emptySearches) / totalSearches) * 100)
+            ? Math.round(
+                ((totalSearches - emptySearches) / totalSearches) * 100,
+              )
             : 0,
         },
         topKeywords: topSearchKeywords.map((item) => ({
@@ -287,20 +324,30 @@ class DashboardStatisticsService {
       }),
     ]);
 
-    const dailyMap = new Map<string, { total: number; completed: number; cancelled: number }>();
+    const dailyMap = new Map<
+      string,
+      { total: number; completed: number; cancelled: number }
+    >();
     for (const date of getDateKeys(range)) {
       dailyMap.set(date, { total: 0, completed: 0, cancelled: 0 });
     }
 
     for (const appointment of appointments) {
       const key = toDateOnly(appointment.appointmentDate);
-      const item = dailyMap.get(key) || { total: 0, completed: 0, cancelled: 0 };
+      const item = dailyMap.get(key) || {
+        total: 0,
+        completed: 0,
+        cancelled: 0,
+      };
       item.total += 1;
       if (appointment.status === "COMPLETED") item.completed += 1;
       if (
-        ["CANCELLED_BY_PATIENT", "CANCELLED_BY_DOCTOR", "CANCELLED_BY_ADMIN", "NO_SHOW"].includes(
-          appointment.status,
-        )
+        [
+          "CANCELLED_BY_PATIENT",
+          "CANCELLED_BY_DOCTOR",
+          "CANCELLED_BY_ADMIN",
+          "NO_SHOW",
+        ].includes(appointment.status)
       ) {
         item.cancelled += 1;
       }
@@ -313,7 +360,10 @@ class DashboardStatisticsService {
         total,
       },
       byStatus: countBy(
-        statusGroups.map((group) => ({ key: group.status, count: group._count.status })),
+        statusGroups.map((group) => ({
+          key: group.status,
+          count: group._count.status,
+        })),
         statuses,
       ),
       daily: Array.from(dailyMap.entries()).map(([date, item]) => ({
@@ -326,8 +376,20 @@ class DashboardStatisticsService {
   async getRevenue(input: DateRangeInput) {
     const range = normalizeRange(input);
     const createdAt = buildDateTimeRange(range);
-    const statuses = ["UNPAID", "PAID", "CANCELLED", "REFUNDED"] as const satisfies readonly InvoiceStatus[];
-    const paymentMethods = ["CASH", "CARD", "BANK_TRANSFER", "MOMO", "VNPAY", "OTHER"] as const satisfies readonly PaymentMethod[];
+    const statuses = [
+      "UNPAID",
+      "PAID",
+      "CANCELLED",
+      "REFUNDED",
+    ] as const satisfies readonly InvoiceStatus[];
+    const paymentMethods = [
+      "CASH",
+      "CARD",
+      "BANK_TRANSFER",
+      "MOMO",
+      "VNPAY",
+      "OTHER",
+    ] as const satisfies readonly PaymentMethod[];
 
     const [statusGroups, methodGroups, invoices] = await prisma.$transaction([
       prisma.invoice.groupBy({
@@ -358,20 +420,33 @@ class DashboardStatisticsService {
     ]);
 
     const collectedAmount = invoices
-      .filter((invoice) => invoice.status === "PAID" || invoice.status === "REFUNDED")
+      .filter(
+        (invoice) => invoice.status === "PAID" || invoice.status === "REFUNDED",
+      )
       .reduce((total, invoice) => total + invoice.finalAmount, 0);
     const refundedAmount = invoices
       .filter((invoice) => invoice.status === "REFUNDED")
       .reduce((total, invoice) => total + invoice.finalAmount, 0);
 
-    const dailyMap = new Map<string, { collectedAmount: number; refundedAmount: number; netAmount: number }>();
+    const dailyMap = new Map<
+      string,
+      { collectedAmount: number; refundedAmount: number; netAmount: number }
+    >();
     for (const date of getDateKeys(range)) {
-      dailyMap.set(date, { collectedAmount: 0, refundedAmount: 0, netAmount: 0 });
+      dailyMap.set(date, {
+        collectedAmount: 0,
+        refundedAmount: 0,
+        netAmount: 0,
+      });
     }
 
     for (const invoice of invoices) {
       const key = toDateOnly(invoice.createdAt);
-      const item = dailyMap.get(key) || { collectedAmount: 0, refundedAmount: 0, netAmount: 0 };
+      const item = dailyMap.get(key) || {
+        collectedAmount: 0,
+        refundedAmount: 0,
+        netAmount: 0,
+      };
       if (invoice.status === "PAID" || invoice.status === "REFUNDED") {
         item.collectedAmount += invoice.finalAmount;
         item.netAmount += invoice.finalAmount;
@@ -400,7 +475,9 @@ class DashboardStatisticsService {
         };
       }),
       byPaymentMethod: paymentMethods.map((paymentMethod) => {
-        const group = methodGroups.find((item) => item.paymentMethod === paymentMethod);
+        const group = methodGroups.find(
+          (item) => item.paymentMethod === paymentMethod,
+        );
         return {
           paymentMethod,
           count: group?._count.paymentMethod || 0,
@@ -418,7 +495,12 @@ class DashboardStatisticsService {
     const range = normalizeRange(input);
     const appointmentDate = buildDateTimeRange(range);
     const date = buildDateTimeRange(range);
-    const slotStatuses = ["AVAILABLE", "BOOKED", "LOCKED", "CANCELLED"] as const satisfies readonly TimeSlotStatus[];
+    const slotStatuses = [
+      "AVAILABLE",
+      "BOOKED",
+      "LOCKED",
+      "CANCELLED",
+    ] as const satisfies readonly TimeSlotStatus[];
 
     const [appointmentGroups, slotGroups] = await prisma.$transaction([
       prisma.appointment.groupBy({
@@ -435,10 +517,12 @@ class DashboardStatisticsService {
       }),
     ]);
 
-    const doctorIds = Array.from(new Set([
-      ...appointmentGroups.map((group) => group.doctorId),
-      ...slotGroups.map((group) => group.doctorId),
-    ]));
+    const doctorIds = Array.from(
+      new Set([
+        ...appointmentGroups.map((group) => group.doctorId),
+        ...slotGroups.map((group) => group.doctorId),
+      ]),
+    );
     const doctors = doctorIds.length
       ? await prisma.doctorProfile.findMany({
           where: { id: { in: doctorIds } },
@@ -454,20 +538,26 @@ class DashboardStatisticsService {
 
     return {
       range,
-      items: doctors.map((doctor) => {
-        const appointmentGroup = appointmentGroups.find((group) => group.doctorId === doctor.id);
-        return {
-          doctor,
-          appointmentCount: appointmentGroup?._count.doctorId || 0,
-          slots: slotStatuses.map((status) => {
-            const group = slotGroups.find((item) => item.doctorId === doctor.id && item.status === status);
-            return {
-              status,
-              count: group?._count.status || 0,
-            };
-          }),
-        };
-      }).sort((a, b) => b.appointmentCount - a.appointmentCount),
+      items: doctors
+        .map((doctor) => {
+          const appointmentGroup = appointmentGroups.find(
+            (group) => group.doctorId === doctor.id,
+          );
+          return {
+            doctor,
+            appointmentCount: appointmentGroup?._count.doctorId || 0,
+            slots: slotStatuses.map((status) => {
+              const group = slotGroups.find(
+                (item) => item.doctorId === doctor.id && item.status === status,
+              );
+              return {
+                status,
+                count: group?._count.status || 0,
+              };
+            }),
+          };
+        })
+        .sort((a, b) => b.appointmentCount - a.appointmentCount),
     };
   }
 
@@ -504,14 +594,17 @@ class DashboardStatisticsService {
     return {
       range,
       items: appointmentGroups.map((group) => {
-        const department = departments.find((item) => item.id === group.departmentId);
+        const department = departments.find(
+          (item) => item.id === group.departmentId,
+        );
         return {
           department,
           appointmentCount: group._count.departmentId,
           estimatedAmount: sumAmount(group._sum.finalAmount),
         };
       }),
-      activeDepartments: departments.filter((department) => department.isActive).length,
+      activeDepartments: departments.filter((department) => department.isActive)
+        .length,
       totalDepartments: departments.length,
     };
   }

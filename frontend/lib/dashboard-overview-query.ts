@@ -38,19 +38,37 @@ export type DoctorDashboardData = {
   todaySlots: DoctorTimeSlot[];
 };
 
-export const fetchDashboardStatistics = async (filters: DashboardStatisticsFilters): Promise<DashboardStatisticsData> => {
-  const [overview, appointments, revenue, doctors, departments] = await Promise.all([
-    apiRequest<DashboardStatisticsOverview>("/dashboard/statistics/overview", { query: filters }),
-    apiRequest<DashboardAppointmentStatistics>("/dashboard/statistics/appointments", { query: filters }),
-    apiRequest<DashboardRevenueStatistics>("/dashboard/statistics/revenue", { query: filters }),
-    apiRequest<DashboardDoctorStatistics>("/dashboard/statistics/doctors", { query: filters }),
-    apiRequest<DashboardDepartmentStatistics>("/dashboard/statistics/departments", { query: filters }),
-  ]);
+export const fetchDashboardStatistics = async (
+  filters: DashboardStatisticsFilters,
+): Promise<DashboardStatisticsData> => {
+  const [overview, appointments, revenue, doctors, departments] =
+    await Promise.all([
+      apiRequest<DashboardStatisticsOverview>(
+        "/dashboard/statistics/overview",
+        { query: filters },
+      ),
+      apiRequest<DashboardAppointmentStatistics>(
+        "/dashboard/statistics/appointments",
+        { query: filters },
+      ),
+      apiRequest<DashboardRevenueStatistics>("/dashboard/statistics/revenue", {
+        query: filters,
+      }),
+      apiRequest<DashboardDoctorStatistics>("/dashboard/statistics/doctors", {
+        query: filters,
+      }),
+      apiRequest<DashboardDepartmentStatistics>(
+        "/dashboard/statistics/departments",
+        { query: filters },
+      ),
+    ]);
 
   return { overview, appointments, revenue, doctors, departments };
 };
 
-export const fetchDoctorDashboardOverview = async (date: string): Promise<DoctorDashboardData> => {
+export const fetchDoctorDashboardOverview = async (
+  date: string,
+): Promise<DoctorDashboardData> => {
   const [
     todayAppointments,
     checkedInAppointments,
@@ -59,12 +77,24 @@ export const fetchDoctorDashboardOverview = async (date: string): Promise<Doctor
     draftPrescriptions,
     todaySlots,
   ] = await Promise.all([
-    apiRequest<ListResult<Appointment>>("/dashboard/appointments", { query: { date, limit: 100 } }),
-    apiRequest<ListResult<Appointment>>("/dashboard/appointments", { query: { status: "CHECKED_IN", limit: 20 } }),
-    apiRequest<ListResult<Appointment>>("/dashboard/appointments", { query: { status: "IN_PROGRESS", limit: 20 } }),
-    apiRequest<ListResult<MedicalRecord>>("/dashboard/medical-records", { query: { status: "DRAFT", limit: 20 } }),
-    apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", { query: { status: "DRAFT", limit: 20 } }),
-    apiRequest<ListResult<DoctorTimeSlot>>("/dashboard/doctor-time-slots", { query: { date, limit: 200 } }),
+    apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
+      query: { date, limit: 100 },
+    }),
+    apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
+      query: { status: "CHECKED_IN", limit: 20 },
+    }),
+    apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
+      query: { status: "IN_PROGRESS", limit: 20 },
+    }),
+    apiRequest<ListResult<MedicalRecord>>("/dashboard/medical-records", {
+      query: { status: "DRAFT", limit: 20 },
+    }),
+    apiRequest<ListResult<Prescription>>("/dashboard/prescriptions", {
+      query: { status: "DRAFT", limit: 20 },
+    }),
+    apiRequest<ListResult<DoctorTimeSlot>>("/dashboard/doctor-time-slots", {
+      query: { date, limit: 200 },
+    }),
   ]);
 
   return {
@@ -77,7 +107,10 @@ export const fetchDoctorDashboardOverview = async (date: string): Promise<Doctor
   };
 };
 
-export function useDashboardStatistics(filters: DashboardStatisticsFilters, enabled: boolean) {
+export function useDashboardStatistics(
+  filters: DashboardStatisticsFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardStatistics(filters),
     queryFn: () => fetchDashboardStatistics(filters),

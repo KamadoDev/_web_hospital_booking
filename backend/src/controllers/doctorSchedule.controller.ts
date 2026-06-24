@@ -45,7 +45,10 @@ export const listDoctorSchedulesHandler = async (
   try {
     const result = await DoctorScheduleService.list(
       {
-        doctorId: typeof req.query.doctorId === "string" ? req.query.doctorId : undefined,
+        doctorId:
+          typeof req.query.doctorId === "string"
+            ? req.query.doctorId
+            : undefined,
         dayOfWeek: parseNumberQuery(req.query.dayOfWeek),
         isActive: parseBooleanQuery(req.query.isActive),
         page: parseNumberQuery(req.query.page),
@@ -122,7 +125,9 @@ export const deleteDoctorScheduleHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const schedule = await DoctorScheduleService.delete(getParam(req.params.id));
+    const schedule = await DoctorScheduleService.delete(
+      getParam(req.params.id),
+    );
 
     return res.json({
       success: true,

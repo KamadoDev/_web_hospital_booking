@@ -25,7 +25,8 @@ export const listPublicBannersHandler = async (
 ) => {
   try {
     const items = await BannerService.listPublic({
-      position: typeof req.query.position === "string" ? req.query.position : undefined,
+      position:
+        typeof req.query.position === "string" ? req.query.position : undefined,
     });
 
     return res.json({ success: true, data: { items } });
@@ -41,7 +42,8 @@ export const listDashboardBannersHandler = async (
 ) => {
   try {
     const items = await BannerService.listDashboard({
-      position: typeof req.query.position === "string" ? req.query.position : undefined,
+      position:
+        typeof req.query.position === "string" ? req.query.position : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
     });
 
@@ -89,7 +91,10 @@ export const updateDashboardBannerHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const banner = await BannerService.update(getParam(req.params.id), req.body);
+    const banner = await BannerService.update(
+      getParam(req.params.id),
+      req.body,
+    );
 
     return res.json({
       success: true,

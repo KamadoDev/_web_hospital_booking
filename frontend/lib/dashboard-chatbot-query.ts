@@ -48,7 +48,9 @@ export type DashboardChatbotLogFilters = {
   limit?: number;
 };
 
-export const fetchDashboardChatbotOverview = (filters: DashboardChatbotOverviewFilters = {}) =>
+export const fetchDashboardChatbotOverview = (
+  filters: DashboardChatbotOverviewFilters = {},
+) =>
   apiRequest<ChatbotOverview>("/dashboard/chatbot/overview", {
     query: filters,
   });
@@ -56,12 +58,16 @@ export const fetchDashboardChatbotOverview = (filters: DashboardChatbotOverviewF
 export const fetchDashboardChatbotSettings = () =>
   apiRequest<ChatbotSettings>("/dashboard/chatbot/settings");
 
-export const fetchDashboardChatbotFAQs = (filters: DashboardChatbotFAQFilters) =>
+export const fetchDashboardChatbotFAQs = (
+  filters: DashboardChatbotFAQFilters,
+) =>
   apiRequest<ListResult<ChatbotFAQ>>("/dashboard/chatbot/faqs", {
     query: filters,
   });
 
-export const fetchDashboardChatbotSessions = (filters: DashboardChatbotSessionFilters) =>
+export const fetchDashboardChatbotSessions = (
+  filters: DashboardChatbotSessionFilters,
+) =>
   apiRequest<ListResult<ChatbotSession>>("/dashboard/chatbot/sessions", {
     query: filters,
   });
@@ -69,12 +75,17 @@ export const fetchDashboardChatbotSessions = (filters: DashboardChatbotSessionFi
 export const fetchDashboardChatbotSession = (id: string) =>
   apiRequest<ChatbotSessionDetail>(`/dashboard/chatbot/sessions/${id}`);
 
-export const fetchDashboardChatbotLogs = (filters: DashboardChatbotLogFilters) =>
+export const fetchDashboardChatbotLogs = (
+  filters: DashboardChatbotLogFilters,
+) =>
   apiRequest<ListResult<ChatbotLog>>("/dashboard/chatbot/logs", {
     query: filters,
   });
 
-export function useDashboardChatbotOverview(filters: DashboardChatbotOverviewFilters = {}, enabled = true) {
+export function useDashboardChatbotOverview(
+  filters: DashboardChatbotOverviewFilters = {},
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardChatbotOverview(filters),
     queryFn: () => fetchDashboardChatbotOverview(filters),
@@ -90,7 +101,10 @@ export function useDashboardChatbotSettings(enabled = true) {
   });
 }
 
-export function useDashboardChatbotFAQs(filters: DashboardChatbotFAQFilters, enabled = true) {
+export function useDashboardChatbotFAQs(
+  filters: DashboardChatbotFAQFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardChatbotFAQs(filters),
     queryFn: () => fetchDashboardChatbotFAQs(filters),
@@ -98,7 +112,10 @@ export function useDashboardChatbotFAQs(filters: DashboardChatbotFAQFilters, ena
   });
 }
 
-export function useDashboardChatbotSessions(filters: DashboardChatbotSessionFilters, enabled = true) {
+export function useDashboardChatbotSessions(
+  filters: DashboardChatbotSessionFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardChatbotSessions(filters),
     queryFn: () => fetchDashboardChatbotSessions(filters),
@@ -114,7 +131,10 @@ export function useDashboardChatbotSession(id?: string) {
   });
 }
 
-export function useDashboardChatbotLogs(filters: DashboardChatbotLogFilters, enabled = true) {
+export function useDashboardChatbotLogs(
+  filters: DashboardChatbotLogFilters,
+  enabled = true,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardChatbotLogs(filters),
     queryFn: () => fetchDashboardChatbotLogs(filters),

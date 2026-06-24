@@ -20,12 +20,16 @@ export type DashboardAppointmentDoctorFilters = {
   limit?: number;
 };
 
-export const fetchDashboardAppointments = (filters: DashboardAppointmentFilters) =>
+export const fetchDashboardAppointments = (
+  filters: DashboardAppointmentFilters,
+) =>
   apiRequest<ListResult<Appointment>>("/dashboard/appointments", {
     query: filters,
   });
 
-export const fetchDashboardAppointmentDoctors = (filters: DashboardAppointmentDoctorFilters) =>
+export const fetchDashboardAppointmentDoctors = (
+  filters: DashboardAppointmentDoctorFilters,
+) =>
   apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
     query: filters,
   });
@@ -37,7 +41,10 @@ export function useDashboardAppointments(filters: DashboardAppointmentFilters) {
   });
 }
 
-export function useDashboardAppointmentDoctors(filters: DashboardAppointmentDoctorFilters, enabled: boolean) {
+export function useDashboardAppointmentDoctors(
+  filters: DashboardAppointmentDoctorFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardAppointmentDoctors(filters),

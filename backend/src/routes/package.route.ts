@@ -24,11 +24,35 @@ router.use(authDashboard);
 
 router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listPackagesHandler);
 router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getPackageHandler);
-router.post("/", requireRole("ADMIN", "STAFF"), validate(createPackageSchema), createPackageHandler);
-router.patch("/:id", requireRole("ADMIN", "STAFF"), validate(updatePackageSchema), updatePackageHandler);
+router.post(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  validate(createPackageSchema),
+  createPackageHandler,
+);
+router.patch(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  validate(updatePackageSchema),
+  updatePackageHandler,
+);
 router.delete("/:id", requireRole("ADMIN"), deletePackageHandler);
-router.post("/:id/items", requireRole("ADMIN", "STAFF"), validate(createPackageItemSchema), createPackageItemHandler);
-router.patch("/:id/items/:itemId", requireRole("ADMIN", "STAFF"), validate(updatePackageItemSchema), updatePackageItemHandler);
-router.delete("/:id/items/:itemId", requireRole("ADMIN", "STAFF"), deletePackageItemHandler);
+router.post(
+  "/:id/items",
+  requireRole("ADMIN", "STAFF"),
+  validate(createPackageItemSchema),
+  createPackageItemHandler,
+);
+router.patch(
+  "/:id/items/:itemId",
+  requireRole("ADMIN", "STAFF"),
+  validate(updatePackageItemSchema),
+  updatePackageItemHandler,
+);
+router.delete(
+  "/:id/items/:itemId",
+  requireRole("ADMIN", "STAFF"),
+  deletePackageItemHandler,
+);
 
 export default router;

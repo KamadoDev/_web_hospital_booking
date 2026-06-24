@@ -4,7 +4,7 @@ export const errorMiddleware = (
   err: Error & { statusCode?: number },
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   console.error("ERROR:", err);
 

@@ -9,15 +9,26 @@ import {
 } from "../controllers/publicFAQ.controller.js";
 import { authDashboard, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validate.middleware.js";
-import { createPublicFAQSchema, updatePublicFAQSchema } from "../validations/siteConfig.validation.js";
+import {
+  createPublicFAQSchema,
+  updatePublicFAQSchema,
+} from "../validations/siteConfig.validation.js";
 
 export const publicFAQRouter = Router();
 publicFAQRouter.get("/", listPublicFAQsHandler);
 
 export const dashboardFAQRouter = Router();
 dashboardFAQRouter.use(authDashboard);
-dashboardFAQRouter.get("/", requireRole("ADMIN", "STAFF"), listDashboardFAQsHandler);
-dashboardFAQRouter.get("/:id", requireRole("ADMIN", "STAFF"), getDashboardFAQHandler);
+dashboardFAQRouter.get(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  listDashboardFAQsHandler,
+);
+dashboardFAQRouter.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  getDashboardFAQHandler,
+);
 dashboardFAQRouter.post(
   "/",
   requireRole("ADMIN", "STAFF"),
@@ -30,4 +41,8 @@ dashboardFAQRouter.patch(
   validate(updatePublicFAQSchema),
   updateDashboardFAQHandler,
 );
-dashboardFAQRouter.delete("/:id", requireRole("ADMIN"), deleteDashboardFAQHandler);
+dashboardFAQRouter.delete(
+  "/:id",
+  requireRole("ADMIN"),
+  deleteDashboardFAQHandler,
+);

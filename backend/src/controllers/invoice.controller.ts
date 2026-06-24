@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import type { InvoiceStatus, PaymentMethod } from "../../generated/prisma/enums.js";
+import type {
+  InvoiceStatus,
+  PaymentMethod,
+} from "../../generated/prisma/enums.js";
 import InvoiceService from "../services/invoice.service.js";
 import { AppError } from "../utils/appError.js";
 
@@ -35,7 +38,10 @@ export const listInvoicesHandler = async (
         typeof req.query.paymentMethod === "string"
           ? (req.query.paymentMethod as PaymentMethod)
           : undefined,
-      patientId: typeof req.query.patientId === "string" ? req.query.patientId : undefined,
+      patientId:
+        typeof req.query.patientId === "string"
+          ? req.query.patientId
+          : undefined,
       appointmentId:
         typeof req.query.appointmentId === "string"
           ? req.query.appointmentId
@@ -44,7 +50,8 @@ export const listInvoicesHandler = async (
         typeof req.query.invoiceCode === "string"
           ? req.query.invoiceCode
           : undefined,
-      barcode: typeof req.query.barcode === "string" ? req.query.barcode : undefined,
+      barcode:
+        typeof req.query.barcode === "string" ? req.query.barcode : undefined,
       phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
       page: parseNumberQuery(req.query.page),
       limit: parseNumberQuery(req.query.limit),
@@ -97,7 +104,10 @@ export const updateInvoiceHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.updateFinancials(getParam(req.params.id), req.body);
+    const invoice = await InvoiceService.updateFinancials(
+      getParam(req.params.id),
+      req.body,
+    );
 
     return res.json({
       success: true,
@@ -151,7 +161,10 @@ export const refundInvoiceHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const invoice = await InvoiceService.refund(getParam(req.params.id), req.body);
+    const invoice = await InvoiceService.refund(
+      getParam(req.params.id),
+      req.body,
+    );
 
     return res.json({
       success: true,

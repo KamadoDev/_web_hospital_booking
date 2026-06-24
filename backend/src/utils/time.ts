@@ -44,7 +44,11 @@ export const buildTimeSlots = (
   const { start, end } = validateTimeRange(startTime, endTime);
   const slots: { startTime: string; endTime: string }[] = [];
 
-  for (let current = start; current + slotDuration <= end; current += slotDuration) {
+  for (
+    let current = start;
+    current + slotDuration <= end;
+    current += slotDuration
+  ) {
     slots.push({
       startTime: formatMinutesToTime(current),
       endTime: formatMinutesToTime(current + slotDuration),
@@ -95,7 +99,9 @@ export const isSlotStartInPastVietnamTime = (date: Date, startTime: string) => {
   const now = getVietnamNowParts();
   const slotDate = toDateOnly(date);
 
-  return slotDate < now.date || (slotDate === now.date && startTime <= now.time);
+  return (
+    slotDate < now.date || (slotDate === now.date && startTime <= now.time)
+  );
 };
 
 export const hasTimeOverlap = (

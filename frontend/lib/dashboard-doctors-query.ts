@@ -25,7 +25,9 @@ export const fetchDashboardDoctors = (filters: DashboardDoctorFilters) =>
     query: filters,
   });
 
-export const fetchDashboardDoctorUsers = (filters: DashboardDoctorUserFilters) =>
+export const fetchDashboardDoctorUsers = (
+  filters: DashboardDoctorUserFilters,
+) =>
   apiRequest<ListResult<DashboardUser>>("/dashboard/users", {
     query: filters,
   });
@@ -37,7 +39,10 @@ export function useDashboardDoctors(filters: DashboardDoctorFilters) {
   });
 }
 
-export function useDashboardDoctorUsers(filters: DashboardDoctorUserFilters, enabled: boolean) {
+export function useDashboardDoctorUsers(
+  filters: DashboardDoctorUserFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardUsers(filters),
     queryFn: () => fetchDashboardDoctorUsers(filters),

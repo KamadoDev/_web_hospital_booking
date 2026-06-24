@@ -1,5 +1,6 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:4000/api";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+  "http://localhost:4000/api";
 
 export const AUTH_EXPIRED_EVENT = "hospital-dashboard:auth-expired";
 
@@ -44,7 +45,8 @@ const notifyAuthExpired = () => {
 };
 
 const isDashboardRoute = () =>
-  typeof window !== "undefined" && window.location.pathname.startsWith("/dashboard");
+  typeof window !== "undefined" &&
+  window.location.pathname.startsWith("/dashboard");
 
 let refreshPromise: Promise<boolean> | null = null;
 
@@ -59,7 +61,9 @@ const refreshDashboardSession = async () => {
     },
   })
     .then(async (response) => {
-      const payload = (await response.json().catch(() => null)) as ApiEnvelope<unknown> | null;
+      const payload = (await response
+        .json()
+        .catch(() => null)) as ApiEnvelope<unknown> | null;
       return response.ok && payload?.success !== false;
     })
     .catch(() => false)
@@ -70,8 +74,18 @@ const refreshDashboardSession = async () => {
   return refreshPromise;
 };
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}) {
-  const { body, query, headers, suppressAuthExpired, skipAuthRefresh, ...init } = options;
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+) {
+  const {
+    body,
+    query,
+    headers,
+    suppressAuthExpired,
+    skipAuthRefresh,
+    ...init
+  } = options;
 
   const response = await fetch(buildUrl(path, query), {
     ...init,
@@ -84,10 +98,16 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
+  const payload = (await response
+    .json()
+    .catch(() => null)) as ApiEnvelope<T> | null;
 
   if (!response.ok || payload?.success === false) {
-    if (response.status === 401 && !skipAuthRefresh && path !== "/auth/dashboard/refresh") {
+    if (
+      response.status === 401 &&
+      !skipAuthRefresh &&
+      path !== "/auth/dashboard/refresh"
+    ) {
       const refreshed = await refreshDashboardSession();
 
       if (refreshed) {
@@ -102,7 +122,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
       notifyAuthExpired();
     }
 
-    throw new ApiError(payload?.message || "Không thể kết nối tới máy chủ", response.status);
+    throw new ApiError(
+      payload?.message || "Không thể kết nối tới máy chủ",
+      response.status,
+    );
   }
 
   return payload?.data as T;
@@ -134,7 +157,10 @@ export async function uploadImages(files: File[], folder: string) {
       notifyAuthExpired();
     }
 
-    throw new ApiError(payload?.message || "Không upload được ảnh", response.status);
+    throw new ApiError(
+      payload?.message || "Không upload được ảnh",
+      response.status,
+    );
   }
 
   return payload?.data?.items || [];

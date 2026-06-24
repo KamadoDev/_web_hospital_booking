@@ -19,7 +19,9 @@ const parseNumberQuery = (value: unknown) => {
 const parseDateQuery = (value: unknown, endOfDay = false) => {
   if (typeof value !== "string") return undefined;
 
-  const date = new Date(endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`);
+  const date = new Date(
+    endOfDay ? `${value}T23:59:59.999Z` : `${value}T00:00:00.000Z`,
+  );
   return Number.isNaN(date.getTime()) ? undefined : date;
 };
 
@@ -76,7 +78,9 @@ export const updateDashboardChatbotSettingsHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const settings = await ChatbotSettingsService.updateRuntimeSettings(req.body);
+    const settings = await ChatbotSettingsService.updateRuntimeSettings(
+      req.body,
+    );
 
     return res.json({
       success: true,
@@ -95,10 +99,18 @@ export const listDashboardChatbotLogsHandler = async (
 ) => {
   try {
     const result = await DashboardChatbotService.listLogs({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
-      sessionId: typeof req.query.sessionId === "string" ? req.query.sessionId : undefined,
-      guestPhone: typeof req.query.guestPhone === "string" ? req.query.guestPhone : undefined,
-      intent: typeof req.query.intent === "string" ? req.query.intent : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
+      sessionId:
+        typeof req.query.sessionId === "string"
+          ? req.query.sessionId
+          : undefined,
+      guestPhone:
+        typeof req.query.guestPhone === "string"
+          ? req.query.guestPhone
+          : undefined,
+      intent:
+        typeof req.query.intent === "string" ? req.query.intent : undefined,
       dateFrom: parseDateQuery(req.query.dateFrom),
       dateTo: parseDateQuery(req.query.dateTo, true),
       page: parseNumberQuery(req.query.page),
@@ -121,9 +133,14 @@ export const listDashboardChatbotSessionsHandler = async (
 ) => {
   try {
     const result = await DashboardChatbotService.listSessions({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
-      guestPhone: typeof req.query.guestPhone === "string" ? req.query.guestPhone : undefined,
-      intent: typeof req.query.intent === "string" ? req.query.intent : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
+      guestPhone:
+        typeof req.query.guestPhone === "string"
+          ? req.query.guestPhone
+          : undefined,
+      intent:
+        typeof req.query.intent === "string" ? req.query.intent : undefined,
       state: typeof req.query.state === "string" ? req.query.state : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
       dateFrom: parseDateQuery(req.query.dateFrom),
@@ -147,7 +164,9 @@ export const getDashboardChatbotSessionHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const session = await DashboardChatbotService.getSessionById(getParam(req.params.id));
+    const session = await DashboardChatbotService.getSessionById(
+      getParam(req.params.id),
+    );
 
     return res.json({
       success: true,

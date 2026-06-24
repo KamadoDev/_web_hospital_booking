@@ -3,17 +3,20 @@ import { getAI, getGenerativeModel, GoogleAIBackend } from "firebase/ai";
 import { AppError } from "../../../utils/appError.js";
 import type { AIAdapter, GenerateReplyInput } from "./ai.adapter.js";
 
-const getModel = (model?: string) => model || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const getModel = (model?: string) =>
+  model || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 const getFirebaseConfig = () => ({
   apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.AUTH_DOMAIN,
   projectId: process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.STORAGE_BUCKET,
+  storageBucket:
+    process.env.FIREBASE_STORAGE_BUCKET || process.env.STORAGE_BUCKET,
   messagingSenderId:
     process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.MESSAGING_SENDER_ID,
   appId: process.env.FIREBASE_APP_ID || process.env.APP_ID,
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID || process.env.MEASUREMENT_ID,
+  measurementId:
+    process.env.FIREBASE_MEASUREMENT_ID || process.env.MEASUREMENT_ID,
 });
 
 const getFirebaseApp = (): FirebaseApp => {
@@ -24,7 +27,10 @@ const getFirebaseApp = (): FirebaseApp => {
   }
 
   if (!config.projectId) {
-    throw new AppError("Chưa cấu hình FIREBASE_PROJECT_ID hoặc PROJECT_ID", 500);
+    throw new AppError(
+      "Chưa cấu hình FIREBASE_PROJECT_ID hoặc PROJECT_ID",
+      500,
+    );
   }
 
   if (!config.appId) {
@@ -62,7 +68,9 @@ export class GeminiAdapter implements AIAdapter {
       if (error instanceof AppError) throw error;
 
       throw new AppError(
-        error instanceof Error ? error.message : "Gemini không phản hồi thành công",
+        error instanceof Error
+          ? error.message
+          : "Gemini không phản hồi thành công",
         502,
       );
     }

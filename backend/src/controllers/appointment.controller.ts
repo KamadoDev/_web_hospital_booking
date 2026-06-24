@@ -267,9 +267,13 @@ export const listDashboardAppointmentsHandler = async (
           typeof req.query.status === "string"
             ? (req.query.status as AppointmentStatus)
             : undefined,
-        doctorId: typeof req.query.doctorId === "string" ? req.query.doctorId : undefined,
+        doctorId:
+          typeof req.query.doctorId === "string"
+            ? req.query.doctorId
+            : undefined,
         date: typeof req.query.date === "string" ? req.query.date : undefined,
-        phone: typeof req.query.phone === "string" ? req.query.phone : undefined,
+        phone:
+          typeof req.query.phone === "string" ? req.query.phone : undefined,
         bookingCode:
           typeof req.query.bookingCode === "string"
             ? req.query.bookingCode

@@ -16,7 +16,9 @@ export type PublicAvailableSlotFilters = {
   date?: string;
 };
 
-export const fetchPublicAvailableSlots = (filters: Required<PublicAvailableSlotFilters>) =>
+export const fetchPublicAvailableSlots = (
+  filters: Required<PublicAvailableSlotFilters>,
+) =>
   apiRequest<PublicSlot[]>(`/doctors/${filters.doctorId}/available-slots`, {
     query: { date: filters.date },
   });

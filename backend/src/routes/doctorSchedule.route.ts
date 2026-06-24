@@ -17,10 +17,32 @@ const router = Router();
 
 router.use(authDashboard);
 
-router.get("/", requireRole("ADMIN", "STAFF", "DOCTOR"), listDoctorSchedulesHandler);
-router.get("/:id", requireRole("ADMIN", "STAFF", "DOCTOR"), getDoctorScheduleHandler);
-router.post("/", requireRole("ADMIN", "STAFF"), validate(createDoctorScheduleSchema), createDoctorScheduleHandler);
-router.patch("/:id", requireRole("ADMIN", "STAFF"), validate(updateDoctorScheduleSchema), updateDoctorScheduleHandler);
-router.delete("/:id", requireRole("ADMIN", "STAFF"), deleteDoctorScheduleHandler);
+router.get(
+  "/",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  listDoctorSchedulesHandler,
+);
+router.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF", "DOCTOR"),
+  getDoctorScheduleHandler,
+);
+router.post(
+  "/",
+  requireRole("ADMIN", "STAFF"),
+  validate(createDoctorScheduleSchema),
+  createDoctorScheduleHandler,
+);
+router.patch(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  validate(updateDoctorScheduleSchema),
+  updateDoctorScheduleHandler,
+);
+router.delete(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  deleteDoctorScheduleHandler,
+);
 
 export default router;

@@ -1,8 +1,15 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { InsuranceRouteType, InvoiceStatus, PaymentMethod } from "../../generated/prisma/enums.js";
+import type {
+  InsuranceRouteType,
+  InvoiceStatus,
+  PaymentMethod,
+} from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
-import { generateInvoiceBarcode, generateInvoiceCode } from "../utils/invoiceCode.js";
+import {
+  generateInvoiceBarcode,
+  generateInvoiceCode,
+} from "../utils/invoiceCode.js";
 
 type CreateInvoiceInput = {
   bhytDiscount?: number;
@@ -59,21 +66,25 @@ const calculateInsurance = (
     input.insuranceNote !== undefined;
 
   const eligibleAmount = hasStructuredInsurance
-    ? input.insuranceEligibleAmount ?? 0
-    : input.bhytDiscount ?? fallbackDiscount;
+    ? (input.insuranceEligibleAmount ?? 0)
+    : (input.bhytDiscount ?? fallbackDiscount);
   const coverageRate = hasStructuredInsurance
-    ? input.insuranceCoverageRate ?? 0
+    ? (input.insuranceCoverageRate ?? 0)
     : eligibleAmount > 0
       ? 100
       : 0;
-  const routeType = input.insuranceRouteType ?? (eligibleAmount > 0 ? "SERVICE" : null);
+  const routeType =
+    input.insuranceRouteType ?? (eligibleAmount > 0 ? "SERVICE" : null);
   const note = normalizeOptionalString(input.insuranceNote);
   const discountAmount = hasStructuredInsurance
     ? Math.floor((eligibleAmount * coverageRate) / 100)
-    : input.bhytDiscount ?? fallbackDiscount;
+    : (input.bhytDiscount ?? fallbackDiscount);
 
   if (eligibleAmount > totalAmount) {
-    throw new AppError("Số tiền đủ điều kiện BHYT không được lớn hơn tổng tiền", 400);
+    throw new AppError(
+      "Số tiền đủ điều kiện BHYT không được lớn hơn tổng tiền",
+      400,
+    );
   }
 
   if (discountAmount > totalAmount) {
@@ -81,10 +92,18 @@ const calculateInsurance = (
   }
 
   if (!appointment.hasBHYT && discountAmount > 0) {
-    throw new AppError("Lịch hẹn không có BHYT nên không được giảm trừ BHYT", 400);
+    throw new AppError(
+      "Lịch hẹn không có BHYT nên không được giảm trừ BHYT",
+      400,
+    );
   }
 
-  if (appointment.hasBHYT && appointment.package && !appointment.package.isBHYTSupport && discountAmount > 0) {
+  if (
+    appointment.hasBHYT &&
+    appointment.package &&
+    !appointment.package.isBHYTSupport &&
+    discountAmount > 0
+  ) {
     throw new AppError("Gói khám này không hỗ trợ giảm trừ BHYT", 400);
   }
 
@@ -242,7 +261,10 @@ class InvoiceService {
     return invoice;
   }
 
-  async createForAppointment(appointmentIdOrCode: string, input: CreateInvoiceInput) {
+  async createForAppointment(
+    appointmentIdOrCode: string,
+    input: CreateInvoiceInput,
+  ) {
     const normalizedAppointmentKey = appointmentIdOrCode.trim();
     const appointment = await prisma.appointment.findFirst({
       where: {
@@ -277,7 +299,10 @@ class InvoiceService {
     }
 
     if (appointment.status !== "COMPLETED") {
-      throw new AppError("Chỉ có thể tạo hóa đơn cho lịch đã hoàn thành khám", 400);
+      throw new AppError(
+        "Chỉ có thể tạo hóa đơn cho lịch đã hoàn thành khám",
+        400,
+      );
     }
 
     if (appointment.invoice) {
@@ -285,7 +310,12 @@ class InvoiceService {
     }
 
     const totalAmount = appointment.estimatedPrice + appointment.serviceFee;
-    const insurance = calculateInsurance(input, totalAmount, appointment, appointment.bhytDiscount);
+    const insurance = calculateInsurance(
+      input,
+      totalAmount,
+      appointment,
+      appointment.bhytDiscount,
+    );
 
     return prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
@@ -361,10 +391,18 @@ class InvoiceService {
     }
 
     if (!["UNPAID", "CANCELLED"].includes(invoice.status)) {
-      throw new AppError("Chỉ có thể chỉnh sửa hóa đơn chưa thanh toán hoặc đã hủy", 400);
+      throw new AppError(
+        "Chỉ có thể chỉnh sửa hóa đơn chưa thanh toán hoặc đã hủy",
+        400,
+      );
     }
 
-    const insurance = calculateInsurance(input, invoice.totalAmount, invoice.appointment, invoice.bhytDiscount);
+    const insurance = calculateInsurance(
+      input,
+      invoice.totalAmount,
+      invoice.appointment,
+      invoice.bhytDiscount,
+    );
 
     return prisma.$transaction(async (tx) => {
       await tx.appointment.update({
@@ -377,9 +415,10 @@ class InvoiceService {
           logs: {
             create: {
               action: "INVOICE_CREATED",
-              note: invoice.status === "CANCELLED"
-                ? "Hóa đơn đã được điều chỉnh và mở lại"
-                : "Hóa đơn đã được điều chỉnh",
+              note:
+                invoice.status === "CANCELLED"
+                  ? "Hóa đơn đã được điều chỉnh và mở lại"
+                  : "Hóa đơn đã được điều chỉnh",
             },
           },
         },
@@ -410,7 +449,10 @@ class InvoiceService {
     }
 
     if (["MOMO", "VNPAY"].includes(input.paymentMethod)) {
-      throw new AppError("MOMO/VNPAY phải thanh toán qua API online payment", 400);
+      throw new AppError(
+        "MOMO/VNPAY phải thanh toán qua API online payment",
+        400,
+      );
     }
 
     return prisma.invoice.update({

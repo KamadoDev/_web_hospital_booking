@@ -152,6 +152,19 @@ enum ScheduleChangeType {
   UPDATE_WEEKLY_SCHEDULE
 }
 
+enum ScheduleChangeRequestType {
+  CREATE_WEEKLY_SCHEDULE
+  UPDATE_WEEKLY_SCHEDULE
+  DEACTIVATE_WEEKLY_SCHEDULE
+}
+
+enum ScheduleChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum TimeSlotStatus {
   AVAILABLE
   BOOKED
@@ -193,6 +206,8 @@ model User {
 
   // Doctor relation
   doctorProfile DoctorProfile?
+  requestedScheduleChanges ScheduleChangeRequest[] @relation("RequestedScheduleChanges")
+  reviewedScheduleChanges  ScheduleChangeRequest[] @relation("ReviewedScheduleChanges")
 
   // Common relations
   chatbotLogs ChatbotLog[]
@@ -418,6 +433,7 @@ model DoctorProfile {
   title           String?
   bio             String?
   specialization  String?
+  scheduleChangeRequests ScheduleChangeRequest[]
   experience      Int?
   consultationFee Int     @default(0)
 
@@ -441,6 +457,8 @@ model DoctorProfile {
 // Ví dụ: Thứ 2, 08:00 - 11:30
 model DoctorSchedule {
   id       String        @id @default(uuid())
+  changeRequests ScheduleChangeRequest[]
+
   doctorId String
   doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
@@ -461,6 +479,43 @@ model DoctorSchedule {
   @@index([dayOfWeek])
 }
 
+// Y?u c?u do b?c s? g?i ?? Staff/Admin duy?t tr??c khi thay ??i l?ch m?u.
+model ScheduleChangeRequest {
+  id String @id @default(uuid())
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  scheduleId String?
+  schedule   DoctorSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  requestedById String
+  requestedBy   User @relation("RequestedScheduleChanges", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  reviewedById String?
+  reviewedBy   User? @relation("ReviewedScheduleChanges", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  type   ScheduleChangeRequestType
+  status ScheduleChangeRequestStatus @default(PENDING)
+
+  dayOfWeek     Int
+  startTime     String
+  endTime       String
+  slotDuration  Int
+  maxPatients   Int
+  isActive      Boolean @default(true)
+  effectiveFrom DateTime
+  reason        String
+  reviewerNote  String?
+  reviewedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId, status])
+  @@index([requestedById, status])
+  @@index([status, createdAt])
+}
 // Slot khám cụ thể theo ngày để đặt lịch, chống trùng lịch
 model DoctorTimeSlot {
   id       String        @id @default(uuid())

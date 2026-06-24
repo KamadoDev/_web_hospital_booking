@@ -104,16 +104,19 @@ const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
 
 class PrescriptionService {
-  async list(query: {
-    status?: PrescriptionStatus;
-    doctorId?: string;
-    patientId?: string;
-    medicalRecordId?: string;
-    appointmentId?: string;
-    prescriptionCode?: string;
-    page?: number;
-    limit?: number;
-  }, actor: Actor) {
+  async list(
+    query: {
+      status?: PrescriptionStatus;
+      doctorId?: string;
+      patientId?: string;
+      medicalRecordId?: string;
+      appointmentId?: string;
+      prescriptionCode?: string;
+      page?: number;
+      limit?: number;
+    },
+    actor: Actor,
+  ) {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
@@ -166,7 +169,11 @@ class PrescriptionService {
     return prescription;
   }
 
-  async createForMedicalRecord(recordIdOrCode: string, input: CreatePrescriptionInput, actor: Actor) {
+  async createForMedicalRecord(
+    recordIdOrCode: string,
+    input: CreatePrescriptionInput,
+    actor: Actor,
+  ) {
     const record = await this.getRecordForWrite(recordIdOrCode, actor);
 
     if (record.prescriptionRecord) {
@@ -225,7 +232,10 @@ class PrescriptionService {
     const prescription = await this.ensureDraft(id, actor);
 
     if (prescription.items.length === 0) {
-      throw new AppError("Đơn thuốc cần có ít nhất 1 thuốc trước khi phát hành", 400);
+      throw new AppError(
+        "Đơn thuốc cần có ít nhất 1 thuốc trước khi phát hành",
+        400,
+      );
     }
 
     return prisma.prescription.update({
@@ -256,14 +266,20 @@ class PrescriptionService {
     });
   }
 
-  async createItem(prescriptionId: string, input: PrescriptionItemInput, actor: Actor) {
+  async createItem(
+    prescriptionId: string,
+    input: PrescriptionItemInput,
+    actor: Actor,
+  ) {
     await this.ensureDraft(prescriptionId, actor);
 
-    const sortOrder = input.sortOrder ?? await prisma.prescriptionItem.count({
-      where: {
-        prescriptionId,
-      },
-    });
+    const sortOrder =
+      input.sortOrder ??
+      (await prisma.prescriptionItem.count({
+        where: {
+          prescriptionId,
+        },
+      }));
 
     await prisma.prescriptionItem.create({
       data: {
@@ -282,7 +298,12 @@ class PrescriptionService {
     return this.getById(prescriptionId, actor);
   }
 
-  async updateItem(prescriptionId: string, itemId: string, input: Partial<PrescriptionItemInput>, actor: Actor) {
+  async updateItem(
+    prescriptionId: string,
+    itemId: string,
+    input: Partial<PrescriptionItemInput>,
+    actor: Actor,
+  ) {
     await this.ensureDraft(prescriptionId, actor);
     await this.getItem(prescriptionId, itemId);
 
@@ -386,7 +407,10 @@ class PrescriptionService {
     }
 
     if (prescription.medicalRecord.status === "ARCHIVED") {
-      throw new AppError("Hồ sơ khám đã lưu trữ, không thể chỉnh sửa đơn thuốc", 400);
+      throw new AppError(
+        "Hồ sơ khám đã lưu trữ, không thể chỉnh sửa đơn thuốc",
+        400,
+      );
     }
 
     return prescription;

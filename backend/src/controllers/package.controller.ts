@@ -32,7 +32,8 @@ export const listPackagesHandler = async (
 ) => {
   try {
     const result = await PackageService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
       isPopular: parseBooleanQuery(req.query.isPopular),
       page: parseNumberQuery(req.query.page),
@@ -187,7 +188,8 @@ export const listPublicPackagesHandler = async (
 ) => {
   try {
     const packages = await PackageService.publicList({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
       isPopular: parseBooleanQuery(req.query.isPopular),
     });
 

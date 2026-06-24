@@ -19,7 +19,9 @@ export type DashboardMedicalRecordDoctorFilters = {
   limit?: number;
 };
 
-export const fetchDashboardMedicalRecords = (filters: DashboardMedicalRecordFilters) =>
+export const fetchDashboardMedicalRecords = (
+  filters: DashboardMedicalRecordFilters,
+) =>
   apiRequest<ListResult<MedicalRecord>>("/dashboard/medical-records", {
     query: filters,
   });
@@ -27,12 +29,16 @@ export const fetchDashboardMedicalRecords = (filters: DashboardMedicalRecordFilt
 export const fetchDashboardMedicalRecord = (id: string) =>
   apiRequest<MedicalRecord>(`/dashboard/medical-records/${id}`);
 
-export const fetchDashboardMedicalRecordDoctors = (filters: DashboardMedicalRecordDoctorFilters) =>
+export const fetchDashboardMedicalRecordDoctors = (
+  filters: DashboardMedicalRecordDoctorFilters,
+) =>
   apiRequest<ListResult<DoctorProfile>>("/dashboard/doctors", {
     query: filters,
   });
 
-export function useDashboardMedicalRecords(filters: DashboardMedicalRecordFilters) {
+export function useDashboardMedicalRecords(
+  filters: DashboardMedicalRecordFilters,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardMedicalRecords(filters),
     queryFn: () => fetchDashboardMedicalRecords(filters),
@@ -47,7 +53,10 @@ export function useDashboardMedicalRecord(id?: string) {
   });
 }
 
-export function useDashboardMedicalRecordDoctors(filters: DashboardMedicalRecordDoctorFilters, enabled: boolean) {
+export function useDashboardMedicalRecordDoctors(
+  filters: DashboardMedicalRecordDoctorFilters,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.dashboardDoctors(filters),
     queryFn: () => fetchDashboardMedicalRecordDoctors(filters),

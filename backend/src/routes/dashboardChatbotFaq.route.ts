@@ -20,7 +20,11 @@ const router = Router();
 router.use(authDashboard);
 
 router.get("/", requireRole("ADMIN", "STAFF"), listDashboardChatbotFAQsHandler);
-router.get("/:id", requireRole("ADMIN", "STAFF"), getDashboardChatbotFAQHandler);
+router.get(
+  "/:id",
+  requireRole("ADMIN", "STAFF"),
+  getDashboardChatbotFAQHandler,
+);
 router.post(
   "/",
   requireRole("ADMIN", "STAFF"),

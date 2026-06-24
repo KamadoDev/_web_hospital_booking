@@ -32,7 +32,8 @@ export const listDoctorsHandler = async (
 ) => {
   try {
     const result = await DoctorService.list({
-      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
       departmentId:
         typeof req.query.departmentId === "string"
           ? req.query.departmentId
@@ -92,7 +93,10 @@ export const updateDoctorHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const doctor = await DoctorService.update(getParam(req.params.id), req.body);
+    const doctor = await DoctorService.update(
+      getParam(req.params.id),
+      req.body,
+    );
 
     return res.json({
       success: true,

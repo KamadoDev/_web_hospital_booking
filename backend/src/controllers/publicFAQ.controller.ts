@@ -25,7 +25,8 @@ export const listPublicFAQsHandler = async (
 ) => {
   try {
     const items = await PublicFAQService.listPublic({
-      category: typeof req.query.category === "string" ? req.query.category : undefined,
+      category:
+        typeof req.query.category === "string" ? req.query.category : undefined,
     });
 
     return res.json({ success: true, data: { items } });
@@ -41,7 +42,8 @@ export const listDashboardFAQsHandler = async (
 ) => {
   try {
     const items = await PublicFAQService.listDashboard({
-      category: typeof req.query.category === "string" ? req.query.category : undefined,
+      category:
+        typeof req.query.category === "string" ? req.query.category : undefined,
       isActive: parseBooleanQuery(req.query.isActive),
     });
 
@@ -89,7 +91,10 @@ export const updateDashboardFAQHandler = async (
   next: NextFunction,
 ) => {
   try {
-    const faq = await PublicFAQService.update(getParam(req.params.id), req.body);
+    const faq = await PublicFAQService.update(
+      getParam(req.params.id),
+      req.body,
+    );
 
     return res.json({
       success: true,

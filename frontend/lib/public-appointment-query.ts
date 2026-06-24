@@ -89,7 +89,15 @@ export type PublicAppointmentResult = {
   } | null;
   prescription: Pick<
     Prescription,
-    "id" | "prescriptionCode" | "status" | "note" | "issuedAt" | "cancelledAt" | "createdAt" | "updatedAt" | "items"
+    | "id"
+    | "prescriptionCode"
+    | "status"
+    | "note"
+    | "issuedAt"
+    | "cancelledAt"
+    | "createdAt"
+    | "updatedAt"
+    | "items"
   > | null;
 };
 
@@ -98,12 +106,16 @@ export type AppointmentLookupFilters = {
   phone?: string;
 };
 
-export const fetchPublicAppointmentLookup = (filters: Required<AppointmentLookupFilters>) =>
+export const fetchPublicAppointmentLookup = (
+  filters: Required<AppointmentLookupFilters>,
+) =>
   apiRequest<DisplayAppointment>("/appointments/lookup", {
     query: filters,
   });
 
-export const fetchPublicAppointmentResult = (filters: Required<AppointmentLookupFilters>) =>
+export const fetchPublicAppointmentResult = (
+  filters: Required<AppointmentLookupFilters>,
+) =>
   apiRequest<PublicAppointmentResult>("/appointments/lookup/result", {
     query: filters,
   });

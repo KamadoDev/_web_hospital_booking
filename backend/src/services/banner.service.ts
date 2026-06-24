@@ -107,7 +107,11 @@ class BannerService {
       await MediaAssetService.attachAsset(imageAsset.id, "BANNER", banner.id);
     }
     if (mobileImageAsset) {
-      await MediaAssetService.attachAsset(mobileImageAsset.id, "BANNER", banner.id);
+      await MediaAssetService.attachAsset(
+        mobileImageAsset.id,
+        "BANNER",
+        banner.id,
+      );
     }
 
     return banner;
@@ -119,13 +123,21 @@ class BannerService {
       input.imageAssetId === undefined
         ? null
         : input.imageAssetId
-          ? await MediaAssetService.attachAsset(input.imageAssetId, "BANNER", id)
+          ? await MediaAssetService.attachAsset(
+              input.imageAssetId,
+              "BANNER",
+              id,
+            )
           : null;
     const mobileImageAsset =
       input.mobileImageAssetId === undefined
         ? null
         : input.mobileImageAssetId
-          ? await MediaAssetService.attachAsset(input.mobileImageAssetId, "BANNER", id)
+          ? await MediaAssetService.attachAsset(
+              input.mobileImageAssetId,
+              "BANNER",
+              id,
+            )
           : null;
 
     const banner = await prisma.banner.update({
@@ -160,10 +172,21 @@ class BannerService {
           : input.mobileImage;
 
     if (nextImage !== undefined && nextImage !== currentBanner.image) {
-      await MediaAssetService.detachOwnerAssetByUrl("BANNER", id, currentBanner.image);
+      await MediaAssetService.detachOwnerAssetByUrl(
+        "BANNER",
+        id,
+        currentBanner.image,
+      );
     }
-    if (nextMobileImage !== undefined && nextMobileImage !== currentBanner.mobileImage) {
-      await MediaAssetService.detachOwnerAssetByUrl("BANNER", id, currentBanner.mobileImage);
+    if (
+      nextMobileImage !== undefined &&
+      nextMobileImage !== currentBanner.mobileImage
+    ) {
+      await MediaAssetService.detachOwnerAssetByUrl(
+        "BANNER",
+        id,
+        currentBanner.mobileImage,
+      );
     }
 
     return banner;

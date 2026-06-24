@@ -18,13 +18,7 @@ const emergencyKeywords = [
   "dau dau dot ngot",
 ];
 
-const greetingKeywords = [
-  "xin chao",
-  "chao",
-  "hello",
-  "hi",
-  "hey",
-];
+const greetingKeywords = ["xin chao", "chao", "hello", "hi", "hey"];
 
 const toVietnamDateOnly = (date: Date) => {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -33,7 +27,9 @@ const toVietnamDateOnly = (date: Date) => {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
 
   return `${values.year}-${values.month}-${values.day}`;
 };
@@ -68,14 +64,40 @@ const addDays = (date: Date, days: number) => {
 };
 
 const symptomRules: SymptomRule[] = [
-  { canonical: "dau dau", aliases: ["dau dau", "đau đầu", "nhuc dau", "nhức đầu"] },
-  { canonical: "dau vung tran", aliases: ["dau vung tran", "đau vùng trán", "dau tran", "đau trán", "vung tran", "vùng trán"] },
+  {
+    canonical: "dau dau",
+    aliases: ["dau dau", "đau đầu", "nhuc dau", "nhức đầu"],
+  },
+  {
+    canonical: "dau vung tran",
+    aliases: [
+      "dau vung tran",
+      "đau vùng trán",
+      "dau tran",
+      "đau trán",
+      "vung tran",
+      "vùng trán",
+    ],
+  },
   { canonical: "dau am i", aliases: ["dau am i", "đau âm ỉ", "am i", "âm ỉ"] },
-  { canonical: "dau khi van dong manh", aliases: ["dau khi van dong manh", "vận động mạnh", "van dong manh", "da banh", "đá banh"] },
+  {
+    canonical: "dau khi van dong manh",
+    aliases: [
+      "dau khi van dong manh",
+      "vận động mạnh",
+      "van dong manh",
+      "da banh",
+      "đá banh",
+    ],
+  },
   { canonical: "dau", aliases: ["dau", "đau"] },
   { canonical: "kho tho", aliases: ["kho tho", "khó thở"] },
   { canonical: "sot", aliases: ["sot", "sốt"] },
-  { canonical: "ho", aliases: ["ho"], excludedPhrases: ["ho tro", "ho so", "hoan", "hoi"] },
+  {
+    canonical: "ho",
+    aliases: ["ho"],
+    excludedPhrases: ["ho tro", "ho so", "hoan", "hoi"],
+  },
   { canonical: "chong mat", aliases: ["chong mat", "chóng mặt"] },
   { canonical: "met", aliases: ["met", "mệt", "met moi", "mệt mỏi"] },
   { canonical: "buon non", aliases: ["buon non", "buồn nôn"] },
@@ -84,7 +106,8 @@ const symptomRules: SymptomRule[] = [
 const negationWords = ["khong", "ko", "k", "chua"];
 const negationModifiers = ["", "bi", "co", "kem", "thay", "con"];
 
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const foldVietnamese = (value: string) =>
   value
@@ -98,7 +121,9 @@ const foldVietnamese = (value: string) =>
 
 const hasPhrase = (foldedMessage: string, foldedPhrase: string) => {
   if (foldedPhrase.length <= 3) {
-    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(foldedPhrase)}([^a-z0-9]|$)`).test(foldedMessage);
+    return new RegExp(
+      `(^|[^a-z0-9])${escapeRegExp(foldedPhrase)}([^a-z0-9]|$)`,
+    ).test(foldedMessage);
   }
 
   return foldedMessage.includes(foldedPhrase);
@@ -120,18 +145,25 @@ const isNegatedPhrase = (foldedMessage: string, foldedPhrase: string) => {
 const hasAffirmedPhrase = (foldedMessage: string, phrase: string) => {
   const foldedPhrase = foldVietnamese(phrase);
 
-  return hasPhrase(foldedMessage, foldedPhrase) && !isNegatedPhrase(foldedMessage, foldedPhrase);
+  return (
+    hasPhrase(foldedMessage, foldedPhrase) &&
+    !isNegatedPhrase(foldedMessage, foldedPhrase)
+  );
 };
 
 const hasExcludedPhrase = (foldedMessage: string, rule: SymptomRule) =>
-  (rule.excludedPhrases || []).some((phrase) => hasPhrase(foldedMessage, phrase));
+  (rule.excludedPhrases || []).some((phrase) =>
+    hasPhrase(foldedMessage, phrase),
+  );
 
 const getNegatedSymptoms = (normalizedMessage: string) => {
   const foldedMessage = foldVietnamese(normalizedMessage);
 
   return symptomRules
     .filter((rule) =>
-      rule.aliases.some((alias) => isNegatedPhrase(foldedMessage, foldVietnamese(alias))),
+      rule.aliases.some((alias) =>
+        isNegatedPhrase(foldedMessage, foldVietnamese(alias)),
+      ),
     )
     .map((rule) => rule.canonical);
 };
@@ -190,7 +222,10 @@ export const detectIntent = (normalizedMessage: string): ChatIntent => {
     return "APPOINTMENT_LOOKUP_GUIDE";
   }
 
-  if (foldedMessage.includes("thanh toan") || foldedMessage.includes("hoa don")) {
+  if (
+    foldedMessage.includes("thanh toan") ||
+    foldedMessage.includes("hoa don")
+  ) {
     return "PAYMENT_GUIDE";
   }
 
@@ -266,7 +301,10 @@ export const inferDraftFromMessage = (
   );
   const date = inferDateFromMessage(normalizedMessage) || draft.date;
 
-  if (!symptoms.length && currentSymptoms.length === (draft.symptoms || []).length) {
+  if (
+    !symptoms.length &&
+    currentSymptoms.length === (draft.symptoms || []).length
+  ) {
     return date === draft.date ? draft : { ...draft, date };
   }
 
@@ -286,7 +324,10 @@ export const inferDateFromMessage = (normalizedMessage: string) => {
 
   const today = new Date();
 
-  if (foldedMessage.includes("ngay mai") || /(^|[^a-z0-9à-ỹ])mai([^a-z0-9à-ỹ]|$)/i.test(normalizedMessage)) {
+  if (
+    foldedMessage.includes("ngay mai") ||
+    /(^|[^a-z0-9à-ỹ])mai([^a-z0-9à-ỹ]|$)/i.test(normalizedMessage)
+  ) {
     return toVietnamDateOnly(addDays(today, 1));
   }
 
@@ -294,7 +335,9 @@ export const inferDateFromMessage = (normalizedMessage: string) => {
     return toVietnamDateOnly(today);
   }
 
-  const slashDate = foldedMessage.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](20\d{2}))?\b/);
+  const slashDate = foldedMessage.match(
+    /\b(\d{1,2})[/-](\d{1,2})(?:[/-](20\d{2}))?\b/,
+  );
   if (slashDate) {
     const parts = getVietnamDateParts(today);
     const day = Number(slashDate[1]);
@@ -318,7 +361,9 @@ export const inferDateFromMessage = (normalizedMessage: string) => {
   return undefined;
 };
 
-export const sanitizeBookingDraft = (draft: ChatBookingDraft): ChatBookingDraft => ({
+export const sanitizeBookingDraft = (
+  draft: ChatBookingDraft,
+): ChatBookingDraft => ({
   departmentId: draft.departmentId,
   departmentSlug: draft.departmentSlug,
   packageId: draft.packageId,

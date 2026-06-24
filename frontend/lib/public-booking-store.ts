@@ -48,7 +48,12 @@ const readLookupDraft = (): PublicLookupDraft | null => {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<PublicLookupDraft>;
-    if (!parsed.bookingCode || !parsed.phone || typeof parsed.savedAt !== "number") return null;
+    if (
+      !parsed.bookingCode ||
+      !parsed.phone ||
+      typeof parsed.savedAt !== "number"
+    )
+      return null;
 
     return {
       bookingCode: parsed.bookingCode,

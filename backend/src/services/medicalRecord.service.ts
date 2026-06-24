@@ -1,5 +1,8 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { MedicalResultStatus, Role } from "../../generated/prisma/enums.js";
+import type {
+  MedicalResultStatus,
+  Role,
+} from "../../generated/prisma/enums.js";
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../utils/appError.js";
 import { parseDateOnly } from "../utils/time.js";
@@ -114,7 +117,10 @@ const normalizeOptionalString = (value?: string | null) =>
   value === undefined ? undefined : value || null;
 
 class MedicalRecordService {
-  async ensureForAppointment(appointmentId: string, tx: Prisma.TransactionClient = prisma) {
+  async ensureForAppointment(
+    appointmentId: string,
+    tx: Prisma.TransactionClient = prisma,
+  ) {
     const appointment = await tx.appointment.findUnique({
       where: { id: appointmentId },
       select: {
@@ -151,15 +157,18 @@ class MedicalRecordService {
     });
   }
 
-  async list(query: {
-    status?: MedicalResultStatus;
-    doctorId?: string;
-    patientId?: string;
-    recordCode?: string;
-    date?: string;
-    page?: number;
-    limit?: number;
-  }, actor: Actor) {
+  async list(
+    query: {
+      status?: MedicalResultStatus;
+      doctorId?: string;
+      patientId?: string;
+      recordCode?: string;
+      date?: string;
+      page?: number;
+      limit?: number;
+    },
+    actor: Actor,
+  ) {
     const page = Math.max(query.page || 1, 1);
     const limit = Math.min(Math.max(query.limit || 20, 1), 100);
     const skip = (page - 1) * limit;
@@ -240,7 +249,10 @@ class MedicalRecordService {
     const record = await this.getById(id, actor);
 
     if (!["IN_PROGRESS", "COMPLETED"].includes(record.appointment.status)) {
-      throw new AppError("Chỉ có thể phát hành kết quả sau khi bắt đầu khám", 400);
+      throw new AppError(
+        "Chỉ có thể phát hành kết quả sau khi bắt đầu khám",
+        400,
+      );
     }
 
     return prisma.medicalRecord.update({
@@ -281,7 +293,12 @@ class MedicalRecordService {
     });
   }
 
-  async updateLabResult(recordId: string, labResultId: string, input: Partial<LabResultInput>, actor: Actor) {
+  async updateLabResult(
+    recordId: string,
+    labResultId: string,
+    input: Partial<LabResultInput>,
+    actor: Actor,
+  ) {
     await this.getById(recordId, actor);
     await this.getLabResult(recordId, labResultId);
 

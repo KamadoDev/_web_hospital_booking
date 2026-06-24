@@ -29,11 +29,7 @@ const faqSelect = {
 
 const normalizeKeywords = (keywords: string[]) =>
   Array.from(
-    new Set(
-      keywords
-        .map((keyword) => keyword.trim())
-        .filter(Boolean),
-    ),
+    new Set(keywords.map((keyword) => keyword.trim()).filter(Boolean)),
   );
 
 class DashboardChatbotFAQService {
@@ -151,7 +147,9 @@ class DashboardChatbotFAQService {
       data: {
         question: input.question,
         answer: input.answer,
-        keywords: input.keywords ? normalizeKeywords(input.keywords) : undefined,
+        keywords: input.keywords
+          ? normalizeKeywords(input.keywords)
+          : undefined,
         isActive: input.isActive,
       },
       select: faqSelect,
