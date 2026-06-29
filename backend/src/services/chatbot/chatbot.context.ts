@@ -5,6 +5,7 @@ import {
   parseDateOnly,
 } from "../../utils/time.js";
 import type { ChatBookingDraft, ChatIntent } from "./chatbot.types.js";
+import type { NLUCatalog } from "./ai/nlu.service.js";
 
 export type ChatbotContext = {
   departments: {
@@ -38,12 +39,6 @@ export type ChatbotContext = {
     startTime: string;
     endTime: string;
   }[];
-  faqs: {
-    id: string;
-    question: string;
-    answer: string;
-    keywords: string[];
-  }[];
 };
 
 const toDateOnly = (date: Date) => {
@@ -60,7 +55,69 @@ const toDateOnly = (date: Date) => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
+const matchesTimePeriod = (
+  startTime: string,
+  period: ChatBookingDraft["timePeriod"],
+) => {
+  if (!period) return true;
+
+  const hour = Number(startTime.slice(0, 2));
+  if (period === "MORNING") return hour < 12;
+  if (period === "AFTERNOON") return hour >= 12 && hour < 18;
+  return hour >= 18;
+};
+
+let nluCatalogCache:
+  | { value: NLUCatalog; expiresAt: number }
+  | undefined;
+
 class ChatbotContextService {
+  async loadNLUCatalog(): Promise<NLUCatalog> {
+    if (nluCatalogCache && nluCatalogCache.expiresAt > Date.now()) {
+      return nluCatalogCache.value;
+    }
+    const [departments, packages, doctors] = await Promise.all([
+      prisma.department.findMany({
+        where: { isActive: true },
+        select: { name: true },
+        orderBy: { name: "asc" },
+        take: 50,
+      }),
+      prisma.package.findMany({
+        where: { isActive: true },
+        select: { name: true },
+        orderBy: { name: "asc" },
+        take: 50,
+      }),
+      prisma.doctorProfile.findMany({
+        where: { isAvailable: true, user: { isActive: true } },
+        select: {
+          title: true,
+          user: { select: { fullName: true } },
+        },
+        orderBy: { user: { fullName: "asc" } },
+        take: 50,
+      }),
+    ]);
+
+    // AI receives only lightweight names for language resolution. IDs, prices
+    // and slots stay server-side and are verified after extraction.
+    const value: NLUCatalog = {
+      departments: departments.map((item) => item.name),
+      packages: packages.map((item) => item.name),
+      doctors: doctors.map((item) =>
+        [item.title, item.user.fullName].filter(Boolean).join(" "),
+      ),
+    };
+
+    nluCatalogCache = {
+      value,
+      expiresAt: Date.now() + 60_000,
+    };
+
+    return value;
+  }
+
   async load(
     intent: ChatIntent,
     draft: ChatBookingDraft,
@@ -82,14 +139,7 @@ class ChatbotContextService {
         "BOOKING_START",
         "BOOKING_FORM_HELP",
       ].includes(intent) || Boolean(draft.departmentId || draft.doctorId);
-    const shouldLoadFaqs = [
-      "UNKNOWN",
-      "GENERAL_HOSPITAL_INFO",
-      "PAYMENT_GUIDE",
-      "APPOINTMENT_LOOKUP_GUIDE",
-    ].includes(intent);
-
-    const [departments, packages, doctors, availableSlots, faqs] =
+    const [departments, packages, doctors, availableSlots] =
       await Promise.all([
         this.getDepartments(),
         shouldLoadPackages ? this.getPackages(draft) : Promise.resolve([]),
@@ -100,7 +150,6 @@ class ChatbotContextService {
         draft.departmentId
           ? this.getAvailableSlots(draft)
           : Promise.resolve([]),
-        shouldLoadFaqs ? this.getFaqs() : Promise.resolve([]),
       ]);
 
     return {
@@ -108,64 +157,7 @@ class ChatbotContextService {
       packages,
       doctors,
       availableSlots,
-      faqs,
     };
-  }
-
-  format(context: ChatbotContext) {
-    const sections: string[] = [];
-
-    if (context.departments.length) {
-      sections.push(
-        "DEPARTMENTS:",
-        ...context.departments.map(
-          (department) =>
-            `- ${department.id} | ${department.name} | slug=${department.slug || ""} | ${department.description || ""}`,
-        ),
-      );
-    }
-
-    if (context.packages.length) {
-      sections.push(
-        "PACKAGES:",
-        ...context.packages.map(
-          (item) =>
-            `- ${item.id} | ${item.name} | departmentId=${item.departmentId || ""} | department=${item.departmentName || ""} | price=${item.finalPrice} | ${item.summary || ""}`,
-        ),
-      );
-    }
-
-    if (context.doctors.length) {
-      sections.push(
-        "DOCTORS:",
-        ...context.doctors.map(
-          (doctor) =>
-            `- ${doctor.id} | ${doctor.title || ""} ${doctor.fullName} | specialization=${doctor.specialization || ""} | departmentId=${doctor.departmentId} | department=${doctor.departmentName} | fee=${doctor.consultationFee}`,
-        ),
-      );
-    }
-
-    if (context.availableSlots.length) {
-      sections.push(
-        "AVAILABLE_SLOTS:",
-        ...context.availableSlots.map(
-          (slot) =>
-            `- ${slot.id} | doctorId=${slot.doctorId} | date=${slot.date} | ${slot.startTime}-${slot.endTime}`,
-        ),
-      );
-    }
-
-    if (context.faqs.length) {
-      sections.push(
-        "FAQ_KNOWLEDGE:",
-        ...context.faqs.map(
-          (faq) =>
-            `- ${faq.id} | Q=${faq.question} | A=${faq.answer} | keywords=${faq.keywords.join(",")}`,
-        ),
-      );
-    }
-
-    return sections.join("\n");
   }
 
   private async getDepartments() {
@@ -318,12 +310,16 @@ class ChatbotContextService {
       : await findSlots({ gte: parseDateOnly(today) });
 
     const usableSlots = slots.filter(
-      (slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime),
+      (slot) =>
+        !isSlotStartInPastVietnamTime(slot.date, slot.startTime) &&
+        matchesTimePeriod(slot.startTime, draft.timePeriod),
     );
     const fallbackSlots =
       requestedDate && !usableSlots.length
         ? (await findSlots({ gte: parseDateOnly(requestedDate) })).filter(
-            (slot) => !isSlotStartInPastVietnamTime(slot.date, slot.startTime),
+            (slot) =>
+              !isSlotStartInPastVietnamTime(slot.date, slot.startTime) &&
+              matchesTimePeriod(slot.startTime, draft.timePeriod),
           )
         : usableSlots;
 
@@ -334,24 +330,6 @@ class ChatbotContextService {
       startTime: slot.startTime,
       endTime: slot.endTime,
     }));
-  }
-
-  private async getFaqs() {
-    return prisma.chatbotFAQ.findMany({
-      where: {
-        isActive: true,
-      },
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        keywords: true,
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 10,
-    });
   }
 }
 

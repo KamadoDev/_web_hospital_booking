@@ -1,5 +1,6 @@
 import type { ChatbotContext } from "./chatbot.context.js";
-import { sanitizeBookingDraft } from "./chatbot.rules.js";
+import { sanitizeBookingDraft } from "./rules/draft-sanitizer.js";
+import { chatbotReplies } from "./chatbot.responses.js";
 import type {
   AIChatbotOutput,
   ChatAction,
@@ -17,22 +18,27 @@ type WorkflowInput = {
   action?: ChatAction;
 };
 
-const foldText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
-
 const createOutput = (
   output: Omit<AIChatbotOutput, "confidence"> & { confidence?: number },
-): AIChatbotOutput => ({
-  confidence: output.confidence ?? 0.82,
-  ...output,
-});
+): AIChatbotOutput => {
+  const resultActionTypes = new Set<string>(
+    (output.results || []).map((group) => {
+      if (group.type === "departments") return "VIEW_DEPARTMENT";
+      if (group.type === "packages") return "VIEW_PACKAGE";
+      if (group.type === "doctors") return "VIEW_DOCTOR";
+      return "VIEW_AVAILABLE_SLOTS";
+    }),
+  );
+
+  return {
+    confidence: output.confidence ?? 0.82,
+    ...output,
+    // Result cards own item selection; actions only offer alternate paths.
+    suggestedActions: output.suggestedActions.filter(
+      (action) => !resultActionTypes.has(action.type),
+    ),
+  };
+};
 
 const formatDateLabel = (value: string) => {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -43,26 +49,22 @@ const formatDateLabel = (value: string) => {
 
 const findDepartment = (
   context: ChatbotContext,
-  message: string,
+  _message: string,
   draft: ChatBookingDraft,
 ) => {
   if (draft.departmentId) {
-    return context.departments.find((department) => department.id === draft.departmentId);
+    return context.departments.find(
+      (department) => department.id === draft.departmentId,
+    );
   }
 
   if (draft.departmentSlug) {
-    return context.departments.find((department) => department.slug === draft.departmentSlug);
+    return context.departments.find(
+      (department) => department.slug === draft.departmentSlug,
+    );
   }
 
-  const foldedMessage = foldText(`${message} ${(draft.symptoms || []).join(" ")}`);
-
-  return context.departments.find((department) => {
-    const haystack = foldText(`${department.name} ${department.slug || ""} ${department.description || ""}`);
-    return haystack
-      .split(" ")
-      .filter((word) => word.length >= 3)
-      .some((word) => foldedMessage.includes(word));
-  });
+  return undefined;
 };
 
 const getDepartmentActions = (context: ChatbotContext, department?: ChatbotContext["departments"][number]) => {
@@ -89,19 +91,95 @@ const getDepartmentActions = (context: ChatbotContext, department?: ChatbotConte
   }));
 };
 
-const buildDepartmentListText = (context: ChatbotContext, limit = 6) => {
-  if (!context.departments.length) return "";
+const buildDepartmentResults = (
+  context: ChatbotContext,
+  department?: ChatbotContext["departments"][number],
+  limit = 6,
+): ChatbotResultGroup[] => {
+  const departments = department ? [department] : context.departments.slice(0, limit);
+  if (!departments.length) return [];
 
-  const lines = context.departments
-    .slice(0, limit)
-    .map((department, index) => `${index + 1}. ${department.name}`);
-  const moreText = context.departments.length > limit
-    ? `\nCòn ${context.departments.length - limit} chuyên khoa khác trên website.`
-    : "";
-
-  return `Danh sách chuyên khoa đang hoạt động:\n${lines.join("\n")}${moreText}`;
+  return [
+    {
+      type: "departments",
+      title: department ? "Chuyên khoa phù hợp" : "Danh sách chuyên khoa",
+      description: department
+        ? "Bạn có thể mở chuyên khoa để xem bác sĩ, gói khám và lịch phù hợp."
+        : "Chọn một chuyên khoa để tiếp tục xem gói khám, bác sĩ và lịch trống.",
+      items: departments.map((item) => ({
+        type: "department" as const,
+        id: item.id,
+        name: item.name,
+        slug: item.slug,
+        description: item.description,
+      })),
+      total: department ? 1 : context.departments.length,
+      limit,
+    },
+  ];
 };
 
+const buildPackageResults = (
+  context: ChatbotContext,
+  departmentId?: string,
+  limit = 6,
+): ChatbotResultGroup[] => {
+  const packages = context.packages
+    .filter((item) => !departmentId || item.departmentId === departmentId)
+    .slice(0, limit);
+  if (!packages.length) return [];
+
+  return [
+    {
+      type: "packages",
+      title: "Gói khám phù hợp",
+      description: "Bạn có thể xem nhanh gói khám trước khi chọn bác sĩ và khung giờ.",
+      items: packages.map((item) => ({
+        type: "package" as const,
+        id: item.id,
+        name: item.name,
+        slug: item.slug,
+        departmentId: item.departmentId,
+        departmentName: item.departmentName,
+        summary: item.summary,
+        finalPrice: item.finalPrice,
+      })),
+      total: context.packages.filter((item) => !departmentId || item.departmentId === departmentId).length,
+      limit,
+    },
+  ];
+};
+
+const buildDoctorResults = (
+  context: ChatbotContext,
+  departmentId?: string,
+  limit = 6,
+): ChatbotResultGroup[] => {
+  const doctors = context.doctors
+    .filter((doctor) => !departmentId || doctor.departmentId === departmentId)
+    .slice(0, limit);
+  if (!doctors.length) return [];
+
+  return [
+    {
+      type: "doctors",
+      title: "Bác sĩ phù hợp",
+      description: "Chọn bác sĩ để xem lịch trống và tiếp tục đặt khám.",
+      items: doctors.map((doctor) => ({
+        type: "doctor" as const,
+        id: doctor.id,
+        fullName: doctor.fullName,
+        title: doctor.title,
+        specialization: doctor.specialization,
+        departmentId: doctor.departmentId,
+        departmentName: doctor.departmentName,
+        consultationFee: doctor.consultationFee,
+      })),
+      total: context.doctors.filter((doctor) => !departmentId || doctor.departmentId === departmentId).length,
+      limit,
+    },
+  ];
+};
 const getPackageActions = (
   context: ChatbotContext,
   departmentId?: string,
@@ -173,21 +251,6 @@ const formatSlotLine = (
   const prefix = includeDoctor && doctorName ? `${doctorName} - ` : "";
 
   return `${prefix}${formatDateLabel(slot.date)} ${slot.startTime}-${slot.endTime}`;
-};
-
-const buildSlotListText = (
-  context: ChatbotContext,
-  doctorId?: string,
-  limit = 6,
-) => {
-  const slots = getMatchingSlots(context, doctorId);
-  if (!slots.length) return "";
-
-  const includeDoctor = !doctorId;
-  const lines = slots.slice(0, limit).map((slot, index) => `${index + 1}. ${formatSlotLine(context, slot, includeDoctor)}`);
-  const moreText = slots.length > limit ? `\nCòn ${slots.length - limit} khung giờ khác trong form đặt lịch.` : "";
-
-  return `\n\nDanh sách lịch trống:\n${lines.join("\n")}${moreText}`;
 };
 
 const buildSlotResults = (
@@ -289,7 +352,7 @@ class ChatbotWorkflowService {
 
     if (input.detectedIntent === "APPOINTMENT_LOOKUP_GUIDE") {
       return createOutput({
-        reply: "Bạn có thể tra cứu lịch hẹn bằng mã đặt lịch và số điện thoại. Nếu quên mã lịch, hãy dùng tab quên mã để nhận OTP và xem lịch gần đây.",
+        reply: chatbotReplies.appointmentLookupGuide,
         intent: "APPOINTMENT_LOOKUP_GUIDE",
         state: "BOOKING_GUIDE",
         nextStep: "SHOW_BOOKING_GUIDE",
@@ -303,7 +366,7 @@ class ChatbotWorkflowService {
 
     if (input.detectedIntent === "PAYMENT_GUIDE") {
       return createOutput({
-        reply: "Bạn có thể thanh toán theo hướng dẫn trên hóa đơn hoặc liên hệ nhân viên nếu cần kiểm tra giao dịch. Nếu đã có mã hóa đơn, hãy mở trang tra cứu lịch hẹn để xem thông tin thanh toán.",
+        reply: chatbotReplies.paymentGuide,
         intent: "PAYMENT_GUIDE",
         state: "BOOKING_GUIDE",
         nextStep: "SHOW_PAYMENT_GUIDE",
@@ -370,7 +433,7 @@ class ChatbotWorkflowService {
         return this.handleSlotSelected(draft);
       case "CHANGE_DATE":
         return createOutput({
-          reply: "Bạn muốn đổi ngày khám. Hãy nhập ngày mong muốn, ví dụ: hôm nay, ngày mai hoặc 2026-06-10.",
+          reply: chatbotReplies.changeDatePrompt,
           intent: "AVAILABLE_SLOT_LOOKUP",
           state: "CHOOSING_DATE",
           nextStep: "CHOOSE_DATE",
@@ -391,15 +454,17 @@ class ChatbotWorkflowService {
     const department = findDepartment(input.context, input.message, draft);
     const departmentId = draft.departmentId || department?.id;
     const packageActions = getPackageActions(input.context, departmentId);
-    const doctorActions = getDoctorActions(input.context, departmentId);
 
     return createOutput({
       reply: department
-        ? `Mình đã chọn ${department.name}. Bước tiếp theo, bạn có thể xem gói khám hoặc chọn bác sĩ thuộc chuyên khoa này.`
-        : "Mình đã ghi nhận chuyên khoa bạn chọn. Bạn có thể xem gói khám hoặc chọn bác sĩ để tiếp tục đặt lịch.",
+        ? chatbotReplies.departmentSelected(department.name)
+        : chatbotReplies.departmentSelected(),
       intent: "DEPARTMENT_DETAIL",
       state: packageActions.length ? "SUGGESTING_PACKAGE" : "CHOOSING_DOCTOR",
       nextStep: packageActions.length ? "CHOOSE_PACKAGE" : "CHOOSE_DOCTOR",
+      results: packageActions.length
+        ? buildPackageResults(input.context, departmentId)
+        : buildDoctorResults(input.context, departmentId),
       draft: sanitizeBookingDraft({
         ...draft,
         departmentId,
@@ -409,18 +474,22 @@ class ChatbotWorkflowService {
       }),
       suggestedActions: [
         ...packageActions,
-        ...doctorActions,
-        { type: "VIEW_DOCTORS", label: "Xem bác sĩ", payload: { departmentId } },
+        {
+          type: "VIEW_DOCTORS",
+          label: "Khám theo bác sĩ",
+          payload: { departmentId, serviceMode: "DOCTOR_ONLY" },
+        },
       ],
     });
   }
 
   private handleDepartmentList(input: WorkflowInput, draft: ChatBookingDraft) {
     return createOutput({
-      reply: `${buildDepartmentListText(input.context)}\n\nBạn có thể chọn nhanh một chuyên khoa bên dưới để xem gói khám, bác sĩ và lịch trống phù hợp.`,
+      reply: chatbotReplies.departmentListGuide,
       intent: "DEPARTMENT_LIST",
       state: "SUGGESTING_DEPARTMENT",
       nextStep: "CHOOSE_DEPARTMENT",
+      results: buildDepartmentResults(input.context),
       draft: sanitizeBookingDraft({
         ...draft,
         departmentId: undefined,
@@ -439,12 +508,13 @@ class ChatbotWorkflowService {
 
     return createOutput({
       reply: packageActions.length
-        ? "Mình tìm thấy một số gói khám đang hoạt động. Bạn chọn gói phù hợp để xem bác sĩ và lịch trống."
-        : "Hiện chưa có gói khám phù hợp với chuyên khoa đã chọn. Bạn có thể chọn chuyên khoa khác hoặc liên hệ hỗ trợ.",
+        ? chatbotReplies.packageList(true)
+        : chatbotReplies.packageList(false),
       intent: "PACKAGE_LIST",
       state: packageActions.length ? "SUGGESTING_PACKAGE" : "SUGGESTING_DEPARTMENT",
       nextStep: packageActions.length ? "CHOOSE_PACKAGE" : "CHOOSE_DEPARTMENT",
       draft,
+      results: buildPackageResults(input.context, draft.departmentId),
       suggestedActions: packageActions.length
         ? packageActions
         : [
@@ -460,26 +530,56 @@ class ChatbotWorkflowService {
       : draft.packageSlug
         ? input.context.packages.find((item) => item.slug === draft.packageSlug)
         : undefined;
-    const departmentId = draft.departmentId || packageItem?.departmentId || undefined;
+    const departmentId =
+      draft.departmentId || packageItem?.departmentId || undefined;
     const doctorActions = getDoctorActions(input.context, departmentId);
     const slotActions = getSlotActions(input.context, draft.doctorId);
+    const nextDraft = sanitizeBookingDraft({
+      ...draft,
+      departmentId,
+    });
+
+    if (slotActions.length) {
+      const nearestDate = getNearestSlotDate(input.context, draft.doctorId);
+
+      return createOutput({
+        reply: packageItem
+          ? chatbotReplies.packageSelectedWithSlots(packageItem.name)
+          : chatbotReplies.packageSelectedWithSlots(),
+        intent: "PACKAGE_DETAIL",
+        state: "CHOOSING_SLOT",
+        nextStep: "CHOOSE_SLOT",
+        results: buildSlotResults(input.context, draft.doctorId),
+        draft: nextDraft,
+        suggestedActions: [
+          buildOpenBookingAction(nextDraft, nearestDate || draft.date),
+        ],
+      });
+    }
 
     return createOutput({
       reply: packageItem
-        ? `Mình đã chọn gói ${packageItem.name}. Bạn chọn bác sĩ hoặc khung giờ trống để tiếp tục đặt lịch nhé.`
-        : "Mình đã ghi nhận gói khám bạn chọn. Bạn chọn bác sĩ hoặc khung giờ trống để tiếp tục đặt lịch nhé.",
+        ? chatbotReplies.packageSelected(packageItem.name)
+        : chatbotReplies.packageSelected(),
       intent: "PACKAGE_DETAIL",
-      state: slotActions.length ? "CHOOSING_SLOT" : "CHOOSING_DOCTOR",
-      nextStep: slotActions.length ? "CHOOSE_SLOT" : "CHOOSE_DOCTOR",
-      draft: sanitizeBookingDraft({
-        ...draft,
-        departmentId,
-      }),
-      suggestedActions: [
-        ...slotActions,
-        ...doctorActions,
-        { type: "CHANGE_DATE", label: "Chọn ngày khám", payload: { departmentId, doctorId: draft.doctorId } },
-      ],
+      state: "CHOOSING_DOCTOR",
+      nextStep: "CHOOSE_DOCTOR",
+      results: buildDoctorResults(input.context, departmentId),
+      draft: nextDraft,
+      suggestedActions: doctorActions.length
+        ? doctorActions
+        : [
+            {
+              type: "CHANGE_DATE",
+              label: "Chọn ngày khám",
+              payload: { departmentId },
+            },
+            {
+              type: "CONTACT_STAFF",
+              label: "Liên hệ hỗ trợ",
+              payload: {},
+            },
+          ],
     });
   }
 
@@ -496,29 +596,27 @@ class ChatbotWorkflowService {
     if (slotActions.length) {
       const exactDateSlot = hasExactDateSlot(input.context, draft);
       const nearestDate = getNearestSlotDate(input.context, draft.doctorId);
-      const listText = buildSlotListText(input.context, draft.doctorId);
       const results = buildSlotResults(input.context, draft.doctorId);
 
       return createOutput({
-        reply: (draft.date && !exactDateSlot && nearestDate
-          ? `Bác sĩ này chưa có lịch trống ngày ${formatDateLabel(draft.date)}. Mình tìm thấy lịch gần nhất vào ${formatDateLabel(nearestDate)}, bạn có thể chọn khung giờ phù hợp.`
+        reply: draft.date && !exactDateSlot && nearestDate
+          ? chatbotReplies.doctorSlotFoundAfterDateMiss(formatDateLabel(draft.date), formatDateLabel(nearestDate))
           : selectedDoctor
-            ? `Mình đã chọn ${`${selectedDoctor.title || ""} ${selectedDoctor.fullName}`.trim()}. Đây là các khung giờ còn trống phù hợp.`
-            : "Mình đã ghi nhận bác sĩ bạn chọn. Đây là các khung giờ còn trống phù hợp.") +
-          `${listText}\n\nBạn có thể bấm lựa chọn nhanh bên dưới hoặc xem thêm ở phần đặt lịch.`,
+            ? chatbotReplies.doctorSelectedWithSlots(`${selectedDoctor.title || ""} ${selectedDoctor.fullName}`.trim())
+            : chatbotReplies.doctorSelectedWithSlots(),
         intent: "AVAILABLE_SLOT_LOOKUP",
         state: "CHOOSING_SLOT",
         nextStep: "CHOOSE_SLOT",
         draft: nextDraft,
         results,
-        suggestedActions: [...slotActions, buildOpenBookingAction(nextDraft, nearestDate || draft.date)],
+        suggestedActions: [buildOpenBookingAction(nextDraft, nearestDate || draft.date)],
       });
     }
 
     return createOutput({
       reply: selectedDoctor
-        ? `Mình đã chọn ${`${selectedDoctor.title || ""} ${selectedDoctor.fullName}`.trim()}. Hiện chưa có lịch trống phù hợp, bạn có thể chọn ngày khác hoặc đổi bác sĩ.`
-        : "Mình đã ghi nhận bác sĩ bạn chọn. Hiện chưa có lịch trống phù hợp, bạn có thể chọn ngày khác hoặc đổi bác sĩ.",
+        ? chatbotReplies.doctorSelectedNoSlots(`${selectedDoctor.title || ""} ${selectedDoctor.fullName}`.trim())
+        : chatbotReplies.doctorSelectedNoSlots(),
       intent: "AVAILABLE_SLOT_LOOKUP",
       state: "CHOOSING_DATE",
       nextStep: "CHOOSE_DATE",
@@ -533,7 +631,7 @@ class ChatbotWorkflowService {
 
   private handleSlotSelected(draft: ChatBookingDraft) {
     return createOutput({
-      reply: "Mình đã chọn khung giờ này. Bạn có thể bấm đặt lịch ngay để nhập thông tin bệnh nhân và xác thực OTP.",
+      reply: chatbotReplies.slotSelected,
       intent: "BOOKING_START",
       state: "READY_TO_BOOK",
       nextStep: "READY_TO_BOOK",
@@ -547,12 +645,13 @@ class ChatbotWorkflowService {
 
     return createOutput({
       reply: doctorActions.length
-        ? "Bạn muốn đổi bác sĩ. Đây là một số bác sĩ phù hợp với chuyên khoa đã chọn."
-        : "Bạn muốn đổi bác sĩ, nhưng hiện chưa tìm thấy bác sĩ phù hợp. Bạn có thể đổi chuyên khoa hoặc liên hệ nhân viên hỗ trợ.",
+        ? chatbotReplies.doctorChange(true)
+        : chatbotReplies.doctorChange(false),
       intent: "DOCTOR_LIST",
       state: doctorActions.length ? "CHOOSING_DOCTOR" : "SUGGESTING_DEPARTMENT",
       nextStep: doctorActions.length ? "CHOOSE_DOCTOR" : "CHOOSE_DEPARTMENT",
       draft,
+      results: buildDoctorResults(input.context, draft.departmentId),
       suggestedActions: doctorActions.length
         ? doctorActions
         : [
@@ -569,16 +668,14 @@ class ChatbotWorkflowService {
       departmentId: draft.departmentId || department?.id,
       departmentSlug: draft.departmentSlug || department?.slug || undefined,
     });
-    const packageActions = getPackageActions(input.context, nextDraft.departmentId);
-    const doctorActions = getDoctorActions(input.context, nextDraft.departmentId);
-
     if (!department && input.detectedIntent === "SYMPTOM_TRIAGE") {
       return createOutput({
-        reply: "Mình đã ghi nhận triệu chứng của bạn. Bạn mô tả thêm vị trí đau, mức độ và thời gian xuất hiện để mình gợi ý chuyên khoa phù hợp hơn nhé.",
+        reply: chatbotReplies.symptomNeedMoreInfo,
         intent: "SYMPTOM_TRIAGE",
         state: "ASKING_SYMPTOMS",
         nextStep: "ASK_SYMPTOM_DETAILS",
         draft: nextDraft,
+        results: buildDepartmentResults(input.context, department),
         suggestedActions: [
           { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
           { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
@@ -589,33 +686,48 @@ class ChatbotWorkflowService {
 
     return createOutput({
       reply: department
-        ? `Dựa trên thông tin hiện có, bạn có thể bắt đầu với ${department.name}. Bạn có thể xem khoa, chọn gói khám hoặc chọn bác sĩ để tiếp tục đặt lịch.`
-        : "Bạn có thể chọn một chuyên khoa trước, sau đó hệ thống sẽ gợi ý gói khám, bác sĩ và lịch trống phù hợp.",
+        ? chatbotReplies.departmentSuggestion(department.name)
+        : chatbotReplies.departmentSuggestion(),
       intent: input.detectedIntent === "UNKNOWN" ? "DEPARTMENT_LIST" : input.detectedIntent,
       state: department ? "SUGGESTING_DEPARTMENT" : "BOOKING_GUIDE",
       nextStep: department ? "CHOOSE_DEPARTMENT" : "CHOOSE_DEPARTMENT",
       draft: nextDraft,
-      suggestedActions: [
-        ...getDepartmentActions(input.context, department),
-        ...packageActions,
-        ...doctorActions,
-        { type: "VIEW_DEPARTMENTS", label: "Xem tất cả chuyên khoa", payload: {} },
-      ],
+      results: buildDepartmentResults(input.context, department),
+      suggestedActions: department
+        ? [
+            { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: { departmentId: nextDraft.departmentId } },
+            {
+              type: "VIEW_DOCTORS",
+              label: "Khám theo bác sĩ",
+              payload: {
+                departmentId: nextDraft.departmentId,
+                serviceMode: "DOCTOR_ONLY",
+              },
+            },
+          ]
+        : [
+            ...getDepartmentActions(input.context),
+            { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
+          ],
     });
   }
 
   private resolvePackageStep(input: WorkflowInput, draft: ChatBookingDraft) {
+    if (draft.packageId || draft.packageSlug) {
+      return this.handlePackageSelected(input, draft);
+    }
     const department = findDepartment(input.context, input.message, draft);
     const departmentId = draft.departmentId || department?.id;
     const packageActions = getPackageActions(input.context, departmentId);
 
     return createOutput({
       reply: packageActions.length
-        ? "Mình tìm thấy một số gói khám phù hợp trong hệ thống. Bạn có thể mở chi tiết gói để xem hạng mục và chọn đặt lịch."
-        : "Hiện chưa có gói khám phù hợp với thông tin đã chọn. Bạn có thể chọn chuyên khoa hoặc liên hệ nhân viên để được tư vấn.",
+        ? chatbotReplies.packageSuggestion(true)
+        : chatbotReplies.packageSuggestion(false),
       intent: "PACKAGE_LIST",
       state: "SUGGESTING_PACKAGE",
       nextStep: packageActions.length ? "CHOOSE_PACKAGE" : "CHOOSE_DEPARTMENT",
+      results: buildPackageResults(input.context, departmentId),
       draft: sanitizeBookingDraft({
         ...draft,
         departmentId,
@@ -639,7 +751,7 @@ class ChatbotWorkflowService {
 
     if (draft.doctorId && draft.timeSlotId) {
       return createOutput({
-        reply: "Mình đã có đủ bác sĩ và khung giờ. Bạn có thể bấm đặt lịch ngay để sang form thông tin bệnh nhân và xác thực OTP.",
+        reply: chatbotReplies.readyToBook,
         intent: "BOOKING_START",
         state: "READY_TO_BOOK",
         nextStep: "READY_TO_BOOK",
@@ -651,30 +763,28 @@ class ChatbotWorkflowService {
     if (slotActions.length) {
       const exactDateSlot = hasExactDateSlot(input.context, draft);
       const nearestDate = getNearestSlotDate(input.context, draft.doctorId);
-      const listText = buildSlotListText(input.context, draft.doctorId);
       const results = buildSlotResults(input.context, draft.doctorId);
 
       return createOutput({
-        reply: (draft.date && !exactDateSlot && nearestDate
-          ? `Ngày ${formatDateLabel(draft.date)} chưa có lịch trống phù hợp. Mình tìm thấy lịch gần nhất vào ${formatDateLabel(nearestDate)}, bạn chọn khung giờ phù hợp để tiếp tục đặt lịch nhé.`
+        reply: draft.date && !exactDateSlot && nearestDate
+          ? chatbotReplies.slotLookupAfterDateMiss(formatDateLabel(draft.date), formatDateLabel(nearestDate))
           : draft.doctorId
-            ? "Mình tìm thấy một số khung giờ còn trống của bác sĩ này. Bạn chọn khung giờ phù hợp để tiếp tục đặt lịch nhé."
-            : "Mình tìm thấy một số lịch trống gần nhất. Bạn chọn khung giờ phù hợp để tiếp tục đặt lịch nhé.") +
-          `${listText}\n\nBạn có thể bấm lựa chọn nhanh bên dưới hoặc xem thêm ở phần đặt lịch.`,
+            ? chatbotReplies.doctorSlotsFound
+            : chatbotReplies.nearestSlotsFound,
         intent: "AVAILABLE_SLOT_LOOKUP",
         state: "CHOOSING_SLOT",
         nextStep: "CHOOSE_SLOT",
         draft,
         results,
-        suggestedActions: [...slotActions, buildOpenBookingAction(draft, nearestDate || draft.date)],
+        suggestedActions: [buildOpenBookingAction(draft, nearestDate || draft.date)],
       });
     }
 
     if (draft.doctorId) {
       return createOutput({
         reply: draft.date
-          ? "Bác sĩ này chưa có lịch trống vào ngày đã chọn. Bạn có thể đổi ngày khám hoặc liên hệ nhân viên để được hỗ trợ sắp lịch."
-          : "Bác sĩ này hiện chưa có lịch trống gần nhất. Bạn có thể chọn ngày khám khác hoặc liên hệ nhân viên để được hỗ trợ sắp lịch.",
+          ? chatbotReplies.noDoctorSlots(true)
+          : chatbotReplies.noDoctorSlots(false),
         intent: "AVAILABLE_SLOT_LOOKUP",
         state: "CHOOSING_DATE",
         nextStep: "CHOOSE_DATE",
@@ -706,18 +816,19 @@ class ChatbotWorkflowService {
     if (doctorActions.length) {
       return createOutput({
         reply: draft.date
-          ? "Hiện chưa thấy lịch trống vào ngày đã chọn. Bạn có thể chọn một bác sĩ để kiểm tra kỹ hơn hoặc đổi ngày khám."
-          : "Bạn có thể chọn một bác sĩ phù hợp trước, sau đó hệ thống sẽ hiển thị lịch trống để đặt khám.",
+          ? chatbotReplies.chooseDoctorForSlots(true)
+          : chatbotReplies.chooseDoctorForSlots(false),
         intent: "DOCTOR_LIST",
         state: "CHOOSING_DOCTOR",
         nextStep: "CHOOSE_DOCTOR",
         draft,
+        results: buildDoctorResults(input.context, departmentId),
         suggestedActions: doctorActions,
       });
     }
 
     return createOutput({
-      reply: "Hiện chưa tìm thấy bác sĩ hoặc lịch trống phù hợp với thông tin đã chọn. Bạn có thể đổi chuyên khoa, đổi ngày hoặc liên hệ nhân viên hỗ trợ.",
+      reply: chatbotReplies.noMatchingDoctorOrSlot,
       intent: "AVAILABLE_SLOT_LOOKUP",
       state: departmentId ? "CHOOSING_DATE" : "SUGGESTING_DEPARTMENT",
       nextStep: departmentId ? "CHOOSE_DATE" : "CHOOSE_DEPARTMENT",

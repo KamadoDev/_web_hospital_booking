@@ -7,12 +7,11 @@ import { ChatbotResultCards } from "@/components/ui/chatbot-result-cards";
 import { usePublicChatbotSettings } from "@/lib/public-chatbot-query";
 import {
   buildBookingHref,
-  getActionEventMessage,
-  getActionEventRole,
   getActionInputPlaceholder,
   getActionLoadingText,
   getActionRenderKey,
   getFlowStatusText,
+  getResponseSourceLabel,
   type ChatWidgetMessage,
 } from "@/lib/chatbot-ui";
 import type {
@@ -33,6 +32,7 @@ const defaultMessages: ChatWidgetMessage[] = [
   {
     id: "welcome",
     role: "assistant",
+    source: "SYSTEM",
     content:
       "Xin chào, tôi có thể hỗ trợ đặt lịch, tra cứu bác sĩ, gói khám và giải đáp nhanh trước khi bạn đến bệnh viện.",
   },
@@ -183,14 +183,16 @@ export function PublicChatbotWidget() {
 
     sendingRef.current = true;
 
-    setMessages((current) => [
-      ...current,
-      {
-        id: createId(),
-        role: action ? getActionEventRole(action) : "user",
-        content: action ? getActionEventMessage(action) : trimmed,
-      },
-    ]);
+    if (!action) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: createId(),
+          role: "user",
+          content: trimmed,
+        },
+      ]);
+    }
     setActions([]);
     setMessage("");
     setInputPlaceholder(getActionInputPlaceholder(action));
@@ -227,6 +229,7 @@ export function PublicChatbotWidget() {
         {
           id: createId(),
           role: result.state === "EMERGENCY_CARE" ? "alert" : "assistant",
+          source: result.source,
           content: result.reply,
           results: result.results || [],
         },
@@ -239,6 +242,7 @@ export function PublicChatbotWidget() {
         {
           id: createId(),
           role: "assistant",
+          source: "FALLBACK",
           content:
             "Tôi chưa xử lý được yêu cầu này. Bạn thử lại sau một chút nhé.",
         },
@@ -265,6 +269,21 @@ export function PublicChatbotWidget() {
     setError("");
     window.localStorage.removeItem(storageKey);
   };
+
+  const latestAssistantMessage = [...messages]
+    .reverse()
+    .find((item) => item.role === "assistant" || item.role === "alert");
+  const resultActionTypes = new Set<string>(
+    (latestAssistantMessage?.results || []).map((group) => {
+      if (group.type === "departments") return "VIEW_DEPARTMENT";
+      if (group.type === "packages") return "VIEW_PACKAGE";
+      if (group.type === "doctors") return "VIEW_DOCTOR";
+      return "VIEW_AVAILABLE_SLOTS";
+    }),
+  );
+  const visibleActions = actions.filter(
+    (action) => !resultActionTypes.has(action.type),
+  );
 
   return (
     <div className="fixed bottom-24 right-4 z-50 sm:bottom-24 sm:right-6">
@@ -317,7 +336,7 @@ export function PublicChatbotWidget() {
             </div>
           ) : null}
 
-          <div className="flex-1 space-y-3 overflow-y-auto bg-[#f6f8fb] px-4 py-4">
+          <div className="flex-1 space-y-3 overflow-x-hidden overflow-y-auto bg-[#f6f8fb] px-4 py-4">
             {messages.map((item) => (
               <div
                 key={item.id}
@@ -330,7 +349,7 @@ export function PublicChatbotWidget() {
                 }`}
               >
                 <div
-                  className={`max-w-[85%] rounded-md px-3 py-2 text-sm leading-6 ${
+                  className={`max-w-[94%] rounded-md px-3 py-2 text-sm leading-6 ${
                     item.role === "user"
                       ? "bg-[#0d4f8b] text-white"
                       : item.role === "system"
@@ -340,6 +359,11 @@ export function PublicChatbotWidget() {
                           : "border border-[#dce3ee] bg-white text-[#172033]"
                   }`}
                 >
+                  {item.role === "assistant" || item.role === "alert" ? (
+                    <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide opacity-70">
+                      {getResponseSourceLabel(item.source)}
+                    </span>
+                  ) : null}
                   {item.content}
                   {item.role === "assistant" ? (
                     <ChatbotResultCards
@@ -366,15 +390,15 @@ export function PublicChatbotWidget() {
           </div>
 
           <div className="border-t border-[#e5ebf3] bg-white p-3">
-            {actions.length ? (
-              <div className="mb-3 flex gap-2 overflow-x-auto">
-                {actions.map((action, index) => (
+            {visibleActions.length ? (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {visibleActions.map((action, index) => (
                   <button
                     key={getActionRenderKey(action, index)}
                     type="button"
                     disabled={!chatbotOnline || sending}
                     onClick={() => void sendMessage(action.label, action)}
-                    className="shrink-0 rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
+                    className="max-w-full rounded-md border border-[#cfd8e6] px-3 py-1.5 text-xs font-medium text-[#42526b] hover:bg-[#f8fafc] disabled:opacity-60"
                   >
                     {action.label}
                   </button>

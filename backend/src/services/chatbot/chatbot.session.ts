@@ -1,13 +1,32 @@
 import { randomUUID } from "crypto";
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../config/prisma.js";
-import { sanitizeBookingDraft } from "./chatbot.rules.js";
-import type { ChatAction, ChatBookingDraft } from "./chatbot.types.js";
+import { sanitizeBookingDraft } from "./rules/draft-sanitizer.js";
+import type {
+  ChatBookingDraft,
+  ChatServiceMode,
+  ChatTimePeriod,
+} from "./chatbot.types.js";
 import type { ChatbotResponse } from "./chatbot.types.js";
 
 const readString = (payload: Record<string, unknown> | undefined, key: string) => {
   const value = payload?.[key];
   return typeof value === "string" ? value : undefined;
+};
+const readServiceMode = (
+  payload: Record<string, unknown>,
+): ChatServiceMode | undefined => {
+  const value = readString(payload, "serviceMode");
+  return value === "DOCTOR_ONLY" || value === "PACKAGE" ? value : undefined;
+};
+
+const readTimePeriod = (
+  payload: Record<string, unknown>,
+): ChatTimePeriod | undefined => {
+  const value = readString(payload, "timePeriod");
+  return value === "MORNING" || value === "AFTERNOON" || value === "EVENING"
+    ? value
+    : undefined;
 };
 
 export const getOrCreateSessionId = (sessionId?: string) => sessionId || randomUUID();
@@ -31,9 +50,11 @@ const readDraft = (value: unknown): ChatBookingDraft => {
     departmentSlug: readString(value, "departmentSlug"),
     packageId: readString(value, "packageId"),
     packageSlug: readString(value, "packageSlug"),
+    serviceMode: readServiceMode(value),
     doctorId: readString(value, "doctorId"),
     date: readString(value, "date"),
     timeSlotId: readString(value, "timeSlotId"),
+    timePeriod: readTimePeriod(value),
     symptoms: Array.isArray(value.symptoms)
       ? value.symptoms.filter((item): item is string => typeof item === "string")
       : undefined,
@@ -118,83 +139,6 @@ export const updateChatSession = async (
   });
 };
 
-export const mergeDraftFromAction = (
-  draft: ChatBookingDraft,
-  action?: ChatAction,
-): ChatBookingDraft => {
-  if (!action) return draft;
-
-  const payload = action.payload;
-
-  switch (action.type) {
-    case "VIEW_DEPARTMENTS":
-      return {
-        ...draft,
-        departmentId: undefined,
-        departmentSlug: undefined,
-        packageId: undefined,
-        packageSlug: undefined,
-        doctorId: undefined,
-        timeSlotId: undefined,
-      };
-    case "VIEW_PACKAGES":
-      return {
-        ...draft,
-        packageId: undefined,
-        packageSlug: undefined,
-        timeSlotId: undefined,
-      };
-    case "VIEW_DOCTORS":
-      return {
-        ...draft,
-        doctorId: undefined,
-        timeSlotId: undefined,
-      };
-    case "VIEW_DEPARTMENT":
-    case "SELECT_DEPARTMENT":
-      return {
-        ...draft,
-        departmentId: readString(payload, "departmentId") || draft.departmentId,
-        departmentSlug: readString(payload, "departmentSlug") || draft.departmentSlug,
-      };
-    case "VIEW_PACKAGE":
-    case "SELECT_PACKAGE":
-      return {
-        ...draft,
-        packageId: readString(payload, "packageId") || draft.packageId,
-        packageSlug: readString(payload, "packageSlug") || draft.packageSlug,
-      };
-    case "VIEW_DOCTOR":
-    case "SELECT_DOCTOR":
-      return {
-        ...draft,
-        doctorId: readString(payload, "doctorId") || draft.doctorId,
-      };
-    case "VIEW_AVAILABLE_SLOTS":
-    case "SELECT_SLOT":
-      return {
-        ...draft,
-        doctorId: readString(payload, "doctorId") || draft.doctorId,
-        date: readString(payload, "date") || draft.date,
-        timeSlotId: readString(payload, "timeSlotId") || draft.timeSlotId,
-      };
-    case "CHANGE_DATE":
-      return {
-        ...draft,
-        doctorId: readString(payload, "doctorId") || draft.doctorId,
-        date: readString(payload, "date"),
-        timeSlotId: undefined,
-      };
-    case "CHANGE_DOCTOR":
-      return {
-        ...draft,
-        doctorId: undefined,
-        timeSlotId: undefined,
-      };
-    default:
-      return draft;
-  }
-};
 
 export const mergeDrafts = (...drafts: (ChatBookingDraft | undefined)[]) =>
   drafts.reduce<ChatBookingDraft>(

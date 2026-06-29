@@ -5,8 +5,12 @@ const draftSchema = z.object({
   departmentSlug: z.string().trim().optional(),
   packageId: z.string().uuid("Gói khám không hợp lệ").optional(),
   packageSlug: z.string().trim().optional(),
+  serviceMode: z.enum(["DOCTOR_ONLY", "PACKAGE"]).optional(),
   doctorId: z.string().uuid("Bác sĩ không hợp lệ").optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải có định dạng YYYY-MM-DD").optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải có định dạng YYYY-MM-DD")
+    .optional(),
   timeSlotId: z.string().uuid("Khung giờ không hợp lệ").optional(),
   symptoms: z.array(z.string().trim()).optional(),
   reason: z.string().trim().optional(),

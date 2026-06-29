@@ -1,5 +1,6 @@
 import type {
   ChatBookingDraft,
+  ChatbotResponseSource,
   ChatbotResultGroup,
   ChatbotSuggestedAction,
 } from "@/lib/types";
@@ -10,8 +11,20 @@ export type ChatWidgetMessage = {
   id: string;
   role: ChatMessageRole;
   content: string;
+  source?: ChatbotResponseSource;
   results?: ChatbotResultGroup[];
 };
+
+const responseSourceLabel: Record<ChatbotResponseSource, string> = {
+  SYSTEM: "Hệ thống gợi ý",
+  FAQ: "Kho FAQ trả lời",
+  AI: "Gemini AI trả lời",
+  FALLBACK: "Phản hồi dự phòng",
+  EMERGENCY: "Cảnh báo an toàn",
+};
+
+export const getResponseSourceLabel = (source?: ChatbotResponseSource) =>
+  source ? responseSourceLabel[source] : "Trợ lý trả lời";
 
 const actionLoadingText: Record<string, string> = {
   VIEW_DEPARTMENT: "Đang kiểm tra chuyên khoa...",

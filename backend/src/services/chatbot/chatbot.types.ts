@@ -62,15 +62,45 @@ export type ChatIntent = typeof CHAT_INTENTS[number];
 export type ChatState = typeof CHAT_STATES[number];
 export type ChatNextStep = typeof CHAT_NEXT_STEPS[number];
 export type SuggestedActionType = typeof SUGGESTED_ACTION_TYPES[number];
+export type ChatbotResponseSource =
+  | "SYSTEM"
+  | "FAQ"
+  | "AI"
+  | "FALLBACK"
+  | "EMERGENCY";
+
+export const CHAT_OPERATIONS = [
+  "START_BOOKING",
+  "SEARCH_DEPARTMENT",
+  "SEARCH_PACKAGE",
+  "SEARCH_DOCTOR",
+  "SEARCH_SLOT",
+  "LOOKUP_APPOINTMENT",
+  "ASK_PAYMENT",
+  "ASK_INFORMATION",
+  "ASK_CAPABILITIES",
+  "CHANGE_SELECTION",
+  "RESET_FLOW",
+  "GREETING",
+  "UNKNOWN",
+] as const;
+
+export const CHAT_TIME_PERIODS = ["MORNING", "AFTERNOON", "EVENING"] as const;
+
+export type ChatOperation = (typeof CHAT_OPERATIONS)[number];
+export type ChatTimePeriod = (typeof CHAT_TIME_PERIODS)[number];
+export type ChatServiceMode = "DOCTOR_ONLY" | "PACKAGE";
 
 export type ChatBookingDraft = {
   departmentId?: string;
   departmentSlug?: string;
   packageId?: string;
   packageSlug?: string;
+  serviceMode?: ChatServiceMode;
   doctorId?: string;
   date?: string;
   timeSlotId?: string;
+  timePeriod?: ChatTimePeriod;
   symptoms?: string[];
   reason?: string;
 };
@@ -89,6 +119,33 @@ export type SuggestedAction = {
 
 export type ChatbotResultItem =
   | {
+      type: "department";
+      id: string;
+      name: string;
+      slug?: string | null;
+      description?: string | null;
+    }
+  | {
+      type: "package";
+      id: string;
+      name: string;
+      slug?: string | null;
+      departmentId?: string | null;
+      departmentName?: string | null;
+      summary?: string | null;
+      finalPrice: number;
+    }
+  | {
+      type: "doctor";
+      id: string;
+      fullName: string;
+      title?: string | null;
+      specialization?: string | null;
+      departmentId: string;
+      departmentName: string;
+      consultationFee: number;
+    }
+  | {
       type: "slot";
       id: string;
       doctorId: string;
@@ -100,14 +157,13 @@ export type ChatbotResultItem =
     };
 
 export type ChatbotResultGroup = {
-  type: "slots";
+  type: "departments" | "packages" | "doctors" | "slots";
   title: string;
   description?: string;
   items: ChatbotResultItem[];
   total: number;
   limit: number;
 };
-
 export type ChatbotRequestInput = {
   sessionId?: string;
   message: string;
@@ -129,4 +185,5 @@ export type AIChatbotOutput = {
 
 export type ChatbotResponse = AIChatbotOutput & {
   sessionId: string;
+  source: ChatbotResponseSource;
 };
