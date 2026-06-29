@@ -151,17 +151,31 @@ export function PublicBookingWidget({
 
   const selectedSummary = useMemo(() => {
     const amount =
-      selectedPackage?.finalPrice || selectedDoctor?.consultationFee || 0;
+      selection.serviceMode === "PACKAGE"
+        ? selectedPackage?.finalPrice || 0
+        : selection.serviceMode === "DOCTOR_ONLY"
+          ? selectedDoctor?.consultationFee || 0
+          : 0;
 
     return {
       departmentName: selectedDepartment?.name || "Chưa chọn chuyên khoa",
       doctorName: selectedDoctor
         ? doctorName(selectedDoctor)
         : "Chưa chọn bác sĩ",
-      packageName: selectedPackage?.name || "Khám theo bác sĩ",
+      packageName:
+        selection.serviceMode === "PACKAGE"
+          ? selectedPackage?.name || "Chưa chọn gói khám"
+          : selection.serviceMode === "DOCTOR_ONLY"
+            ? "Khám theo bác sĩ"
+            : "Chưa chọn hình thức khám",
       amount,
     };
-  }, [selectedDepartment, selectedDoctor, selectedPackage]);
+  }, [
+    selectedDepartment,
+    selectedDoctor,
+    selectedPackage,
+    selection.serviceMode,
+  ]);
 
   const slotsQuery = usePublicAvailableSlots({
     doctorId: selection.doctorId,
@@ -244,6 +258,10 @@ export function PublicBookingWidget({
 
   const validateDraft = () => {
     if (!selection.departmentId) return "Vui lòng chọn chuyên khoa.";
+    if (!selection.serviceMode)
+      return "Vui lòng chọn khám theo bác sĩ hoặc một gói khám.";
+    if (selection.serviceMode === "PACKAGE" && !selection.packageId)
+      return "Vui lòng chọn gói khám phù hợp.";
     if (!selection.doctorId) return "Vui lòng chọn bác sĩ.";
     if (!draft.date) return "Vui lòng chọn ngày khám.";
     if (draft.date < getVietnamDateInput())
@@ -466,6 +484,7 @@ export function PublicBookingWidget({
                       departmentId: event.target.value,
                       doctorId: "",
                       packageId: "",
+                      serviceMode: "",
                     });
                     updateDraft({ timeSlotId: "" });
                   }}
@@ -480,13 +499,43 @@ export function PublicBookingWidget({
                   ))}
                 </select>
                 <select
+                  aria-label="Hình thức khám"
+                  value={
+                    !selection.serviceMode
+                      ? "__UNDECIDED__"
+                      : selection.serviceMode === "DOCTOR_ONLY"
+                        ? ""
+                        : selection.packageId
+                  }
+                  onChange={(event) => {
+                    const packageId = event.target.value;
+                    updateSelection(
+                      packageId
+                        ? { packageId, serviceMode: "PACKAGE" }
+                        : { packageId: "", serviceMode: "DOCTOR_ONLY" },
+                    );
+                  }}
+                  className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
+                  disabled={loading || !selection.departmentId}
+                >
+                  <option value="__UNDECIDED__" disabled>
+                    Chọn hình thức khám
+                  </option>
+                  <option value="">Khám theo bác sĩ (không chọn gói)</option>
+                  {filteredPackages.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      Gói: {item.name}
+                    </option>
+                  ))}
+                </select>
+                <select
                   value={selection.doctorId}
                   onChange={(event) => {
                     updateSelection({ doctorId: event.target.value });
                     updateDraft({ timeSlotId: "" });
                   }}
                   className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
-                  disabled={loading || !selection.departmentId}
+                  disabled={loading || !selection.departmentId || !selection.serviceMode}
                 >
                   <option value="">Chọn bác sĩ</option>
                   {filteredDoctors.map((item) => (
@@ -495,22 +544,17 @@ export function PublicBookingWidget({
                     </option>
                   ))}
                 </select>
-                <select
-                  value={selection.packageId}
-                  onChange={(event) =>
-                    updateSelection({ packageId: event.target.value })
-                  }
-                  className="rounded-md border border-[#cfd8e6] bg-[#fbfdff] px-3 py-3 text-sm outline-none transition focus:border-[#0d4f8b] focus:bg-white focus:ring-2 focus:ring-[#cfe4fa]"
-                  disabled={loading}
-                >
-                  <option value="">Chọn gói khám</option>
-                  {filteredPackages.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
               </div>
+
+              {selection.departmentId && !selection.serviceMode ? (
+                <div className="mt-3 flex items-start gap-2 rounded-md border border-[#b8d7f4] bg-[#eef7ff] px-3 py-2.5 text-sm text-[#0d4f8b]">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <p>
+                    Bạn chưa chọn gói khám. Có thể tiếp tục theo phí khám của bác sĩ
+                    hoặc chọn gói để biết trước các hạng mục và chi phí.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="mt-4 grid gap-4 rounded-md border border-[#e5ebf3] bg-[#f8fbff] p-3 md:grid-cols-[220px_minmax(0,1fr)]">
                 <label className="block">
@@ -983,7 +1027,9 @@ export function PublicBookingWidget({
                   hint={
                     selectedPackage
                       ? "Bấm để xem nhanh hạng mục và giá gói"
-                      : "Nếu không chọn gói, giá tạm tính theo phí khám bác sĩ"
+                      : selection.serviceMode === "DOCTOR_ONLY"
+                        ? "Giá tạm tính theo phí khám của bác sĩ"
+                        : "Chọn khám theo bác sĩ hoặc một gói khám"
                   }
                   href={
                     selectedPackage
@@ -1024,11 +1070,11 @@ export function PublicBookingWidget({
                     : "Sẽ tính theo lựa chọn"}
                 </p>
                 <p className="mt-2 text-xs leading-5 text-[#667892]">
-                  {selectedPackage
+                  {selection.serviceMode === "PACKAGE" && selectedPackage
                     ? "Giá tạm tính dựa trên gói khám đã chọn, bao gồm các hạng mục đang được cấu hình trong gói."
-                    : selectedDoctor
+                    : selection.serviceMode === "DOCTOR_ONLY" && selectedDoctor
                       ? "Giá tạm tính dựa trên phí khám của bác sĩ đã chọn. Chi phí cuối cùng có thể thay đổi sau khi bệnh viện xác nhận."
-                      : "Giá sẽ hiển thị sau khi bạn chọn gói khám hoặc bác sĩ."}
+                      : "Giá sẽ hiển thị sau khi bạn chọn hình thức khám và bác sĩ."}
                 </p>
               </div>
             </div>

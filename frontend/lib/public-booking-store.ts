@@ -3,10 +3,13 @@
 import { create } from "zustand";
 import { getVietnamDateInput } from "@/lib/date";
 
+export type BookingServiceMode = "" | "DOCTOR_ONLY" | "PACKAGE";
+
 export type PublicBookingSelection = {
   departmentId: string;
   doctorId: string;
   packageId: string;
+  serviceMode: BookingServiceMode;
 };
 
 export type PublicBookingDraft = {
@@ -82,6 +85,7 @@ export const initialBookingSelection: PublicBookingSelection = {
   departmentId: "",
   doctorId: "",
   packageId: "",
+  serviceMode: "",
 };
 
 export const initialBookingDraft: PublicBookingDraft = {
@@ -152,6 +156,13 @@ export const usePublicBookingStore = create<PublicBookingStore>((set) => ({
         departmentId: prefill.departmentId ?? state.selection.departmentId,
         doctorId: prefill.doctorId ?? state.selection.doctorId,
         packageId: prefill.packageId ?? state.selection.packageId,
+        serviceMode:
+          prefill.serviceMode ??
+          (prefill.packageId
+            ? "PACKAGE"
+            : prefill.doctorId
+              ? "DOCTOR_ONLY"
+              : state.selection.serviceMode),
       },
       draft: {
         ...state.draft,

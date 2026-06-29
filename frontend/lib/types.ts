@@ -632,6 +632,7 @@ export type ChatBookingDraft = {
   departmentSlug?: string;
   packageId?: string;
   packageSlug?: string;
+  serviceMode?: "DOCTOR_ONLY" | "PACKAGE";
   doctorId?: string;
   date?: string;
   timeSlotId?: string;
@@ -645,28 +646,58 @@ export type ChatbotSuggestedAction = {
   payload: Record<string, unknown>;
 };
 
-export type ChatbotResultItem = {
-  type: "slot";
-  id: string;
-  doctorId: string;
-  doctorName?: string;
-  departmentName?: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-};
+export type ChatbotResultItem =
+  | {
+      type: "department";
+      id: string;
+      name: string;
+      slug?: string | null;
+      description?: string | null;
+    }
+  | {
+      type: "package";
+      id: string;
+      name: string;
+      slug?: string | null;
+      departmentId?: string | null;
+      departmentName?: string | null;
+      summary?: string | null;
+      finalPrice: number;
+    }
+  | {
+      type: "doctor";
+      id: string;
+      fullName: string;
+      title?: string | null;
+      specialization?: string | null;
+      departmentId: string;
+      departmentName: string;
+      consultationFee: number;
+    }
+  | {
+      type: "slot";
+      id: string;
+      doctorId: string;
+      doctorName?: string;
+      departmentName?: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+    };
 
 export type ChatbotResultGroup = {
-  type: "slots";
+  type: "departments" | "packages" | "doctors" | "slots";
   title: string;
   description?: string;
   items: ChatbotResultItem[];
   total: number;
   limit: number;
 };
+export type ChatbotResponseSource = "SYSTEM" | "FAQ" | "AI" | "FALLBACK" | "EMERGENCY";
 
 export type ChatbotMessageResponse = {
   sessionId: string;
+  source: ChatbotResponseSource;
   reply: string;
   intent: string;
   state: string;
