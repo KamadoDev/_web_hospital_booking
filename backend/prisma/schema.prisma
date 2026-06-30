@@ -410,9 +410,12 @@ model Department {
   id          String  @id @default(uuid())
   name        String  @unique
   slug        String? @unique
-  description String?
-  image       String?
-  isActive    Boolean @default(true)
+  description       String?
+  image             String?
+  symptomKeywords   String[] @default([])
+  triageDescription String?
+  isTriageFallback  Boolean  @default(false)
+  isActive          Boolean  @default(true)
 
   doctors      DoctorProfile[]
   appointments Appointment[]
@@ -420,6 +423,8 @@ model Department {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([isTriageFallback, isActive])
 }
 
 model DoctorProfile {

@@ -61,6 +61,37 @@ export const chatbotReplies = {
   symptomNeedMoreInfo:
     "Hệ thống đã ghi nhận triệu chứng của bạn. Bạn mô tả thêm vị trí đau, mức độ và thời gian xuất hiện để được gợi ý chuyên khoa phù hợp hơn.",
 
+  triageMatched: (
+    departmentName: string,
+    triageDescription?: string | null,
+  ) =>
+    [
+      `Dựa trên thông tin bạn cung cấp, ${departmentName} là chuyên khoa được gợi ý để thăm khám ban đầu.`,
+      triageDescription || undefined,
+      "Đây là gợi ý định hướng, không thay thế chẩn đoán của bác sĩ.",
+    ]
+      .filter(Boolean)
+      .join(" "),
+
+  triageFallback: (
+    departmentName: string,
+    triageDescription?: string | null,
+  ) =>
+    [
+      "Hệ thống chưa có dữ liệu đủ phù hợp để gợi ý một chuyên khoa cụ thể.",
+      `Bạn có thể bắt đầu tại ${departmentName} để được đánh giá ban đầu.`,
+      triageDescription || undefined,
+      "Đây là gợi ý định hướng, không thay thế chẩn đoán của bác sĩ.",
+    ]
+      .filter(Boolean)
+      .join(" "),
+
+  triageClarification: (question: string) =>
+    `Mình cần thêm một chút thông tin để gợi ý phù hợp hơn. ${question}`,
+
+  triageNoMatch:
+    "Hiện dữ liệu bệnh viện chưa đủ để gợi ý chuyên khoa an toàn. Bạn có thể xem danh sách chuyên khoa hoặc liên hệ nhân viên để được hỗ trợ.",
+
   departmentSuggestion: (departmentName?: string) =>
     departmentName
       ? `Dựa trên thông tin hiện có, bạn có thể bắt đầu với ${departmentName}. Bạn có thể xem khoa, chọn gói khám hoặc chọn bác sĩ để tiếp tục đặt lịch.`

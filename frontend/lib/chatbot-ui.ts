@@ -18,7 +18,7 @@ export type ChatWidgetMessage = {
 const responseSourceLabel: Record<ChatbotResponseSource, string> = {
   SYSTEM: "Hệ thống gợi ý",
   FAQ: "Kho FAQ trả lời",
-  AI: "Gemini AI trả lời",
+  AI: "AI phân tích · dữ liệu hệ thống",
   FALLBACK: "Phản hồi dự phòng",
   EMERGENCY: "Cảnh báo an toàn",
 };

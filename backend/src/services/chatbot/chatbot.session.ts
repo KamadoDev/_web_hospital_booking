@@ -13,6 +13,28 @@ const readString = (payload: Record<string, unknown> | undefined, key: string) =
   const value = payload?.[key];
   return typeof value === "string" ? value : undefined;
 };
+const readStringArray = (
+  payload: Record<string, unknown>,
+  key: string,
+) => {
+  const value = payload[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : undefined;
+};
+
+const readSeverity = (
+  payload: Record<string, unknown>,
+): ChatBookingDraft["symptomSeverity"] => {
+  const value = readString(payload, "symptomSeverity");
+  return value === "MILD" ||
+    value === "MODERATE" ||
+    value === "SEVERE" ||
+    value === "UNKNOWN"
+    ? value
+    : undefined;
+};
+
 const readServiceMode = (
   payload: Record<string, unknown>,
 ): ChatServiceMode | undefined => {
@@ -55,9 +77,12 @@ const readDraft = (value: unknown): ChatBookingDraft => {
     date: readString(value, "date"),
     timeSlotId: readString(value, "timeSlotId"),
     timePeriod: readTimePeriod(value),
-    symptoms: Array.isArray(value.symptoms)
-      ? value.symptoms.filter((item): item is string => typeof item === "string")
-      : undefined,
+    symptoms: readStringArray(value, "symptoms"),
+    bodyParts: readStringArray(value, "bodyParts"),
+    symptomDuration: readString(value, "symptomDuration"),
+    symptomSeverity: readSeverity(value),
+    associatedSymptoms: readStringArray(value, "associatedSymptoms"),
+    triageLastQuestion: readString(value, "triageLastQuestion"),
     reason: readString(value, "reason"),
   });
 };
@@ -145,7 +170,18 @@ export const mergeDrafts = (...drafts: (ChatBookingDraft | undefined)[]) =>
     (result, draft) => ({
       ...result,
       ...(draft || {}),
-      symptoms: Array.from(new Set([...(result.symptoms || []), ...((draft || {}).symptoms || [])])),
+      symptoms: Array.from(
+        new Set([...(result.symptoms || []), ...((draft || {}).symptoms || [])]),
+      ),
+      bodyParts: Array.from(
+        new Set([...(result.bodyParts || []), ...((draft || {}).bodyParts || [])]),
+      ),
+      associatedSymptoms: Array.from(
+        new Set([
+          ...(result.associatedSymptoms || []),
+          ...((draft || {}).associatedSymptoms || []),
+        ]),
+      ),
     }),
     {},
   );

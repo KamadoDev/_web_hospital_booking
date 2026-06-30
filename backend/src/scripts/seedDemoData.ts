@@ -107,13 +107,23 @@ async function upsertUser(data: {
   });
 }
 
-async function upsertDepartment(data: { name: string; description: string; image: string }) {
+async function upsertDepartment(data: {
+  name: string;
+  description: string;
+  image: string;
+  symptomKeywords: string[];
+  triageDescription: string;
+  isTriageFallback?: boolean;
+}) {
   return prisma.department.upsert({
     where: { name: data.name },
     update: {
       slug: toSlug(data.name),
       description: data.description,
       image: data.image,
+      symptomKeywords: data.symptomKeywords,
+      triageDescription: data.triageDescription,
+      isTriageFallback: data.isTriageFallback ?? false,
       isActive: true,
     },
     create: {
@@ -121,6 +131,9 @@ async function upsertDepartment(data: { name: string; description: string; image
       slug: toSlug(data.name),
       description: data.description,
       image: data.image,
+      symptomKeywords: data.symptomKeywords,
+      triageDescription: data.triageDescription,
+      isTriageFallback: data.isTriageFallback ?? false,
       isActive: true,
     },
   });
@@ -608,12 +621,49 @@ async function seedDemoData() {
   ]);
 
   const departments = await Promise.all([
-    upsertDepartment({ name: "Khoa tổng quát", description: "Khám ban đầu, tư vấn sức khỏe và tầm soát các vấn đề thường gặp.", image: "https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1200&q=80" }),
-    upsertDepartment({ name: "Khoa tim mạch", description: "Khám và theo dõi tăng huyết áp, rối loạn nhịp tim, bệnh mạch vành.", image: "https://images.unsplash.com/photo-1628348070889-cb656235b4eb?auto=format&fit=crop&w=1200&q=80" }),
-    upsertDepartment({ name: "Khoa nhi", description: "Khám bệnh trẻ em, tư vấn dinh dưỡng, tiêm chủng và theo dõi phát triển.", image: "https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&w=1200&q=80" }),
-    upsertDepartment({ name: "Khoa sản", description: "Theo dõi thai kỳ, khám phụ khoa và tư vấn sức khỏe sinh sản.", image: "https://images.unsplash.com/photo-1550831107-1553da8c8464?auto=format&fit=crop&w=1200&q=80" }),
-    upsertDepartment({ name: "Da liễu", description: "Khám và điều trị mụn, viêm da, dị ứng, chăm sóc da y khoa.", image: "https://images.unsplash.com/photo-1612277795421-9bc7706a4a34?auto=format&fit=crop&w=1200&q=80" }),
-    upsertDepartment({ name: "Tai mũi họng", description: "Khám viêm họng, viêm xoang, ù tai, dị ứng mũi và bệnh lý hô hấp trên.", image: "https://images.unsplash.com/photo-1580281657527-47f249e8f4df?auto=format&fit=crop&w=1200&q=80" }),
+    upsertDepartment({
+      name: "Khoa tổng quát",
+      description: "Khám ban đầu, tư vấn sức khỏe và tầm soát các vấn đề thường gặp.",
+      image: "https://images.unsplash.com/photo-1538108149393-fbbd81895907?auto=format&fit=crop&w=1200&q=80",
+      symptomKeywords: ["mệt mỏi", "sốt", "đau đầu", "chóng mặt", "khó chịu toàn thân"],
+      triageDescription: "Phù hợp tiếp nhận và đánh giá ban đầu khi triệu chứng chưa định hướng rõ chuyên khoa.",
+      isTriageFallback: true,
+    }),
+    upsertDepartment({
+      name: "Khoa tim mạch",
+      description: "Khám và theo dõi tăng huyết áp, rối loạn nhịp tim, bệnh mạch vành.",
+      image: "https://images.unsplash.com/photo-1628348070889-cb656235b4eb?auto=format&fit=crop&w=1200&q=80",
+      symptomKeywords: ["đau ngực", "hồi hộp", "tim đập nhanh", "tăng huyết áp", "khó thở khi gắng sức"],
+      triageDescription: "Tiếp nhận các triệu chứng liên quan tim mạch và huyết áp.",
+    }),
+    upsertDepartment({
+      name: "Khoa nhi",
+      description: "Khám bệnh trẻ em, tư vấn dinh dưỡng, tiêm chủng và theo dõi phát triển.",
+      image: "https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&w=1200&q=80",
+      symptomKeywords: ["trẻ sốt", "trẻ ho", "trẻ biếng ăn", "chậm tăng cân", "phát ban ở trẻ"],
+      triageDescription: "Tiếp nhận và theo dõi các vấn đề sức khỏe ở trẻ em.",
+    }),
+    upsertDepartment({
+      name: "Khoa sản",
+      description: "Theo dõi thai kỳ, khám phụ khoa và tư vấn sức khỏe sinh sản.",
+      image: "https://images.unsplash.com/photo-1550831107-1553da8c8464?auto=format&fit=crop&w=1200&q=80",
+      symptomKeywords: ["đau bụng thai kỳ", "trễ kinh", "khí hư", "đau bụng dưới", "khám thai"],
+      triageDescription: "Tiếp nhận các vấn đề thai kỳ, phụ khoa và sức khỏe sinh sản.",
+    }),
+    upsertDepartment({
+      name: "Da liễu",
+      description: "Khám và điều trị mụn, viêm da, dị ứng, chăm sóc da y khoa.",
+      image: "https://images.unsplash.com/photo-1612277795421-9bc7706a4a34?auto=format&fit=crop&w=1200&q=80",
+      symptomKeywords: ["ngứa da", "nổi mẩn", "phát ban", "mụn", "viêm da", "dị ứng da", "ngứa vùng cổ"],
+      triageDescription: "Tiếp nhận các vấn đề về da, tóc, móng, ngứa và phát ban.",
+    }),
+    upsertDepartment({
+      name: "Tai mũi họng",
+      description: "Khám viêm họng, viêm xoang, ù tai, dị ứng mũi và bệnh lý hô hấp trên.",
+      image: "https://images.unsplash.com/photo-1580281657527-47f249e8f4df?auto=format&fit=crop&w=1200&q=80",
+      symptomKeywords: ["đau họng", "nghẹt mũi", "chảy mũi", "ù tai", "đau tai", "khàn tiếng", "viêm xoang"],
+      triageDescription: "Tiếp nhận các triệu chứng ở tai, mũi, họng và đường hô hấp trên.",
+    }),
   ]);
 
   const doctors = await Promise.all(

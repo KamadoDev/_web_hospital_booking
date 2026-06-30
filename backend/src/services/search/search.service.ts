@@ -175,6 +175,11 @@ class PublicSearchService {
   }
 
   private async searchDepartments(search: string, take: number) {
+    const searchTokens = search
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2)
+      .slice(0, 10);
     const items = await prisma.department.findMany({
       where: {
         isActive: true,
@@ -182,6 +187,18 @@ class PublicSearchService {
           { name: { contains: search, mode: "insensitive" } },
           { slug: { contains: search, mode: "insensitive" } },
           { description: { contains: search, mode: "insensitive" } },
+          { triageDescription: { contains: search, mode: "insensitive" } },
+          { symptomKeywords: { has: search } },
+          ...searchTokens.flatMap((token) => [
+            { description: { contains: token, mode: "insensitive" as const } },
+            {
+              triageDescription: {
+                contains: token,
+                mode: "insensitive" as const,
+              },
+            },
+            { symptomKeywords: { has: token } },
+          ]),
         ],
       },
       select: {
@@ -189,6 +206,8 @@ class PublicSearchService {
         name: true,
         slug: true,
         description: true,
+        triageDescription: true,
+        symptomKeywords: true,
         image: true,
       },
       take,
@@ -200,7 +219,7 @@ class PublicSearchService {
         id: item.id,
         type: "department",
         title: item.name,
-        description: item.description,
+        description: item.triageDescription || item.description,
         url: item.slug ? `/departments/${item.slug}` : "/departments",
         image: item.image,
         score: includesText(item.name, search) ? 30 : 15,

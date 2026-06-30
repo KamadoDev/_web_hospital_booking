@@ -102,6 +102,11 @@ export type ChatBookingDraft = {
   timeSlotId?: string;
   timePeriod?: ChatTimePeriod;
   symptoms?: string[];
+  bodyParts?: string[];
+  symptomDuration?: string;
+  symptomSeverity?: "MILD" | "MODERATE" | "SEVERE" | "UNKNOWN";
+  associatedSymptoms?: string[];
+  triageLastQuestion?: string;
   reason?: string;
 };
 
