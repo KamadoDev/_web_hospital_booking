@@ -33,6 +33,9 @@ export type Department = {
   slug: string | null;
   description: string | null;
   image: string | null;
+  symptomKeywords: string[];
+  triageDescription: string | null;
+  isTriageFallback: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -637,6 +640,11 @@ export type ChatBookingDraft = {
   date?: string;
   timeSlotId?: string;
   symptoms?: string[];
+  bodyParts?: string[];
+  symptomDuration?: string;
+  symptomSeverity?: "MILD" | "MODERATE" | "SEVERE" | "UNKNOWN";
+  associatedSymptoms?: string[];
+  triageLastQuestion?: string;
   reason?: string;
 };
 

@@ -11,6 +11,9 @@ type CreateDepartmentInput = {
   description?: string | null;
   image?: string | null;
   imageAssetId?: string;
+  symptomKeywords?: string[];
+  triageDescription?: string | null;
+  isTriageFallback?: boolean;
   isActive?: boolean;
 };
 
@@ -20,6 +23,9 @@ type UpdateDepartmentInput = {
   description?: string | null;
   image?: string | null;
   imageAssetId?: string | null;
+  symptomKeywords?: string[];
+  triageDescription?: string | null;
+  isTriageFallback?: boolean;
   isActive?: boolean;
 };
 
@@ -29,6 +35,9 @@ const departmentSelect = {
   slug: true,
   description: true,
   image: true,
+  symptomKeywords: true,
+  triageDescription: true,
+  isTriageFallback: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,
@@ -62,6 +71,13 @@ class DepartmentService {
       where.OR = [
         { name: { contains: query.search, mode: "insensitive" } },
         { slug: { contains: query.search, mode: "insensitive" } },
+        {
+          triageDescription: {
+            contains: query.search,
+            mode: "insensitive",
+          },
+        },
+        { symptomKeywords: { has: query.search } },
       ];
     }
 
@@ -125,10 +141,20 @@ class DepartmentService {
         slug,
         description: normalizeOptionalString(input.description),
         image: imageAsset?.url || normalizeOptionalString(input.image),
+        symptomKeywords: input.symptomKeywords || [],
+        triageDescription: normalizeOptionalString(input.triageDescription),
+        isTriageFallback: input.isTriageFallback ?? false,
         isActive: input.isActive ?? true,
       },
       select: departmentSelect,
     });
+
+    if (department.isTriageFallback) {
+      await prisma.department.updateMany({
+        where: { id: { not: department.id }, isTriageFallback: true },
+        data: { isTriageFallback: false },
+      });
+    }
 
     if (imageAsset) {
       await MediaAssetService.attachAsset(
@@ -195,10 +221,20 @@ class DepartmentService {
             : imageAsset
               ? imageAsset.url
               : normalizeOptionalString(input.image),
+        symptomKeywords: input.symptomKeywords,
+        triageDescription: normalizeOptionalString(input.triageDescription),
+        isTriageFallback: input.isTriageFallback,
         isActive: input.isActive,
       },
       select: departmentSelect,
     });
+
+    if (department.isTriageFallback) {
+      await prisma.department.updateMany({
+        where: { id: { not: department.id }, isTriageFallback: true },
+        data: { isTriageFallback: false },
+      });
+    }
 
     if (imageAsset || input.imageAssetId === null) {
       await MediaAssetService.detachOwnerAssets(

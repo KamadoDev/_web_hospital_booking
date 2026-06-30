@@ -1,4 +1,6 @@
+import type { NLUResult } from "./ai/nlu.schema.js";
 import type { ChatbotContext } from "./chatbot.context.js";
+import type { TriageRecommendation } from "./retrieval/triage.repository.js";
 import { sanitizeBookingDraft } from "./rules/draft-sanitizer.js";
 import { chatbotReplies } from "./chatbot.responses.js";
 import type {
@@ -16,6 +18,8 @@ type WorkflowInput = {
   context: ChatbotContext;
   draft: ChatBookingDraft;
   action?: ChatAction;
+  nlu?: NLUResult;
+  triageRecommendation?: TriageRecommendation | null;
 };
 
 const createOutput = (
@@ -668,19 +672,65 @@ class ChatbotWorkflowService {
       departmentId: draft.departmentId || department?.id,
       departmentSlug: draft.departmentSlug || department?.slug || undefined,
     });
-    if (!department && input.detectedIntent === "SYMPTOM_TRIAGE") {
+    const clarificationQuestion =
+      input.nlu?.triage.clarificationQuestion?.trim() || undefined;
+    const repeatedQuestion =
+      clarificationQuestion &&
+      clarificationQuestion.toLocaleLowerCase("vi") ===
+        draft.triageLastQuestion?.toLocaleLowerCase("vi");
+
+    if (
+      input.detectedIntent === "SYMPTOM_TRIAGE" &&
+      input.triageRecommendation &&
+      department
+    ) {
+      const recommendation = input.triageRecommendation;
+      const reply = recommendation.fallback
+        ? chatbotReplies.triageFallback(
+            department.name,
+            recommendation.triageDescription,
+          )
+        : chatbotReplies.triageMatched(
+            department.name,
+            recommendation.triageDescription,
+          );
+
       return createOutput({
-        reply: chatbotReplies.symptomNeedMoreInfo,
+        reply,
+        intent: "SYMPTOM_TRIAGE",
+        state: "SUGGESTING_DEPARTMENT",
+        nextStep: "CHOOSE_DEPARTMENT",
+        draft: sanitizeBookingDraft({
+          ...nextDraft,
+          triageLastQuestion: undefined,
+        }),
+        results: buildDepartmentResults(input.context, department),
+        suggestedActions: [
+          { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
+        ],
+        confidence: recommendation.confidence,
+      });
+    }
+
+    if (!department && input.detectedIntent === "SYMPTOM_TRIAGE") {
+      const nextQuestion = repeatedQuestion ? undefined : clarificationQuestion;
+
+      return createOutput({
+        reply: nextQuestion
+          ? chatbotReplies.triageClarification(nextQuestion)
+          : chatbotReplies.triageNoMatch,
         intent: "SYMPTOM_TRIAGE",
         state: "ASKING_SYMPTOMS",
         nextStep: "ASK_SYMPTOM_DETAILS",
-        draft: nextDraft,
-        results: buildDepartmentResults(input.context, department),
+        draft: sanitizeBookingDraft({
+          ...nextDraft,
+          triageLastQuestion: nextQuestion || draft.triageLastQuestion,
+        }),
         suggestedActions: [
           { type: "VIEW_DEPARTMENTS", label: "Xem chuyên khoa", payload: {} },
           { type: "CONTACT_STAFF", label: "Liên hệ hỗ trợ", payload: {} },
         ],
-        confidence: 0.76,
+        confidence: 0.7,
       });
     }
 
@@ -688,14 +738,21 @@ class ChatbotWorkflowService {
       reply: department
         ? chatbotReplies.departmentSuggestion(department.name)
         : chatbotReplies.departmentSuggestion(),
-      intent: input.detectedIntent === "UNKNOWN" ? "DEPARTMENT_LIST" : input.detectedIntent,
+      intent:
+        input.detectedIntent === "UNKNOWN"
+          ? "DEPARTMENT_LIST"
+          : input.detectedIntent,
       state: department ? "SUGGESTING_DEPARTMENT" : "BOOKING_GUIDE",
-      nextStep: department ? "CHOOSE_DEPARTMENT" : "CHOOSE_DEPARTMENT",
+      nextStep: "CHOOSE_DEPARTMENT",
       draft: nextDraft,
       results: buildDepartmentResults(input.context, department),
       suggestedActions: department
         ? [
-            { type: "VIEW_PACKAGES", label: "Xem gói khám", payload: { departmentId: nextDraft.departmentId } },
+            {
+              type: "VIEW_PACKAGES",
+              label: "Xem gói khám",
+              payload: { departmentId: nextDraft.departmentId },
+            },
             {
               type: "VIEW_DOCTORS",
               label: "Khám theo bác sĩ",

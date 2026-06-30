@@ -1,11 +1,13 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/appError.js";
 import ChatbotNLUService from "./ai/nlu.service.js";
+import GroundedResponseService from "./ai/grounded-response.service.js";
 import type { NLUResult } from "./ai/nlu.schema.js";
 import ChatbotActionService from "./chatbot.actions.js";
 import ChatbotContextService from "./chatbot.context.js";
 import ChatbotEntityResolver from "./retrieval/entity.resolver.js";
 import ChatbotFAQRepository from "./retrieval/faq.repository.js";
+import TriageRepository from "./retrieval/triage.repository.js";
 import { composeFAQOutput } from "./chatbot.responses.js";
 import ChatbotSettingsService from "./chatbot.settings.js";
 import ChatbotWorkflowService from "./chatbot.workflow.js";
@@ -66,7 +68,16 @@ const emptyNLUResult = (): NLUResult => ({
     date: null,
     timePeriod: null,
     symptoms: [],
+    bodyParts: [],
+    duration: null,
+    severity: null,
+    associatedSymptoms: [],
     reason: null,
+  },
+  triage: {
+    summary: null,
+    clarificationQuestion: null,
+    missingDetails: [],
   },
   correction: { clearFields: [] },
   confidence: 0,
@@ -282,11 +293,37 @@ class ChatbotService {
         ? { patch: {} }
         : await ChatbotEntityResolver.resolve(nlu);
 
-    const draft = ChatbotDraftReducer.reduce(
+    let draft = ChatbotDraftReducer.reduce(
       actionDraft,
       resolved.patch,
       nlu.correction,
     );
+    const shouldResolveTriage =
+      !actionOperation &&
+      nlu.operation === "SEARCH_DEPARTMENT" &&
+      Boolean(draft.symptoms?.length);
+    const triageRecommendation = shouldResolveTriage
+      ? await TriageRepository.findRecommendation(draft)
+      : null;
+
+    const shouldApplyTriageDepartment =
+      triageRecommendation &&
+      !resolved.patch.departmentId &&
+      (!draft.departmentId ||
+        (triageRecommendation.matched &&
+          draft.departmentId !== triageRecommendation.departmentId));
+
+    if (shouldApplyTriageDepartment && triageRecommendation) {
+      draft = ChatbotDraftReducer.reduce(
+        draft,
+        {
+          departmentId: triageRecommendation.departmentId,
+          departmentSlug: triageRecommendation.departmentSlug || undefined,
+        },
+        { clearFields: [] },
+      );
+    }
+
     const intent = operationToIntent(nlu.operation, draft, nlu);
 
     if (nlu.operation === "GREETING") {
@@ -337,10 +374,32 @@ class ChatbotService {
       context,
       draft,
       action: input.action,
+      nlu,
+      triageRecommendation,
     });
 
     if (workflowOutput) {
-      return finish(workflowOutput, "SYSTEM");
+      const source =
+        intent === "SYMPTOM_TRIAGE" && !actionOperation && !aiUnavailable
+          ? "AI"
+          : "SYSTEM";
+
+      if (
+        source === "AI" &&
+        triageRecommendation &&
+        workflowOutput.intent === "SYMPTOM_TRIAGE" &&
+        workflowOutput.state === "SUGGESTING_DEPARTMENT"
+      ) {
+        workflowOutput.reply = await GroundedResponseService.composeTriageReply({
+          userMessage: input.message,
+          nlu,
+          recommendation: triageRecommendation,
+          fallbackReply: workflowOutput.reply,
+          model: settings.model,
+        });
+      }
+
+      return finish(workflowOutput, source);
     }
 
     return finish(fallbackOutput(draft, aiUnavailable), "FALLBACK");

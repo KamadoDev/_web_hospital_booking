@@ -95,6 +95,10 @@ class ChatbotEntityResolver {
       date: result.entities.date || undefined,
       timePeriod: result.entities.timePeriod || undefined,
       symptoms: result.entities.symptoms,
+      bodyParts: result.entities.bodyParts,
+      symptomDuration: result.entities.duration || undefined,
+      symptomSeverity: result.entities.severity || undefined,
+      associatedSymptoms: result.entities.associatedSymptoms,
       reason: result.entities.reason || undefined,
     };
 

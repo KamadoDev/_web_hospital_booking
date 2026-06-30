@@ -1,7 +1,7 @@
 import type { ChatBookingDraft } from "../chatbot.types.js";
 import { foldVietnamese } from "./text-normalizer.js";
 
-const cleanupSymptoms = (symptoms?: string[]) =>
+const cleanupTerms = (symptoms?: string[]) =>
   Array.from(
     new Map(
       (symptoms || [])
@@ -23,6 +23,11 @@ export const sanitizeBookingDraft = (
   date: draft.date,
   timeSlotId: draft.timeSlotId,
   timePeriod: draft.timePeriod,
-  symptoms: cleanupSymptoms(draft.symptoms),
+  symptoms: cleanupTerms(draft.symptoms),
+  bodyParts: cleanupTerms(draft.bodyParts),
+  symptomDuration: draft.symptomDuration?.trim() || undefined,
+  symptomSeverity: draft.symptomSeverity,
+  associatedSymptoms: cleanupTerms(draft.associatedSymptoms),
+  triageLastQuestion: draft.triageLastQuestion?.trim() || undefined,
   reason: draft.reason?.trim() || undefined,
 });

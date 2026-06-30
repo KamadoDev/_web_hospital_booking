@@ -12,7 +12,14 @@ const draftSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày phải có định dạng YYYY-MM-DD")
     .optional(),
   timeSlotId: z.string().uuid("Khung giờ không hợp lệ").optional(),
-  symptoms: z.array(z.string().trim()).optional(),
+  symptoms: z.array(z.string().trim()).max(10).optional(),
+  bodyParts: z.array(z.string().trim()).max(10).optional(),
+  symptomDuration: z.string().trim().max(80).optional(),
+  symptomSeverity: z
+    .enum(["MILD", "MODERATE", "SEVERE", "UNKNOWN"])
+    .optional(),
+  associatedSymptoms: z.array(z.string().trim()).max(10).optional(),
+  triageLastQuestion: z.string().trim().max(300).optional(),
   reason: z.string().trim().optional(),
 });
 

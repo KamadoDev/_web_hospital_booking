@@ -13,6 +13,9 @@ export type ChatbotContext = {
     name: string;
     slug: string | null;
     description: string | null;
+    symptomKeywords: string[];
+    triageDescription: string | null;
+    isTriageFallback: boolean;
   }[];
   packages: {
     id: string;
@@ -170,11 +173,14 @@ class ChatbotContextService {
         name: true,
         slug: true,
         description: true,
+        symptomKeywords: true,
+        triageDescription: true,
+        isTriageFallback: true,
       },
       orderBy: {
         name: "asc",
       },
-      take: 10,
+      take: 100,
     });
   }
 

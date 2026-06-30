@@ -10,7 +10,10 @@ export const createDepartmentSchema = z.object({
     .url("Image phai la URL hop le")
     .nullable()
     .optional(),
-  imageAssetId: z.string().uuid("Anh khong hop le").optional(),
+  imageAssetId: z.string().uuid("Ảnh không hợp lệ").optional(),
+  symptomKeywords: z.array(z.string().trim().min(2).max(80)).max(100).optional(),
+  triageDescription: z.string().trim().max(500).nullable().optional(),
+  isTriageFallback: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -33,6 +36,9 @@ export const updateDepartmentSchema = z.object({
     .url("Image phai la URL hop le")
     .nullable()
     .optional(),
-  imageAssetId: z.string().uuid("Anh khong hop le").nullable().optional(),
+  imageAssetId: z.string().uuid("Ảnh không hợp lệ").nullable().optional(),
+  symptomKeywords: z.array(z.string().trim().min(2).max(80)).max(100).optional(),
+  triageDescription: z.string().trim().max(500).nullable().optional(),
+  isTriageFallback: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });

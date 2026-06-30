@@ -55,7 +55,14 @@ const clearRequestedFields = (
       next.timeSlotId = undefined;
     }
     if (field === "slot") next.timeSlotId = undefined;
-    if (field === "symptoms") next.symptoms = [];
+    if (field === "symptoms") {
+      next.symptoms = [];
+      next.bodyParts = [];
+      next.symptomDuration = undefined;
+      next.symptomSeverity = undefined;
+      next.associatedSymptoms = [];
+      next.triageLastQuestion = undefined;
+    }
   }
 
   return next;
@@ -96,6 +103,15 @@ class ChatbotDraftReducer {
     const mergedSymptoms = Array.from(
       new Set([...(invalidated.symptoms || []), ...(patch.symptoms || [])]),
     );
+    const mergedBodyParts = Array.from(
+      new Set([...(invalidated.bodyParts || []), ...(patch.bodyParts || [])]),
+    );
+    const mergedAssociatedSymptoms = Array.from(
+      new Set([
+        ...(invalidated.associatedSymptoms || []),
+        ...(patch.associatedSymptoms || []),
+      ]),
+    );
 
     return sanitizeBookingDraft({
       ...invalidated,
@@ -103,6 +119,8 @@ class ChatbotDraftReducer {
         Object.entries(patch).filter(([, value]) => value !== undefined),
       ),
       symptoms: mergedSymptoms,
+      bodyParts: mergedBodyParts,
+      associatedSymptoms: mergedAssociatedSymptoms,
     });
   }
 

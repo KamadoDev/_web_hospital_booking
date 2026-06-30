@@ -14,6 +14,9 @@ type DepartmentForm = {
   description: string;
   image: string;
   imageAssetId: string;
+  symptomKeywords: string;
+  triageDescription: string;
+  isTriageFallback: boolean;
   isActive: boolean;
 };
 
@@ -23,6 +26,9 @@ const emptyForm: DepartmentForm = {
   description: "",
   image: "",
   imageAssetId: "",
+  symptomKeywords: "",
+  triageDescription: "",
+  isTriageFallback: false,
   isActive: true,
 };
 
@@ -38,6 +44,9 @@ const toForm = (department: Department): DepartmentForm => ({
   description: department.description || "",
   image: department.image || "",
   imageAssetId: "",
+  symptomKeywords: department.symptomKeywords.join(", "),
+  triageDescription: department.triageDescription || "",
+  isTriageFallback: department.isTriageFallback,
   isActive: department.isActive,
 });
 
@@ -58,6 +67,16 @@ const buildPayload = (form: DepartmentForm) => ({
   description: form.description.trim() || null,
   image: form.image.trim() || null,
   imageAssetId: form.imageAssetId || undefined,
+  symptomKeywords: Array.from(
+    new Set(
+      form.symptomKeywords
+        .split(/[,;\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ),
+  triageDescription: form.triageDescription.trim() || null,
+  isTriageFallback: form.isTriageFallback,
   isActive: form.isActive,
 });
 
@@ -364,6 +383,36 @@ export default function DepartmentsPage() {
           <label className="block"><span className="text-sm font-medium text-[#334155]">Tên chuyên khoa</span><input value={form.name} onChange={(event) => handleNameChange(event.target.value)} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" required /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Slug</span><input value={form.slug} onChange={(event) => { setSlugTouched(true); setForm((current) => ({ ...current, slug: createSlug(event.target.value) })); }} disabled={!canWrite} className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">Mô tả</span><textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canWrite} rows={4} className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
+          <label className="block">
+            <span className="text-sm font-medium text-[#334155]">Từ khóa triệu chứng</span>
+            <textarea
+              value={form.symptomKeywords}
+              onChange={(event) => setForm((current) => ({ ...current, symptomKeywords: event.target.value }))}
+              disabled={!canWrite}
+              rows={3}
+              placeholder="ngứa da, nổi mẩn, phát ban"
+              className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
+            />
+            <span className="mt-1 block text-xs text-[#667892]">Phân tách bằng dấu phẩy hoặc xuống dòng. Chatbot dùng dữ liệu này để gợi ý khoa.</span>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-[#334155]">Mô tả định hướng</span>
+            <textarea
+              value={form.triageDescription}
+              onChange={(event) => setForm((current) => ({ ...current, triageDescription: event.target.value }))}
+              disabled={!canWrite}
+              rows={3}
+              placeholder="Tiếp nhận các vấn đề về da, tóc, móng..."
+              className="mt-1 w-full resize-none rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]"
+            />
+          </label>
+          <label className="flex items-center justify-between rounded-md border border-[#e5ebf3] px-3 py-2">
+            <span>
+              <span className="block text-sm font-medium text-[#334155]">Khoa tiếp nhận ban đầu</span>
+              <span className="mt-1 block text-xs text-[#667892]">Dùng khi chưa đủ dữ liệu để gợi ý khoa cụ thể.</span>
+            </span>
+            <input type="checkbox" checked={form.isTriageFallback} onChange={(event) => setForm((current) => ({ ...current, isTriageFallback: event.target.checked }))} disabled={!canWrite} className="h-4 w-4 accent-[#0d4f8b]" />
+          </label>
           <label className="block"><span className="text-sm font-medium text-[#334155]">URL hình ảnh</span><input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value, imageAssetId: "" }))} disabled={!canWrite} placeholder="https://..." className="mt-1 w-full rounded-md border border-[#cfd8e6] px-3 py-2 text-sm outline-none focus:border-[#0d4f8b] focus:ring-2 focus:ring-[#cfe4fa] disabled:bg-[#f6f8fb]" /></label>
           <label className="block">
             <span className="text-sm font-medium text-[#334155]">Upload ảnh</span>
